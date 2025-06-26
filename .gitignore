@@ -1,0 +1,7 @@
+# Ignore virtual environment
+botenv/
+
+/models/
+Output/
+*.zip
+*.csv
