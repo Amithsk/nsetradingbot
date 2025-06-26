@@ -52,8 +52,7 @@ class PredictEnv(gym.Env):
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(5,), dtype=np.float32)
 
     def reset(self, *, seed=None, options=None):
-        super().reset(seed=seed)
-        return self.obs.astype(np.float32), {}
+        return self.obs.astype(np.float32)
 
     def step(self, action):
         return self.obs, 0.0, True, False, {}
@@ -62,7 +61,7 @@ class PredictEnv(gym.Env):
 for dt in market_times:
     obs = np.array([last_close, last_sma5, last_sma20, last_rsi, last_atr])
     env = PredictEnv(obs)
-    obs, _ = env.reset()
+    obs= env.reset()
     action, _ = model.predict(obs, deterministic=True)
     direction = int(action)
     predicted_price = last_close * (1 + 0.005) if direction == 1 else last_close * (1 - 0.005)
