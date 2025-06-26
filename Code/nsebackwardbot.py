@@ -136,17 +136,7 @@ env = DummyVecEnv([lambda: TradingEnv(nifty)])
 
 # --- RL Training ---
 checkpoint_callback = CheckpointCallback(save_freq=10000, save_path='./models/', name_prefix='dqn_nifty')
-model = DQN(
-        'MlpPolicy',
-          env, 
-          verbose=1,
-            learning_rate=1e-4,
-            buffer_size=50000,
-              learning_starts=1000,
-                batch_size=32,
-            gamma=0.99,
-              target_update_interval=500,
-              device="cuda")
+model = DQN('MlpPolicy',env,verbose=1,learning_rate=1e-4,buffer_size=50000,learning_starts=1000,batch_size=32,gamma=0.99,target_update_interval=500,device="cuda")
 model.learn(total_timesteps=200000, callback=checkpoint_callback)
 
 Path("./models").mkdir(exist_ok=True)
