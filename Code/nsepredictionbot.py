@@ -33,7 +33,8 @@ market_times = pd.date_range(
 
 # --- Simulate prediction using last known values ---
 history = df.copy()
-model = DQN.load(MODEL_PATH)
+model = DQN.load(MODEL_PATH, device="cuda")
+print("Model device:", next(model.q_net.parameters()).device)
 
 predictions = []
 last_close = history['Close_Price'].iloc[-1]

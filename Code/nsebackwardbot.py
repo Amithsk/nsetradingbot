@@ -136,14 +136,22 @@ env = DummyVecEnv([lambda: TradingEnv(nifty)])
 
 # --- RL Training ---
 checkpoint_callback = CheckpointCallback(save_freq=10000, save_path='./models/', name_prefix='dqn_nifty')
-model = DQN('MlpPolicy', env, verbose=1, learning_rate=1e-4,
-            buffer_size=50000, learning_starts=1000, batch_size=32,
-            gamma=0.99, target_update_interval=500)
+model = DQN(
+        'MlpPolicy',
+          env, 
+          verbose=1,
+            learning_rate=1e-4,
+            buffer_size=50000,
+              learning_starts=1000,
+                batch_size=32,
+            gamma=0.99,
+              target_update_interval=500,
+              device="cuda")
 model.learn(total_timesteps=200000, callback=checkpoint_callback)
 
 Path("./models").mkdir(exist_ok=True)
 model.save('./models/dqn_nifty_final')
-print("Training complete. Model saved to 'dqn_nifty_final.zip'!")
+#print("Training complete. Model saved to 'dqn_nifty_final.zip'!")
 
 # --- Evaluation ---
 eval_steps = len(nifty) - 1
@@ -192,8 +200,15 @@ results = pd.DataFrame({
     'Predicted_Price': predicted_prices,
     'Was_Correct': ['Success' if p==t else 'Fail' for p,t in zip(predictions, true_dirs)],
     'Miss_Percentage': miss_pct,
-    'Pct_Change': nifty['Pct_Change'].values[:len(predictions)]
+    'Pct_Change': nifty['Pct_Change'].values[:len(predictions)],
+    'RSI': nifty['RSI'].values[:len(predictions)],
+    'SMA_5': nifty['SMA_5'].values[:len(predictions)],
+    'SMA_20': nifty['SMA_20'].values[:len(predictions)],
+    'ATR': nifty['ATR'].values[:len(predictions)]
+    
 })
+
+
 # Save to CSV
 Path("./Output").mkdir(exist_ok=True)
 results.to_csv("./Output/nifty_rl_evaluation.csv", index=False)
