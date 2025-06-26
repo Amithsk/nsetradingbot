@@ -5,12 +5,27 @@ from pathlib import Path
 from stable_baselines3 import DQN
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
+from datetime import datetime, timedelta
 import pandas as pd
 
 # --- Parameters ---
-date_start = '2025-05-11'
-date_end   = '2025-06-11'
-interval_time = '5m'
+interval_time='5m'
+# Get today's date
+today = datetime.now()
+
+# Shift if weekend
+if today.weekday() == 5:  # Saturday
+    today -= timedelta(days=1)
+elif today.weekday() == 6:  # Sunday
+    today -= timedelta(days=2)
+
+# Limit to max 5-min range (Yahoo supports only ~60 days)
+date_end = today
+date_start = date_end - timedelta(days=55)  # keep some buffer
+
+# Format for yfinance
+date_start = date_start.strftime('%Y-%m-%d')
+date_end = date_end.strftime('%Y-%m-%d')
 
 # --- Download data ---
 nifty = yf.download('^NSEI', start=date_start, end=date_end, interval=interval_time)
@@ -125,8 +140,9 @@ model = DQN('MlpPolicy', env, verbose=1, learning_rate=1e-4,
             buffer_size=50000, learning_starts=1000, batch_size=32,
             gamma=0.99, target_update_interval=500)
 model.learn(total_timesteps=200000, callback=checkpoint_callback)
-Path("./Output").mkdir(exist_ok=True)
-model.save('./Output/dqn_nifty_final')
+
+Path("./models").mkdir(exist_ok=True)
+model.save('./models/dqn_nifty_final')
 print("Training complete. Model saved to 'dqn_nifty_final.zip'!")
 
 # --- Evaluation ---
