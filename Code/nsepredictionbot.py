@@ -1,90 +1,81 @@
-import yfinance as yf
-from datetime import datetime, timedelta
-import gymnasium as gym
-import numpy as np
 import pandas as pd
-from pathlib import Path
+import numpy as np
+import gym
+from datetime import datetime, timedelta, time
 from stable_baselines3 import DQN
+from pathlib import Path
 
-# --- Configuration ---
-MODEL_PATH = "./Output/dqn_nifty_final.zip"
+# --- Config ---
+MODEL_PATH = "./models/dqn_nifty_final.zip"
 OUTPUT_DIR = Path("./Output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 today = datetime.now()
 today_str = today.strftime('%Y%m%d')
 
-# Use last 55 days of data including today
-start_date = (today - timedelta(days=55)).strftime('%Y-%m-%d')
-end_date = today.strftime('%Y-%m-%d')
+# --- Load the latest evaluation CSV ---
+eval_file = OUTPUT_DIR / f"nifty_rl_evaluation.csv"
+df = pd.read_csv(eval_file, parse_dates=['Date'])
 
-# --- Download daily data for prediction ---
-nifty = yf.download('^NSEI', start=start_date, end=end_date, interval='1d')
-nifty.columns = [col[0] if isinstance(col, tuple) else col for col in nifty.columns]
-nifty.reset_index(inplace=True)
-nifty.dropna(inplace=True)
+# --- Create next trading day timestamps (09:15 to 15:30) ---
+def next_trading_day(dt):
+    dt += timedelta(days=1)
+    while dt.weekday() >= 5:  # Skip Saturday/Sunday
+        dt += timedelta(days=1)
+    return dt
 
-# Add indicators
-def compute_rsi(series, window=14):
-    delta = series.diff()
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
-    avg_gain = gain.rolling(window).mean()
-    avg_loss = loss.rolling(window).mean()
-    rs = avg_gain / (avg_loss + 1e-8)
-    return 100 - (100 / (1 + rs))
+next_day = next_trading_day(today)
+market_times = pd.date_range(
+    start=datetime.combine(next_day.date(), time(9, 15)),
+    end=datetime.combine(next_day.date(), time(15, 30)),
+    freq='5min'
+)
 
-def compute_atr(df, window=14):
-    high_low = df['High'] - df['Low']
-    high_close = np.abs(df['High'] - df['Close'].shift())
-    low_close = np.abs(df['Low'] - df['Close'].shift())
-    tr = np.maximum(high_low, np.maximum(high_close, low_close))
-    return tr.rolling(window).mean()
+# --- Simulate prediction using last known values ---
+history = df.copy()
+model = DQN.load(MODEL_PATH)
 
-nifty['SMA_5'] = nifty['Close'].rolling(5).mean()
-nifty['SMA_20'] = nifty['Close'].rolling(20).mean()
-nifty['RSI'] = compute_rsi(nifty['Close'], window=14)
-nifty['ATR'] = compute_atr(nifty)
-nifty.dropna(inplace=True)
+predictions = []
+last_close = history['Close_Price'].iloc[-1]
+last_rsi = history['RSI'].iloc[-1]
+last_sma5 = history['SMA_5'].iloc[-1]
+last_sma20 = history['SMA_20'].iloc[-1]
+last_atr = history['ATR'].iloc[-1]
 
-# --- Define environment (same as training) ---
-class TradingEnv(gym.Env):
-    def __init__(self, df):
+# Create a dummy trading env for each bar
+class PredictEnv(gym.Env):
+    def __init__(self, obs):
         super().__init__()
-        self.df = df.reset_index(drop=True)
-        self.current_step = len(self.df) - 1  # Only predict the last row
+        self.obs = obs
         self.action_space = gym.spaces.Discrete(2)
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(5,), dtype=np.float32)
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
-        obs = self.df.loc[self.current_step, ['Close', 'SMA_5', 'SMA_20', 'RSI', 'ATR']].values
-        return obs.astype(np.float32), {}
+        return self.obs.astype(np.float32), {}
 
     def step(self, action):
-        return np.zeros(self.observation_space.shape), 0.0, True, False, {}
+        return self.obs, 0.0, True, False, {}
 
-# --- Run prediction ---
-env = TradingEnv(nifty)
-model = DQN.load(MODEL_PATH)
-obs, _ = env.reset()
-action, _ = model.predict(obs, deterministic=True)
-predicted_direction = int(action)
+# Simulate 5-min bars using static features
+for dt in market_times:
+    obs = np.array([last_close, last_sma5, last_sma20, last_rsi, last_atr])
+    env = PredictEnv(obs)
+    obs, _ = env.reset()
+    action, _ = model.predict(obs, deterministic=True)
+    direction = int(action)
+    predicted_price = last_close * (1 + 0.005) if direction == 1 else last_close * (1 - 0.005)
+    predictions.append({
+        'Datetime': dt,
+        'Close_Price': last_close,
+        'Prediction': direction,
+        'Predicted_Price': predicted_price
+    })
 
-# --- Save prediction ---
-latest_row = nifty.iloc[-1]
-predicted_price = (
-    latest_row['Close'] * (1 + 0.01) if predicted_direction == 1
-    else latest_row['Close'] * (1 - 0.01)
-)
+# Save prediction CSV
+pred_df = pd.DataFrame(predictions)
+out_path = OUTPUT_DIR / f"nifty_rl_predict_{today_str}.csv"
+pred_df.to_csv(out_path, index=False)
 
-result = pd.DataFrame([{
-    'Date': latest_row['Date'],
-    'Close_Price': latest_row['Close'],
-    'Prediction': predicted_direction,
-    'Predicted_Price': predicted_price
-}])
-
-result.to_csv(OUTPUT_DIR / f"nifty_rl_predict_{today_str}.csv", index=False)
-print(f"✅ Prediction saved to: ./Output/nifty_rl_predict_{today_str}.csv")
-print(result)
+print(f"Saved {len(pred_df)} predictions for next market day to: {out_path}")
+print(pred_df.head())
