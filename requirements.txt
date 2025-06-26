@@ -1,5 +1,5 @@
 yfinance
-gym==0.26.2
+gym==0.21
 numpy
 pandas
 stable-baselines3[extra]==1.8.0
