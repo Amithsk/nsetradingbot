@@ -201,7 +201,7 @@ results = pd.DataFrame({
 
 # Save to CSV
 Path("./Output").mkdir(exist_ok=True)
-results.to_csv("./Output/nifty_rl_evaluation.csv", index=False)
-print("Evaluation complete. Results saved to './Output/nifty_rl_evaluation.csv'")
+results.to_csv(f"./Output/nifty_rl_evaluation_{today.strftime('%Y%m%d')}.csv", index=False)
+print("Evaluation complete. Results saved to './Output/nifty_rl_evaluation__{today.strftime('%Y%m%d')}.csv'")
 
 
