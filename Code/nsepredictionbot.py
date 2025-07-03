@@ -14,7 +14,7 @@ today = datetime.now()
 today_str = today.strftime('%Y%m%d')
 
 # --- Load the latest evaluation CSV ---
-eval_file = OUTPUT_DIR / f"nifty_rl_evaluation.csv"
+eval_file = OUTPUT_DIR / f"nifty_rl_evaluation_{today_str}.csv"
 df = pd.read_csv(eval_file, parse_dates=['Date'])
 
 # --- Function: Next Trading Day (Skip weekends) ---
@@ -46,7 +46,7 @@ try:
     last_sma20 = history['SMA_20'].iloc[-1]
     last_atr = history['ATR'].iloc[-1]
 except KeyError as e:
-    raise KeyError(f"❌ Missing column in evaluation data: {e}. Please ensure RSI, SMA_5, SMA_20, ATR are included.")
+    raise KeyError(f"Missing column in evaluation data: {e}. Please ensure RSI, SMA_5, SMA_20, ATR are included.")
 
 # --- Dummy Env for Prediction ---
 class PredictEnv(gym.Env):
