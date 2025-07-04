@@ -25,6 +25,11 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+          
+      - name: Install gym binary wheel
+        run: |
+          python -m pip install --upgrade pip
+          pip install "gym==0.21.0" --only-binary gym
 
       - name: Install dependencies
         shell: bash
