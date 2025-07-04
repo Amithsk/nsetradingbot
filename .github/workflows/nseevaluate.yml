@@ -1,0 +1,56 @@
+name: Daily NSE Prediction Pipeline
+
+on:
+  schedule:
+    # 11:30 UTC is 17:00 IST, Mon–Fri
+    - cron: '30 11 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  build-and-evaluate:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Check out code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2) Download the model ZIP from your GitHub Release
+      - name: Download trained model
+        run: |
+          mkdir -p models
+          curl -L -o models/dqn_nifty_final.zip \
+            https://github.com/Amithsk/nsetradingbot/releases/download/V1.0/dqn_nifty_final.zip
+
+      # 3) Set up Python
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      # 4) Install your requirements
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 5) Run backward prediction (evaluate on past data)
+      - name: Run backward script
+        run: python Code/nse_backward_predict.py
+
+      # 6) Run forward prediction (predict next trading day)
+      - name: Run forward script
+        run: python Code/nse_forward_predict.py
+
+      # 7) Run the merged evaluation
+      - name: Run evaluation script
+        run: python Code/nseevaluationscript.py
+
+      # 8) Commit and push the new evaluation CSV back to repo
+      - name: Commit evaluation output
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add Output/predictions_comparison_*.csv Output/daily_summary_*.csv
+          git commit -m "Automated evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          git push
