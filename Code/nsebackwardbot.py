@@ -7,6 +7,7 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 import xgboost as xgb
+import joblib
 
 # 1) Parameters
 INTERVAL = '5m'
@@ -96,3 +97,7 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 today_str = today.strftime('%Y%m%d')
 out.to_csv(OUTPUT_DIR/f"nifty_xgb_backward_{today_str}.csv", index=False)
 print(f"Saved backward XGB results to: {OUTPUT_DIR}/nifty_xgb_backward_{today_str}.csv")
+
+Path("./models").mkdir(exist_ok=True)
+joblib.dump(model, './models/xgb_nifty_backward.pkl')
+print("XGBoost model saved to ./models/xgb_nifty_backward.pkl")
