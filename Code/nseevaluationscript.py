@@ -22,7 +22,7 @@ prev_str    = prev_day.strftime("%Y%m%d")
 
 # --- File paths ---
 # Backward evaluation for today's actual bars
-back_file = OUTPUT_DIR / f"nifty_rl_evaluation_{today_str}.csv"
+back_file = OUTPUT_DIR / f"nifty_xgb_backward_{today_str}.csv"
 # Forward predictions generated yesterday for today's bars
 fwd_file  = OUTPUT_DIR / f"nifty_rl_predict_{prev_str}.csv"
 
@@ -77,5 +77,5 @@ summary = pd.DataFrame([{
 
 summary_file = OUTPUT_DIR / f"daily_summary_{today_str}.csv"
 summary.to_csv(summary_file, index=False)
-print(f"✅ Daily summary saved to:    {summary_file}")
+print(f"Daily summary saved to:    {summary_file}")
 print(summary.to_string(index=False))

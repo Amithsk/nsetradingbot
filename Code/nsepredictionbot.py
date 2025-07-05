@@ -58,5 +58,5 @@ out_df = pd.DataFrame(preds)
 out_file = OUTPUT_DIR / f"nifty_xgb_forward_{next_day.strftime('%Y%m%d')}.csv"
 out_df.to_csv(out_file, index=False)
 
-print(f"✅ Saved {len(out_df)} XGB forward predictions for {next_day.date()} to {out_file}")
+print(f"Saved {len(out_df)} XGB forward predictions for {next_day.date()} to {out_file}")
 print(out_df.head())

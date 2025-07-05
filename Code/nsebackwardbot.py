@@ -96,7 +96,7 @@ OUTPUT_DIR = Path("./Output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 today_str = today.strftime('%Y%m%d')
 out.to_csv(OUTPUT_DIR/f"nifty_xgb_backward_{today_str}.csv", index=False)
-print(f"Saved backward XGB results to: {OUTPUT_DIR}/nifty_xgb_backward_{today_str}.csv")
+print(f"Saved backward XGB result to: {OUTPUT_DIR}/nifty_xgb_backward_{today_str}.csv")
 
 Path("./models").mkdir(exist_ok=True)
 joblib.dump(model, './models/xgb_nifty_backward.pkl')
