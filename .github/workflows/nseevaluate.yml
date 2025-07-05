@@ -4,7 +4,7 @@ on:
   schedule:
     # 11:30 UTC is 17:00 IST, Mon–Fri
     - cron: '30 11 * * 1-5'
-  workflow_dispatch:
+
 
 jobs:
   build-and-evaluate:
@@ -21,10 +21,10 @@ jobs:
           curl -L -o models/dqn_nifty_final.zip \
             https://github.com/Amithsk/nsetradingbot/releases/download/V1.0/dqn_nifty_final.zip
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
           
       - name: Install dependencies
         shell: bash
