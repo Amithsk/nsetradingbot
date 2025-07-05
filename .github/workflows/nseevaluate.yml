@@ -4,7 +4,11 @@ on:
   schedule:
     # 11:30 UTC is 17:00 IST, Mon–Fri
     - cron: '30 11 * * 1-5'
+  push:
+    branches:
+      - XGB-changes   # <-- add this to trigger on your feature branch
   workflow_dispatch:
+
 
 jobs:
   build-and-evaluate:
