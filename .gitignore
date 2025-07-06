@@ -1,7 +1,14 @@
 # Ignore virtual environment
-botenv/
+/botenv/
 
+# Ignore everything in the models folder except .gitkeep
 /models/
-Output/
+!/models/.gitkeep
+
+# Ignore everything in the output folder except .gitkeep
+/Output/
+!/Output/.gitkeep
+
+# Ignore .zip and .csv
 *.zip
 *.csv
