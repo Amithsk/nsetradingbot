@@ -1,7 +1,7 @@
 name: Daily NSE Prediction Pipeline
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
   schedule:
     # 11:30 UTC is 17:00 IST, Mon–Fri
     - cron: '30 11 * * 1-5'
@@ -9,6 +9,7 @@ on:
 
 jobs:
   build-and-evaluate:
+    if: github.ref == 'refs/heads/feature/github-action-run-check'
     runs-on: windows-latest   # ← switch to Windows
 
     steps:
@@ -35,7 +36,7 @@ jobs:
 
       - name: Run backward script
         shell: bash
-        run: python Code/nnsebackwardbot.py
+        run: python Code/nsebackwardbot.py
 
       - name: Run forward script
         shell: bash
