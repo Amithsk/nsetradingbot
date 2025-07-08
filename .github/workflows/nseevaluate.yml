@@ -1,6 +1,7 @@
 name: Daily NSE Prediction Pipeline
 
 on:
+  workflow_dispatch: 
   schedule:
     # 11:30 UTC is 17:00 IST, Mon–Fri
     - cron: '30 11 * * 1-5'
