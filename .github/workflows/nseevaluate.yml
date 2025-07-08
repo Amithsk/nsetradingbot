@@ -34,11 +34,11 @@ jobs:
 
       - name: Run backward script
         shell: bash
-        run: python Code/nse_backward_predict.py
+        run: python Code/nnsebackwardbot.py
 
       - name: Run forward script
         shell: bash
-        run: python Code/nse_forward_predict.py
+        run: python Code/nsepredictionbot.py
 
       - name: Run the merged evaluation
         shell: bash
