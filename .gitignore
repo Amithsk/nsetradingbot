@@ -5,15 +5,8 @@
 /models/
 !/models/.gitkeep
 
-# Ignore everything in the output folder except .gitkeep
-/Output/*
-!/Output/.gitkeep
-
 # Ignore .zip and .csv
 *.zip
 
-# Ignore all .csv expect .csv in output folder
-*.csv
-!/Output/*.csv
 
 
