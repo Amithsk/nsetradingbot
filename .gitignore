@@ -6,13 +6,11 @@
 !/models/.gitkeep
 
 # Ignore everything in the output folder except .gitkeep
-/Output/
+/Output/*
 !/Output/*.csv
 !/Output/.gitkeep
 
 # Ignore .zip and .csv
 *.zip
 
-# Global ignore — allow .csv only in Output/
-*.csv
-!Output/*.csv
+
