@@ -41,6 +41,10 @@ jobs:
           git config user.email "github-actions@github.com"
           git add Output/nifty_xgb_backward_*.csv
           git commit -m "Backward  evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
+      
+      - name: Check git status
+        run: git status
 
       - name: Run forward script
         shell: bash
