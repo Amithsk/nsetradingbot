@@ -61,7 +61,7 @@ cmp['error_mag']   = np.abs(cmp['predicted_price'] - cmp['close_price_act'])
 # --- Save merged raw comparison ---
 comparison_file = OUTPUT_DIR / f"predictions_comparison_{today_str}.csv"
 cmp.to_csv(comparison_file, index=False)
-print(f"✅ Merged comparison saved to: {comparison_file}")
+print(f"Merged comparison saved to: {comparison_file}")
 
 # --- Daily summary aggregates ---
 total     = len(cmp)
