@@ -38,9 +38,9 @@ pred_df = pred_df.rename(columns={
 })
 # Keep only needed cols from actual
 actual_df = actual_df.rename(columns={
-    'Close_Price':   'close_price_act',
-    'True_Direction':'true_direction'
-})[['Datetime','close_price_act','true_direction']]
+    'Close':   'close_price_act',
+    'Target':  'true_direction'
+})[['Datetime', 'close_price_act', 'true_direction']]
 
 # --- Merge on the 5‑min timestamp ---
 cmp = pd.merge(
