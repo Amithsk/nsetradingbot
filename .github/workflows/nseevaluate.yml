@@ -9,6 +9,7 @@ on:
 
 jobs:
   build-and-evaluate:
+    if: github.ref == 'refs/heads/github-action-run-check'  # ← restrict scheduled jobs
     runs-on: windows-latest   # ← switch to Windows
 
     steps:
@@ -35,11 +36,25 @@ jobs:
 
       - name: Run backward script
         shell: bash
-        run: python Code/nsebackwardbot.py
-
+        run: |
+          python Code/nsebackwardbot.py
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add Output/nifty_xgb_backward_*.csv
+          git commit -m "Backward  evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
+      
       - name: Run forward script
         shell: bash
-        run: python Code/nsepredictionbot.py
+        run: |
+
+          python Code/nsepredictionbot.py
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add Output/nifty_xgb_forward_*.csv
+          git commit -m "Forward  evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
+
 
       - name: Run the merged evaluation
         shell: bash
@@ -52,4 +67,4 @@ jobs:
           git config user.email "github-actions@github.com"
           git add Output/predictions_comparison_*.csv Output/daily_summary_*.csv
           git commit -m "Automated evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
-          git push
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}

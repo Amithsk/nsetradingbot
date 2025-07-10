@@ -38,9 +38,13 @@ pred_df = pred_df.rename(columns={
 })
 # Keep only needed cols from actual
 actual_df = actual_df.rename(columns={
-    'Close_Price':   'close_price_act',
-    'True_Direction':'true_direction'
-})[['Datetime','close_price_act','true_direction']]
+    'Close':   'close_price_act',
+    'Target':  'true_direction'
+})[['Datetime', 'close_price_act', 'true_direction']]
+
+# Ensure both are timezone-naive for merging
+pred_df['Datetime']   = pd.to_datetime(pred_df['Datetime']).dt.tz_localize(None)
+actual_df['Datetime'] = pd.to_datetime(actual_df['Datetime']).dt.tz_localize(None)
 
 # --- Merge on the 5‑min timestamp ---
 cmp = pd.merge(
@@ -57,7 +61,7 @@ cmp['error_mag']   = np.abs(cmp['predicted_price'] - cmp['close_price_act'])
 # --- Save merged raw comparison ---
 comparison_file = OUTPUT_DIR / f"predictions_comparison_{today_str}.csv"
 cmp.to_csv(comparison_file, index=False)
-print(f"✅ Merged comparison saved to: {comparison_file}")
+print(f"Merged comparison saved to: {comparison_file}")
 
 # --- Daily summary aggregates ---
 total     = len(cmp)
