@@ -9,7 +9,6 @@ on:
 
 jobs:
   build-and-evaluate:
-    if: github.ref == 'refs/heads/github-action-run-check'  # ← restrict scheduled jobs
     runs-on: windows-latest   # ← switch to Windows
 
     steps:
