@@ -42,6 +42,10 @@ actual_df = actual_df.rename(columns={
     'Target':  'true_direction'
 })[['Datetime', 'close_price_act', 'true_direction']]
 
+# Ensure both are timezone-naive for merging
+pred_df['Datetime']   = pd.to_datetime(pred_df['Datetime']).dt.tz_localize(None)
+actual_df['Datetime'] = pd.to_datetime(actual_df['Datetime']).dt.tz_localize(None)
+
 # --- Merge on the 5‑min timestamp ---
 cmp = pd.merge(
     pred_df,
