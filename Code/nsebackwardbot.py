@@ -29,8 +29,8 @@ end_str   = end_date.strftime('%Y-%m-%d')
 folder_date =today.strftime('%Y%m%d')
 OUTPUT_DIR = Path(f"./Output/{folder_date}/backward")
 MODEL_DIR = Path("./models")
-OUTPUT_DIR.mkdir(exist_ok=True)
-MODEL_DIR.mkdir(exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True,exist_ok=True)
+MODEL_DIR.mkdir(parents=True,exist_ok=True)
 
 #Data frames
 results=[]
