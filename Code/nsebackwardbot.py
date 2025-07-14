@@ -4,12 +4,17 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from sklearn.linear_model    import LogisticRegression
+from sklearn.ensemble        import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 import xgboost as xgb
+import lightgbm as lgb
 import joblib
 
 # 1) Parameters
+
+#Date stuff
 INTERVAL = '5m'
 today = datetime.now()
 # roll back weekends
@@ -19,6 +24,16 @@ end_date = today
 start_date = end_date - timedelta(days=55)
 start_str = start_date.strftime('%Y-%m-%d')
 end_str   = end_date.strftime('%Y-%m-%d')
+
+#Folders for the ouput
+folder_date =today.strftime('%Y%m%d')
+OUTPUT_DIR = Path(f"./Output/{folder_date}/backward")
+MODEL_DIR = Path("./models")
+OUTPUT_DIR.mkdir(exist_ok=True)
+MODEL_DIR.mkdir(exist_ok=True)
+
+#Data frames
+results=[]
 
 # 2) Download data
 nifty = yf.download('^NSEI', start=start_str, end=end_str, interval=INTERVAL)
@@ -62,41 +77,84 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, shuffle=False, test_size=0.2
 )
 
-# 6) Fit XGBoost
-model = xgb.XGBClassifier(
-    n_estimators=100,
-    max_depth=4,
-    learning_rate=0.1,
-    use_label_encoder=False,
-    eval_metric='logloss'
-)
-model.fit(X_train, y_train)
+#6) Model training
+models = {
+    'Logistic': LogisticRegression(
+        max_iter=500,
+        solver='lbfgs',     # default good for binary classification
+        C=1.0               # inverse of regularization strength
+    ),
+    'RF': RandomForestClassifier(
+        n_estimators=100,
+        max_depth=6,
+        random_state=42,
+        n_jobs=-1
+    ),
+    'XGB': xgb.XGBClassifier(
+        n_estimators=100,
+        max_depth=4,
+        learning_rate=0.1,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        use_label_encoder=False,
+        eval_metric='logloss',
+        random_state=42
+    ),
+    'LGBM': lgb.LGBMClassifier(
+        n_estimators=100,
+        max_depth=4,
+        learning_rate=0.1,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42
+    )
+}
 
-# 7) Predict & evaluate
-preds = model.predict(X_test)
-acc = accuracy_score(y_test, preds)
-print("Test Accuracy:", acc)
-print(classification_report(y_test, preds))
+for name, model in models.items():
+    print(f"Training {name}...")
+    model.fit(X_train, y_train)
+    
+    # 7) Predict & evaluate
+    preds = model.predict(X_test)
+    acc = accuracy_score(y_test, preds)
+    # Extract full classification report as dictionary
+    report_dict = classification_report(y_test, preds, output_dict=True)
+    # Flatten key metrics for CSV summary
+    summary_row = {
+        'model': name,
+        'accuracy': acc,
+        'precision_0': report_dict['0']['precision'],
+        'recall_0': report_dict['0']['recall'],
+        'f1_0': report_dict['0']['f1-score'],
+        'precision_1': report_dict['1']['precision'],
+        'recall_1': report_dict['1']['recall'],
+        'f1_1': report_dict['1']['f1-score'],
+        'macro_f1': report_dict['macro avg']['f1-score']
+        }
 
-# 8) Build results DataFrame
-res = nifty.iloc[-len(y_test):].copy()
-res['Prediction'] = preds
-res['Was_Correct'] = np.where(res['Prediction']==res['Target'], 'Success','Fail')
-res['Predicted_Price'] = np.where(
-    res['Prediction']==1,
-    res['Close']*(1+res['Pct_Change'].abs()/100),
-    res['Close']*(1-res['Pct_Change'].abs()/100)
-)
-out = res.reset_index()[[
+    # Append to a growing list
+    results.append(summary_row)
+
+    # 8) Build results DataFrame
+    res = nifty.iloc[-len(y_test):].copy()
+    res['Prediction'] = preds
+    res['Was_Correct'] = np.where(res['Prediction']==res['Target'], 'Success','Fail')
+    res['Predicted_Price'] = np.where(res['Prediction']==1,res['Close']*(1+res['Pct_Change'].abs()/100),res['Close']*(1-res['Pct_Change'].abs()/100))
+    out = res.reset_index()[[
     'Datetime','Close','Predicted_Price','Target','Prediction',
     'Was_Correct','Pct_Change','SMA_5','SMA_20','RSI','ATR'
-]]
-# 9) Save
-OUTPUT_DIR = Path("./Output")
-OUTPUT_DIR.mkdir(exist_ok=True)
-today_str = today.strftime('%Y%m%d')
-out.to_csv(OUTPUT_DIR/f"nifty_xgb_backward_{today_str}.csv", index=False)
-print(f"Saved backward XGB results to: {OUTPUT_DIR}/nifty_xgb_backward_{today_str}.csv")
+        ]]
+    # 9) Save
 
-Path("./models").mkdir(exist_ok=True)
-joblib.dump(model, './models/xgb_nifty_backward.pkl')
+    #Model output
+    out.to_csv(OUTPUT_DIR/f"nifty_{name}_{folder_date}.csv", index=False)
+    print(f"Saved backward XGB results to: {OUTPUT_DIR}/nifty_xgb_backward_{folder_date}.csv")
+    
+    #Model details
+    joblib.dump(model,f"./models/{name}_backward.pkl")
+    
+# Accuracy & Classification details
+metrics_df = pd.DataFrame(results)
+metrics_df.to_csv(OUTPUT_DIR / f"model_metrics_{folder_date}.csv", index=False)
+print("Saved classification summary for all models.")
+
