@@ -14,22 +14,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          ref: multimodelTraining
-      - name: Show Git status & branch
-        run: |
-         git status
-         echo "Current branch:"
-         git rev-parse --abbrev-ref HEAD
-         echo "Latest commit:"
-         git log -1 --oneline
+
 
       - name: Download trained model
         shell: bash            # use bash even on Windows
         run: |
           mkdir -p models
-          curl -L -o models/dqn_nifty_final.zip \
-            https://github.com/Amithsk/nsetradingbot/releases/download/V1.0/dqn_nifty_final.zip
+          curl -L -o models/XGB_backward.pkl \
+             https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/XGB_backward.pkl
+          curl -L -o models/RF_backward.pkl \
+            https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/RF_backward.pkl
+          curl -L -o models/LGBM_backward.pkl \
+            https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/LGBM_backward.pkl
+          curl -L -o models/Logistic_backward.pkl \
+            https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/Logistic_backward.pkl
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
