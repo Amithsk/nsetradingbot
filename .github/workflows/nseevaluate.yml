@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          ref: multimodelTraining
 
       - name: Download trained model
         shell: bash            # use bash even on Windows
