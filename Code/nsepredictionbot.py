@@ -14,6 +14,8 @@ tstr = next_day.strftime('%Y%m%d')
 
 if today.weekday() == 0:  # Monday
     folder_date = (today - timedelta(days=3)).strftime('%Y%m%d')
+else:
+    folder_date = today.strftime('%Y%m%d')
 
 
 # Discover all backward CSVs & models
