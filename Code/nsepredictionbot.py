@@ -11,7 +11,10 @@ today = datetime.now()
 next_day = today + timedelta(days=1)
 while next_day.weekday() >= 5:  next_day += timedelta(days=1)
 tstr = next_day.strftime('%Y%m%d')
-folder_date=today.strftime('%Y%m%d')
+
+if today.weekday() == 0:  # Monday
+    folder_date = (today - timedelta(days=3)).strftime('%Y%m%d')
+
 
 # Discover all backward CSVs & models
 MODEL_DIR  = Path('./models')
