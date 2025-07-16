@@ -147,7 +147,7 @@ for name, model in models.items():
     # 9) Save
 
     #Model output
-    out.to_csv(OUTPUT_DIR/f"nifty_{name}_{folder_date}.csv", index=False)
+    out.to_csv(OUTPUT_DIR/f"nifty_{name}_backward_{folder_date}.csv", index=False)
     print(f"Saved backward {name} results to: {OUTPUT_DIR}/nifty_xgb_backward_{folder_date}.csv")
     
     #Model details
