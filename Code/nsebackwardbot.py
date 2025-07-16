@@ -148,7 +148,7 @@ for name, model in models.items():
 
     #Model output
     out.to_csv(OUTPUT_DIR/f"nifty_{name}_backward_{folder_date}.csv", index=False)
-    print(f"Saved backward {name} results to: {OUTPUT_DIR}/nifty_xgb_backward_{folder_date}.csv")
+    print(f"Saved backward {name} results to: {OUTPUT_DIR}/nifty_{name}_backward_{folder_date}.csv")
     
     #Model details
     joblib.dump(model,f"./models/{name}_backward.pkl")
