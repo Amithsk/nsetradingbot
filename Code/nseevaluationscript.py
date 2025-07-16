@@ -84,3 +84,8 @@ summary_df = pd.DataFrame(summary_rows)
 summary_file = EVAL_DIR / f"evaluation_summary_{today_str}.csv"
 summary_df.to_csv(summary_file, index=False)
 print(f"Evaluation summary saved: {summary_file}")
+
+
+# Save tstr to file so GitHub Actions can access it
+with open("today_str.txt", "w") as f:
+    f.write(today_str)

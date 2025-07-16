@@ -158,3 +158,7 @@ metrics_df = pd.DataFrame(results)
 metrics_df.to_csv(OUTPUT_DIR / f"model_metrics_{folder_date}.csv", index=False)
 print("Saved classification summary for all models.")
 
+# Save tstr to file so GitHub Actions can access it
+with open("folder_date.txt", "w") as f:
+    f.write(folder_date)
+
