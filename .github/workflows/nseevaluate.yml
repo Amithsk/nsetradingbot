@@ -40,43 +40,55 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run backward script
+      - name: Run backward script $ commit the files
         shell: bash
         run: |
+          # Run python code
           python Code/nsebackwardbot.py
+
+          # Read the folder value that the Python code wrote for the git action
+          folder_date=$(cat folder_date.txt)
+
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add Output/nifty_LGBM_*.csv
-          git add Output/nifty_Logistic_*.csv
-          git add Output/nifty_RF_*.csv
-          git add Output/nifty_XGB_*.csv        
+          git add Output/$folder_date/nifty_LGBM_*.csv
+          git add Output/$folder_date/nifty_Logistic_*.csv
+          git add Output/$folder_date/nifty_RF_*.csv
+          git add Output/$folder_date/nifty_XGB_*.csv        
           git commit -m "Backward  evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
       
-      - name: Run forward script
+      - name: Run forward script & commit the files
         shell: bash
         run: |
 
+          # Run the python code
           python Code/nsepredictionbot.py
+      
+
+          # Read the tstr value that the Python code wrote for the git action
+          folder_date=$(cat tstr.txt)
+
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add Output/nifty_LGBM_forward_*.csv
-          git add Output/nifty_Logistic_forward_*.csv
-          git add Output/nifty_RF_forward_*.csv
-          git add Output/nifty_XGB_forward_*.csv  
+          git add Output/$folder_date/nifty_LGBM_forward_*.csv
+          git add Output/$folder_date/nifty_Logistic_forward_*.csv
+          git add Output/$folder_date/nifty_RF_forward_*.csv
+          git add Output/$folder_date/nifty_XGB_forward_*.csv  
           git commit -m "Forward  evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
 
 
-      - name: Run the merged evaluation
-        shell: bash
-        run: python Code/nseevaluationscript.py
-
-      - name: Commit evaluation output
+      - name: Run the merged evaluation & commit the files
         shell: bash
         run: |
+          python Code/nseevaluationscript.py      
+         
+          # Read the today_str value that the Python code wrote for the git action
+          folder_date=$(cat today_str.txt)
+
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add Output/evaluation_summary_*.csv          
+          git add Output/$folder_date/evaluation_summary_*.csv          
           git commit -m "Automated evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
