@@ -51,10 +51,11 @@ jobs:
 
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add Output/$folder_date/nifty_LGBM_backward_$folder_date.csv
-          git add Output/$folder_date/nifty_Logistic_backward_$folder_date.csv
-          git add Output/$folder_date/nifty_RF_backward_$folder_date.csv
-          git add Output/$folder_date/nifty_XGB_backward_$folder_date.csv        
+          git add Output/$folder_date/backward/nifty_LGBM_backward_$folder_date.csv
+          git add Output/$folder_date/backward/nifty_Logistic_backward_$folder_date.csv
+          git add Output/$folder_date/backward/nifty_RF_backward_$folder_date.csv
+          git add Output/$folder_date/backward/nifty_XGB_backward_$folder_date.csv 
+          git add Output/$folder_date/backward/model_metrics_$folder_date.csv       
           git commit -m "Backward  evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
       
@@ -71,10 +72,11 @@ jobs:
 
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add Output/$folder_date/nifty_LGBM_forward_$folder_date.csv
-          git add Output/$folder_date/nifty_Logistic_forward_$folder_date.csv
-          git add Output/$folder_date/nifty_RF_forward_$folder_date.csv
-          git add Output/$folder_date/nifty_XGB_forward_$folder_date.csv  
+          git add Output/$folder_date/forward/nifty_LGBM_forward_$folder_date.csv
+          git add Output/$folder_date/forward/nifty_Logistic_forward_$folder_date.csv
+          git add Output/$folder_date/forward/nifty_RF_forward_$folder_date.csv
+          git add Output/$folder_date/forward/nifty_XGB_forward_$folder_date.csv
+          git add Output/$folder_date/forward/forward_summary_$folder_date.csv 
           git commit -m "Forward  evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
 
