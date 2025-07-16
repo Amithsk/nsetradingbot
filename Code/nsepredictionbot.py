@@ -34,7 +34,7 @@ for model_path in MODEL_DIR.glob("*_backward.pkl"):
     m = joblib.load(model_path)
 
     # 3) read its own backward CSV for last features
-    back_csv = OUTPUT_BACK_DIR/f"nifty_{name}_{folder_date}.csv"
+    back_csv = OUTPUT_BACK_DIR/f"nifty_{name}_backward_{folder_date}.csv"
     df = pd.read_csv(back_csv, parse_dates=['Datetime'])
     latest = df.iloc[-1]
     last_close, last_sma5, last_sma20, last_rsi, last_atr = (
