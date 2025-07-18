@@ -1,0 +1,108 @@
+import os
+import glob
+import pandas as pd
+from datetime import datetime, timedelta
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# --- CONFIGURATION ---
+def load_config():
+    password = os.getenv('MYSQL_PASSWORD')
+    DATABASE_URL = f"mysql+pymysql://root:{password}@localhost/nifty"
+    engine = create_engine(DATABASE_URL)
+    OUTPUT_ROOT = "./Output"
+    return OUTPUT_ROOT, engine
+
+def prev_trading_day(dt):
+    dt -= timedelta(days=1)
+    while dt.weekday() >= 5:
+        dt -= timedelta(days=1)
+    return dt
+
+# use today’s date for backward/test, prev_day for forward
+today = datetime.now()
+prev_day = prev_trading_day(today)
+today_str = today.strftime("%Y%m%d")
+prev_str = prev_day.strftime("%Y%m%d")
+
+# 1) Load raw prices
+def load_prices(OUTPUT_ROOT, conn):
+    sample = glob.glob(f"{OUTPUT_ROOT}/{today_str}/backward/*.csv")[0]
+    df = pd.read_csv(sample, parse_dates=['Datetime'])
+    price_df = df[['Datetime','Open','High','Low','Close','Volume','SMA_5','SMA_20','RSI','ATR']].drop_duplicates()
+    price_df.rename(columns={'Datetime': 'dt'}, inplace=True)
+    price_df.to_sql('nifty_prices', conn, if_exists='replace', index=False)
+
+# 2) Load predictions
+def load_predictions(OUTPUT_ROOT, conn):
+    # backward
+    back_files = glob.glob(f"{OUTPUT_ROOT}/{today_str}/backward/*.csv")
+    for f in back_files:
+        model = os.path.basename(f).split('_')[1]
+        df = pd.read_csv(f, parse_dates=['Datetime'])
+        preds = df[['Datetime','Prediction','Predicted_Price']].copy()
+        preds['model_name'] = model
+        preds['is_forward'] = False
+        preds.rename(columns={'Datetime': 'dt', 'Prediction': 'predicted_dir'}, inplace=True)
+        preds.to_sql('predictions', conn, if_exists='append', index=False)
+
+    # forward
+    fwd_files = glob.glob(f"{OUTPUT_ROOT}/{today_str}/forward/*.csv")
+    for f in fwd_files:
+        model = os.path.basename(f).split('_')[1]
+        df = pd.read_csv(f, parse_dates=['Datetime'])
+        preds = df[['Datetime','Prediction','Predicted_Price']].copy()
+        preds['model_name'] = model
+        preds['is_forward'] = True
+        preds.rename(columns={'Datetime': 'dt', 'Prediction': 'predicted_dir'}, inplace=True)
+        preds.to_sql('predictions', conn, if_exists='append', index=False)
+
+# 3) Load comparisons
+def load_comparisons(OUTPUT_ROOT, conn):
+    cmp_files = glob.glob(f"{OUTPUT_ROOT}/{today_str}/evaluation/*_comparison_{today_str}.csv")
+    for f in cmp_files:
+        model = os.path.basename(f).split('_')[0]
+        df = pd.read_csv(f, parse_dates=['Datetime'])
+        df['model_name'] = model
+        df.rename(columns={'Datetime': 'dt', 'true_direction': 'actual_dir'}, inplace=True)
+        df[['dt','model_name','actual_dir','Prediction','was_correct','error_mag']]\
+            .rename(columns={'Prediction': 'predicted_dir'})\
+            .to_sql('comparisons', conn, if_exists='append', index=False)
+
+# 4) Load daily summaries
+def load_daily_summary(OUTPUT_ROOT, conn):
+    sum_file = f"{OUTPUT_ROOT}/{today_str}/evaluation/evaluation_summary_{today_str}.csv"
+    df = pd.read_csv(sum_file)
+    df['date'] = pd.to_datetime(df['date']).dt.date
+    df.to_sql('model_daily_summary', conn, if_exists='append', index=False)
+
+# 5) Load forward_summary
+def load_forward_summary(OUTPUT_ROOT, conn):
+    sum_file = f"{OUTPUT_ROOT}/{today_str}/forward/forward_summary_{today_str}.csv"
+    df = pd.read_csv(sum_file)
+    df['date'] = pd.to_datetime(df['date']).dt.date
+    df.to_sql('forward_summary', conn, if_exists='append', index=False)
+
+# --- MAIN EXECUTION ---
+if __name__ == "__main__":
+    OUTPUT_ROOT, engine = load_config()
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    conn = session.connection()
+
+    try:
+        # Manual control for first run
+        load_prices(OUTPUT_ROOT, conn)
+        load_predictions(OUTPUT_ROOT, conn)
+        load_comparisons(OUTPUT_ROOT, conn)
+        load_daily_summary(OUTPUT_ROOT, conn)
+        load_forward_summary(OUTPUT_ROOT, conn)
+
+        # Uncomment after checking:
+        # session.commit()
+        print("Data loaded — review before committing.")
+    except Exception as e:
+        print("Error occurred:", e)
+        session.rollback()
+    finally:
+        session.close()
