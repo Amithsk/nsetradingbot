@@ -19,7 +19,6 @@ today_str = today.strftime('%Y%m%d')
 prev_day = prev_trading_day(today)
 prev_str = prev_day.strftime('%Y%m%d')
 
-today_str = '20250718'
 # --- Paths ---
 BACKWARD_DIR = OUTPUT_DIR / today_str / 'backward'
 FORWARD_DIR  = OUTPUT_DIR / today_str  / 'forward'
