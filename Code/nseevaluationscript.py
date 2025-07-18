@@ -19,9 +19,10 @@ today_str = today.strftime('%Y%m%d')
 prev_day = prev_trading_day(today)
 prev_str = prev_day.strftime('%Y%m%d')
 
+today_str = '20250718'
 # --- Paths ---
 BACKWARD_DIR = OUTPUT_DIR / today_str / 'backward'
-FORWARD_DIR  = OUTPUT_DIR / prev_str  / 'forward'
+FORWARD_DIR  = OUTPUT_DIR / today_str  / 'forward'
 EVAL_DIR     = OUTPUT_DIR / today_str / 'evaluation'
 EVAL_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -31,6 +32,7 @@ summary_rows = []
 for backward_file in BACKWARD_DIR.glob("nifty_*_*.csv"):
     model_name = backward_file.stem.split("_")[1]
     forward_file = FORWARD_DIR / f"nifty_{model_name}_forward_{today_str}.csv"
+    
 
     if not forward_file.exists():
         print(f"Missing forward file for model: {model_name}")
