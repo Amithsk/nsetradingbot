@@ -107,9 +107,10 @@ def load_comparisons(OUTPUT_ROOT, conn):
 def load_daily_summary(OUTPUT_ROOT, conn):
 
     try:
-        sum_file= list(Path(OUTPUT_ROOT, today_str, "evaluation").glob("evaluation_summary_*.csv")).as_posix()
+        sum_file= list(Path(OUTPUT_ROOT, today_str, "evaluation").glob("evaluation_summary_*.csv"))[0].as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
+        df.rename(columns={'date': 'summary_date', 'model': 'model_name'}, inplace=True)
         df.to_sql('model_daily_summary', conn, if_exists='append', index=False)
 
     except Exception as e:
