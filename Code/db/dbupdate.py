@@ -123,9 +123,10 @@ def load_daily_summary(OUTPUT_ROOT, conn):
 def load_forward_summary(OUTPUT_ROOT, conn):
 
     try:
-        sum_file= list(Path(OUTPUT_ROOT, today_str, "forward").glob("forward_summary*.csv")).as_posix()
+        sum_file= list(Path(OUTPUT_ROOT, today_str, "forward").glob("forward_summary*.csv"))[0].as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
+        df.rename(columns={'date': 'summary_date', 'model': 'model_name','bullish':'bullish_count','bearish':'bearish_count','predicted_close_mean':'avg_pred_price'}, inplace=True)
         df.to_sql('forward_summary', conn, if_exists='append', index=False)
 
     except Exception as e:
