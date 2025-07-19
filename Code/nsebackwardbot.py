@@ -141,9 +141,10 @@ for name, model in models.items():
     res['Was_Correct'] = np.where(res['Prediction']==res['Target'], 'Success','Fail')
     res['Predicted_Price'] = np.where(res['Prediction']==1,res['Close']*(1+res['Pct_Change'].abs()/100),res['Close']*(1-res['Pct_Change'].abs()/100))
     out = res.reset_index()[[
-    'Datetime','Close','Predicted_Price','Target','Prediction',
+    'Datetime','Open','High','Low','Volume','Close','Predicted_Price','Target','Prediction',
     'Was_Correct','Pct_Change','SMA_5','SMA_20','RSI','ATR'
         ]]
+    
     # 9) Save
 
     #Model output
@@ -158,7 +159,8 @@ metrics_df = pd.DataFrame(results)
 metrics_df.to_csv(OUTPUT_DIR / f"model_metrics_{folder_date}.csv", index=False)
 print("Saved classification summary for all models.")
 
+
 # Save tstr to file so GitHub Actions can access it
 with open("folder_date.txt", "w") as f:
-    f.write(folder_date)
+    f.write(folder_date)   
 
