@@ -4,11 +4,13 @@ import pandas as pd
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import urllib.parse
 
 # --- CONFIGURATION ---
 def load_config():
     password = os.getenv('MYSQL_PASSWORD')
-    DATABASE_URL = f"mysql+pymysql://root:{password}@localhost/nifty"
+    encoded_pw = urllib.parse.quote_plus(password)  # Properly escape special characters
+    DATABASE_URL = f"mysql+pymysql://root:{encoded_pw}@localhost/nifty"
     engine = create_engine(DATABASE_URL)
     OUTPUT_ROOT = "./Output"
     return OUTPUT_ROOT, engine
