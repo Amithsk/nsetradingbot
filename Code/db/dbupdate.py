@@ -47,6 +47,7 @@ def load_prices(OUTPUT_ROOT, conn):
         print("An error occurred while loading prices:")
         print(f"Error type: {type(e).__name__}")
         traceback.print_exc()
+        raise  
 
 
 # 2) Load predictions
@@ -78,6 +79,7 @@ def load_predictions(OUTPUT_ROOT, conn):
         print("An error occurred while loading predictions:")
         print(f"Error type: {type(e).__name__}")
         traceback.print_exc()
+        raise  
 
 # 3) Load comparisons
 def load_comparisons(OUTPUT_ROOT, conn):
@@ -96,6 +98,7 @@ def load_comparisons(OUTPUT_ROOT, conn):
         print("An error occurred while loading comparisons:")
         print(f"Error type: {type(e).__name__}")
         traceback.print_exc()
+        raise  
 
 # 4) Load daily summaries
 def load_daily_summary(OUTPUT_ROOT, conn):
@@ -110,6 +113,7 @@ def load_daily_summary(OUTPUT_ROOT, conn):
         print("An error occurred while loading daily summaries:")
         print(f"Error type: {type(e).__name__}")
         traceback.print_exc()
+        raise  
 
 # 5) Load forward_summary
 def load_forward_summary(OUTPUT_ROOT, conn):
@@ -124,6 +128,7 @@ def load_forward_summary(OUTPUT_ROOT, conn):
         print("An error occurred while loading forward summaries:")
         print(f"Error type: {type(e).__name__}")
         traceback.print_exc()
+        raise  
     
 
 # --- MAIN EXECUTION ---
