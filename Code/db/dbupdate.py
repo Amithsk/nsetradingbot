@@ -87,13 +87,14 @@ def load_predictions(OUTPUT_ROOT, conn):
 def load_comparisons(OUTPUT_ROOT, conn):
 
     try:
-        cmp_files=list(Path(OUTPUT_ROOT, today_str, "evaluation").glob("*_comparison_*.csv}")).as_posix()
+        cmp_files=list(Path(OUTPUT_ROOT, today_str, "evaluation").glob("*_comparison_*.csv}"))
         for f in cmp_files:
+            f=f.as_posix()
             model = os.path.basename(f).split('_')[0]
             df = pd.read_csv(f, parse_dates=['Datetime'])
             df['model_name'] = model
-            df.rename(columns={'Datetime': 'dt', 'true_direction': 'actual_dir'}, inplace=True)
-            df[['dt','model_name','actual_dir','Prediction','was_correct','error_mag']]\
+            df.rename(columns={'Datetime': 'date', 'true_direction': 'actual_dir'}, inplace=True)
+            df[['date','model_name','actual_dir','Prediction','was_correct','error_mag']]\
             .rename(columns={'Prediction': 'predicted_dir'})\
             .to_sql('comparisons', conn, if_exists='append', index=False)
     except Exception as e:
