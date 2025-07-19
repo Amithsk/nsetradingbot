@@ -55,7 +55,8 @@ def load_predictions(OUTPUT_ROOT, conn):
 
     # backward
     try:
-        back_files= list(Path(OUTPUT_ROOT, today_str, "backward").glob("nifty_*.csv"))[0].as_posix()
+        back_files= list(Path(OUTPUT_ROOT, today_str, "backward").glob("nifty_*.csv")).as_posix()
+        print("The file details",back_files)
         for f in back_files:
             model = os.path.basename(f).split('_')[1]
             df = pd.read_csv(f, parse_dates=['Datetime'])
@@ -66,7 +67,7 @@ def load_predictions(OUTPUT_ROOT, conn):
             preds.to_sql('predictions', conn, if_exists='append', index=False)
 
     # forward
-        fwd_files= list(Path(OUTPUT_ROOT, today_str, "forward").glob("nifty_*.csv"))[0].as_posix()
+        fwd_files= list(Path(OUTPUT_ROOT, today_str, "forward").glob("nifty_*.csv")).as_posix()
         for f in fwd_files:
             model = os.path.basename(f).split('_')[1]
             df = pd.read_csv(f, parse_dates=['Datetime'])
@@ -85,7 +86,7 @@ def load_predictions(OUTPUT_ROOT, conn):
 def load_comparisons(OUTPUT_ROOT, conn):
 
     try:
-        cmp_files=list(Path(OUTPUT_ROOT, today_str, "evaluation").glob("*_comparison_*.csv}"))[0].as_posix()
+        cmp_files=list(Path(OUTPUT_ROOT, today_str, "evaluation").glob("*_comparison_*.csv}")).as_posix()
         for f in cmp_files:
             model = os.path.basename(f).split('_')[0]
             df = pd.read_csv(f, parse_dates=['Datetime'])
@@ -104,7 +105,7 @@ def load_comparisons(OUTPUT_ROOT, conn):
 def load_daily_summary(OUTPUT_ROOT, conn):
 
     try:
-        sum_file= list(Path(OUTPUT_ROOT, today_str, "evaluation").glob("evaluation_summary_*.csv"))[0].as_posix()
+        sum_file= list(Path(OUTPUT_ROOT, today_str, "evaluation").glob("evaluation_summary_*.csv")).as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
         df.to_sql('model_daily_summary', conn, if_exists='append', index=False)
@@ -119,7 +120,7 @@ def load_daily_summary(OUTPUT_ROOT, conn):
 def load_forward_summary(OUTPUT_ROOT, conn):
 
     try:
-        sum_file= list(Path(OUTPUT_ROOT, today_str, "forward").glob("forward_summary*.csv"))[0].as_posix()
+        sum_file= list(Path(OUTPUT_ROOT, today_str, "forward").glob("forward_summary*.csv")).as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
         df.to_sql('forward_summary', conn, if_exists='append', index=False)
