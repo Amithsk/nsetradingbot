@@ -34,7 +34,7 @@ today_str ='20250718'
 
 # 1) Load raw prices
 def load_prices(OUTPUT_ROOT, conn):
-    print("Inside the price function")
+
     try:
         sample= list(Path(OUTPUT_ROOT, today_str, "backward").glob("nifty_*.csv"))[0].as_posix()
         df = pd.read_csv(sample)
@@ -52,7 +52,7 @@ def load_prices(OUTPUT_ROOT, conn):
 
 # 2) Load predictions
 def load_predictions(OUTPUT_ROOT, conn):
-    print("Inside the load predictions")
+
     # backward
     try:
         back_files= list(Path(OUTPUT_ROOT, today_str, "backward").glob("nifty_*.csv"))[0].as_posix()
@@ -83,7 +83,7 @@ def load_predictions(OUTPUT_ROOT, conn):
 
 # 3) Load comparisons
 def load_comparisons(OUTPUT_ROOT, conn):
-    print("Inside the load comparisons")
+
     try:
         cmp_files=list(Path(OUTPUT_ROOT, today_str, "evaluation").glob("*_comparison_*.csv}"))[0].as_posix()
         for f in cmp_files:
@@ -102,7 +102,7 @@ def load_comparisons(OUTPUT_ROOT, conn):
 
 # 4) Load daily summaries
 def load_daily_summary(OUTPUT_ROOT, conn):
-    print("Inside the load daily summary")
+
     try:
         sum_file= list(Path(OUTPUT_ROOT, today_str, "evaluation").glob("evaluation_summary_*.csv"))[0].as_posix()
         df = pd.read_csv(sum_file)
@@ -117,7 +117,7 @@ def load_daily_summary(OUTPUT_ROOT, conn):
 
 # 5) Load forward_summary
 def load_forward_summary(OUTPUT_ROOT, conn):
-    print("Inside the load forward summary")
+
     try:
         sum_file= list(Path(OUTPUT_ROOT, today_str, "forward").glob("forward_summary*.csv"))[0].as_posix()
         df = pd.read_csv(sum_file)
