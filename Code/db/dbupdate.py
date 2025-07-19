@@ -40,7 +40,7 @@ def load_prices(OUTPUT_ROOT, conn):
         df = pd.read_csv(sample)
         df['Datetime'] = pd.to_datetime(df['Datetime'])
         price_df = df[['Datetime','Open','High','Low','Close','Volume','SMA_5','SMA_20','RSI','ATR']].drop_duplicates()
-        price_df.rename(columns={'Datetime': 'dt'}, inplace=True)
+        price_df.rename(columns={'Datetime': 'Date'}, inplace=True)
         price_df.to_sql('nifty_prices', conn, if_exists='replace', index=False)
     
     except Exception as e:
@@ -55,26 +55,27 @@ def load_predictions(OUTPUT_ROOT, conn):
 
     # backward
     try:
-        back_files= list(Path(OUTPUT_ROOT, today_str, "backward").glob("nifty_*.csv")).as_posix()
-        print("The file details",back_files)
+        back_files= list(Path(OUTPUT_ROOT, today_str, "backward").glob("nifty_*.csv"))
+
         for f in back_files:
+            f=f.as_posix()
             model = os.path.basename(f).split('_')[1]
             df = pd.read_csv(f, parse_dates=['Datetime'])
             preds = df[['Datetime','Prediction','Predicted_Price']].copy()
             preds['model_name'] = model
             preds['is_forward'] = False
-            preds.rename(columns={'Datetime': 'dt', 'Prediction': 'predicted_dir'}, inplace=True)
+            preds.rename(columns={'Datetime': 'date', 'Prediction': 'predicted_dir'}, inplace=True)
             preds.to_sql('predictions', conn, if_exists='append', index=False)
 
     # forward
-        fwd_files= list(Path(OUTPUT_ROOT, today_str, "forward").glob("nifty_*.csv")).as_posix()
+        fwd_files= list(Path(OUTPUT_ROOT, today_str, "forward").glob("nifty_*.csv"))
         for f in fwd_files:
             model = os.path.basename(f).split('_')[1]
             df = pd.read_csv(f, parse_dates=['Datetime'])
             preds = df[['Datetime','Prediction','Predicted_Price']].copy()
             preds['model_name'] = model
             preds['is_forward'] = True
-            preds.rename(columns={'Datetime': 'dt', 'Prediction': 'predicted_dir'}, inplace=True)
+            preds.rename(columns={'Datetime': 'date', 'Prediction': 'predicted_dir'}, inplace=True)
             preds.to_sql('predictions', conn, if_exists='append', index=False)
     except Exception as e:
         print("An error occurred while loading predictions:")
