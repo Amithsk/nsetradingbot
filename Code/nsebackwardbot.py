@@ -26,7 +26,7 @@ start_str = start_date.strftime('%Y-%m-%d')
 end_str   = end_date.strftime('%Y-%m-%d')
 
 #Folders for the ouput
-folder_date =today.strftime('%Y%m%d')
+folder_date =end_date.strftime('%Y%m%d')
 OUTPUT_DIR = Path(f"./Output/{folder_date}/backward")
 MODEL_DIR = Path("./models")
 OUTPUT_DIR.mkdir(parents=True,exist_ok=True)
