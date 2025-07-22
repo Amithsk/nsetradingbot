@@ -8,5 +8,8 @@
 # Ignore .zip and .csv
 *.zip
 
+#Ignore .txt
+*.txt
+
 
 
