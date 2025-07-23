@@ -66,6 +66,11 @@ for backward_file in BACKWARD_DIR.glob("nifty_*_*.csv"):
     cmp = pd.merge(pred_df, filtered_actual_df, on='Datetime', how='inner')
     cmp['was_correct'] = cmp['Prediction'] == cmp['true_direction']
     cmp['error_mag']   = np.abs(cmp['predicted_price'] - cmp['close_price_act'])
+    
+    #To check if the merge is happening properly
+    if cmp.empty:
+        print(f"No matching records found for model: {model_name}")
+        continue  # optional: skip summary generation for this model
 
     # Save merged comparison
     cmp.to_csv(EVAL_DIR / f"{model_name}_comparison_{prev_str}.csv", index=False)
