@@ -21,16 +21,20 @@ prev_str = prev_day.strftime('%Y%m%d')
 
 # --- Paths ---
 BACKWARD_DIR = OUTPUT_DIR / today_str / 'backward'
-FORWARD_DIR  = OUTPUT_DIR / today_str  / 'forward'
-EVAL_DIR     = OUTPUT_DIR / today_str / 'evaluation'
+FORWARD_DIR  = OUTPUT_DIR / prev_day  / 'forward'
+EVAL_DIR     = OUTPUT_DIR / prev_day / 'evaluation'
 EVAL_DIR.mkdir(parents=True, exist_ok=True)
 
+BACKWARD_DIR = Path("./Output/20250718/backward")
+FORWARD_DIR = Path("./Output/20250718/forward")
+EVAL_DIR = Path("./Output/20250718/evaluation")
+today_str='20250718'
 summary_rows = []
 
 # --- Evaluate each model ---
 for backward_file in BACKWARD_DIR.glob("nifty_*_*.csv"):
     model_name = backward_file.stem.split("_")[1]
-    forward_file = FORWARD_DIR / f"nifty_{model_name}_forward_{today_str}.csv"
+    forward_file = FORWARD_DIR / f"nifty_{model_name}_forward_{prev_str}.csv"
     
 
     if not forward_file.exists():
@@ -54,14 +58,22 @@ for backward_file in BACKWARD_DIR.glob("nifty_*_*.csv"):
 
     pred_df['Datetime'] = pd.to_datetime(pred_df['Datetime']).dt.tz_localize(None)
     actual_df['Datetime'] = pd.to_datetime(actual_df['Datetime']).dt.tz_localize(None)
+    print("The forward file \n",pred_df.head().to_string(index=False))
+    print("The backward file \n",actual_df.head().to_string(index=False))
+    
+    # Filter actuals to forward prediction timestamps
+    filtered_actual_df = actual_df[actual_df['Datetime'].isin(pred_df['Datetime'])]
+    print("The filtered actual file \n",filtered_actual_df.head().to_string(index=False))
+
 
     # Merge
-    cmp = pd.merge(pred_df, actual_df, on='Datetime', how='inner')
+    cmp = pd.merge(pred_df, filtered_actual_df, on='Datetime', how='inner')
     cmp['was_correct'] = cmp['Prediction'] == cmp['true_direction']
     cmp['error_mag']   = np.abs(cmp['predicted_price'] - cmp['close_price_act'])
 
     # Save merged comparison
     cmp.to_csv(EVAL_DIR / f"{model_name}_comparison_{today_str}.csv", index=False)
+    print("The merged file \n",cmp.head().to_string(index=False))
 
     # Summary
     total     = len(cmp)
@@ -82,11 +94,11 @@ for backward_file in BACKWARD_DIR.glob("nifty_*_*.csv"):
 
 # Save daily summary
 summary_df = pd.DataFrame(summary_rows)
-summary_file = EVAL_DIR / f"evaluation_summary_{today_str}.csv"
+summary_file = EVAL_DIR / f"evaluation_summary_{prev_str}.csv"
 summary_df.to_csv(summary_file, index=False)
 print(f"Evaluation summary saved: {summary_file}")
 
 
 # Save tstr to file so GitHub Actions can access it
-with open("today_str.txt", "w") as f:
-    f.write(today_str)
+with open("prev_str.txt", "w") as f:
+    f.write(prev_str)
