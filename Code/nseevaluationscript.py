@@ -72,7 +72,7 @@ for backward_file in BACKWARD_DIR.glob("nifty_*_*.csv"):
     cmp['error_mag']   = np.abs(cmp['predicted_price'] - cmp['close_price_act'])
 
     # Save merged comparison
-    cmp.to_csv(EVAL_DIR / f"{model_name}_comparison_{today_str}.csv", index=False)
+    cmp.to_csv(EVAL_DIR / f"{model_name}_comparison_{prev_str}.csv", index=False)
     print("The merged file \n",cmp.head().to_string(index=False))
 
     # Summary
