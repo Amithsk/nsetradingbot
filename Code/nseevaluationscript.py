@@ -21,14 +21,10 @@ prev_str = prev_day.strftime('%Y%m%d')
 
 # --- Paths ---
 BACKWARD_DIR = OUTPUT_DIR / today_str / 'backward'
-FORWARD_DIR  = OUTPUT_DIR / prev_day  / 'forward'
-EVAL_DIR     = OUTPUT_DIR / prev_day / 'evaluation'
+FORWARD_DIR  = OUTPUT_DIR / prev_str  / 'forward'
+EVAL_DIR     = OUTPUT_DIR / prev_str / 'evaluation'
 EVAL_DIR.mkdir(parents=True, exist_ok=True)
 
-BACKWARD_DIR = Path("./Output/20250718/backward")
-FORWARD_DIR = Path("./Output/20250718/forward")
-EVAL_DIR = Path("./Output/20250718/evaluation")
-today_str='20250718'
 summary_rows = []
 
 # --- Evaluate each model ---
