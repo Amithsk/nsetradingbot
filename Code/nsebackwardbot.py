@@ -26,11 +26,13 @@ start_date = end_date - timedelta(days=55)
 start_str = start_date.strftime('%Y-%m-%d')
 end_str   = end_date.strftime('%Y-%m-%d')
 
-#Currently yfiance provides today-1 data,so adapting the file name accordingly
-if end_date.weekday() == 0:  # Monday
+#Currently yfiance provides today-1 data,so N-1 today date information
+file_date = (today - timedelta(days=1))
+if file_date.weekday() == 0:  # Monday
     file_date = (today - timedelta(days=3)).strftime('%Y%m%d')
 else:
-    file_date = today.strftime('%Y%m%d')
+    file_date = (today - timedelta(days=1)).strftime('%Y%m%d')
+
 
 #Folders for the ouput
 folder_date =end_date.strftime('%Y%m%d')
