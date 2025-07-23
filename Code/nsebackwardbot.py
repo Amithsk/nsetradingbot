@@ -167,5 +167,5 @@ print("Saved classification summary for all models.")
 
 # Save tstr to file so GitHub Actions can access it
 with open("folder_date.txt", "w") as f:
-    f.write(folder_date)
+    f.write(f"{folder_date},{file_date}")
 
