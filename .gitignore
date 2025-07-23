@@ -11,5 +11,8 @@
 #Ignore .txt
 *.txt
 
+#Ignore
+*.xlsx
+
 
 
