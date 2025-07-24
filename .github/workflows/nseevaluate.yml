@@ -48,7 +48,8 @@ jobs:
       - name: Read the folder date and file date values
         shell: bash
         run: |
-          IFS=, read folder_date file_date <<< folder_date.txt
+          content=$(cat folder_date.txt)
+          IFS=, read folder_date file_date <<< "$content"
           echo "Loaded folder_date: $folder_date"
           echo "Loaded file_date: $file_date"
           echo "FOLDER_DATE=$folder_date" >> $GITHUB_ENV
