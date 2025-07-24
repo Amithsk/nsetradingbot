@@ -49,6 +49,8 @@ jobs:
         shell: bash
         run: |
           IFS=, read folder_date file_date < folder_date.txt
+          echo "FOLDER_DATE=$folder_date" >> $GITHUB_ENV
+          echo "FILE_DATE=$file_date" >> $GITHUB_ENV
     
       - name: Commit the files
         shell: bash
