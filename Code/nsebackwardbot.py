@@ -168,7 +168,6 @@ metrics_df.to_csv(OUTPUT_DIR / f"model_metrics_{file_date}.csv", index=False)
 print("Saved classification summary for all models.")
 
 # Save folder to file so GitHub Actions can access it
-with open("folder_date.txt", "w") as f:
-    print("The values are",folder_date,file_date)
+with open("backward_date.txt", "w") as f:
     f.write(f"{folder_date},{file_date}")
 

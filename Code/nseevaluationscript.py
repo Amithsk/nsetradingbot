@@ -101,5 +101,5 @@ print(f"Evaluation summary saved: {summary_file}")
 
 
 # Save tstr to file so GitHub Actions can access it
-with open("prev_str.txt", "w") as f:
+with open("evaluation.txt", "w") as f:
     f.write(prev_str)
