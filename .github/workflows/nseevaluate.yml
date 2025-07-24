@@ -48,7 +48,7 @@ jobs:
       - name: Read the folder date and file date values
         shell: bash
         run: |
-          content=$(cat folder_date.txt)
+          content=$(cat backward_date.txt)
           IFS=, read folder_date file_date <<< "$content"
           echo "FOLDER_DATE=$folder_date" >> $GITHUB_ENV
           echo "FILE_DATE=$file_date" >> $GITHUB_ENV
@@ -76,7 +76,7 @@ jobs:
       
 
           # Read the tstr value that the Python code wrote for the git action
-          folder_date=$(cat tstr.txt)
+          folder_date=$(cat predicton_date.txt)
 
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
@@ -95,7 +95,7 @@ jobs:
           python Code/nseevaluationscript.py      
          
           # Read the today_str value that the Python code wrote for the git action
-          folder_date=$(cat today_str.txt)
+          folder_date=$(cat evaluation_date.txt)
 
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
@@ -110,6 +110,6 @@ jobs:
       - name: Cleanup temp files
         shell: bash
         run: |
-          rm -f tstr.txt
-          rm -f today_str.txt
-          rm -f folder_date.txt
+          rm -f evaluation_date.txt
+          rm -f backward_date.txt
+          rm -f predicton_date.txt
