@@ -50,8 +50,6 @@ jobs:
         run: |
           content=$(cat folder_date.txt)
           IFS=, read folder_date file_date <<< "$content"
-          echo "Loaded folder_date: $folder_date"
-          echo "Loaded file_date: $file_date"
           echo "FOLDER_DATE=$folder_date" >> $GITHUB_ENV
           echo "FILE_DATE=$file_date" >> $GITHUB_ENV
     
@@ -60,11 +58,11 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add Output/$folder_date/backward/nifty_LGBM_backward_$file_date.csv
-          git add Output/$folder_date/backward/nifty_Logistic_backward_$file_date.csv
-          git add Output/$folder_date/backward/nifty_RF_backward_$file_date.csv
-          git add Output/$folder_date/backward/nifty_XGB_backward_$file_date.csv
-          git add Output/$folder_date/backward/model_metrics_$file_date.csv
+          git add Output/$FOLDER_DATE/backward/nifty_LGBM_backward_$FILE_DATE.csv
+          git add Output/$FOLDER_DATE/backward/nifty_Logistic_backward_$FILE_DATE.csv
+          git add Output/$FOLDER_DATE/backward/nifty_RF_backward_$FILE_DATE.csv
+          git add Output/$FOLDER_DATE/backward/nifty_XGB_backward_$FILE_DATE.csv
+          git add Output/$FOLDER_DATE/backward/model_metrics_$FILE_DATE.csv
           git commit -m "Backward evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
       
