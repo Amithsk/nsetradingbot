@@ -92,5 +92,5 @@ summary_df.to_csv(summary_file, index=False)
 print(f"Saved forward summary: {summary_file}")
 
 # Save tstr to file so GitHub Actions can access it
-with open("predicton.txt", "w") as f:
+with open("predicton_date.txt", "w") as f:
     f.write(tstr)
