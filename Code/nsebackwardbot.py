@@ -16,8 +16,9 @@ import joblib
 
 #Date stuff
 INTERVAL = '5m'
-today = datetime.now()
-# roll back weekends
+
+today= datetime.now()
+# roll back weekends for the data fetch from yfianance
 if today.weekday() == 5: today -= timedelta(days=1)
 elif today.weekday() == 6: today -= timedelta(days=2)
 end_date = today
@@ -26,12 +27,16 @@ start_date = end_date - timedelta(days=55)
 start_str = start_date.strftime('%Y-%m-%d')
 end_str   = end_date.strftime('%Y-%m-%d')
 
-#Currently yfiance provides today-1 data,so N-1 today date information
-file_date = (today - timedelta(days=1))
-if file_date.weekday() == 0:  # Monday
-    file_date = (today - timedelta(days=3)).strftime('%Y%m%d')
+#Currently yfiance provides today-1 day data,so the file name must be today-1 date data information
+temp_file_date = datetime.now()
+if temp_file_date.weekday() == 0:  # Monday
+    file_date = (temp_file_date - timedelta(days=3)).strftime('%Y%m%d') #Move to Friday
+elif temp_file_date.weekday() == 5:  # Saturday
+    file_date = (temp_file_date - timedelta(days=1)).strftime('%Y%m%d')#Move to Friday
+elif temp_file_date.weekday() == 6:  # Sunday
+    file_date = (temp_file_date - timedelta(days=2)).strftime('%Y%m%d')#Move to Friday
 else:
-    file_date = (today - timedelta(days=1)).strftime('%Y%m%d')
+    file_date = (temp_file_date - timedelta(days=1)).strftime('%Y%m%d')#Move to previous day
 
 
 #Folders for the ouput
