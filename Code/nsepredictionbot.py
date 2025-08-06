@@ -7,6 +7,7 @@ import joblib
 # 1) Parameters
 #Date stuff
 today = datetime.now()
+predicton_date=datetime.now()
 tstr = today.strftime('%Y%m%d')
 
 #Currently yfiance provides today-1 data,so prediction needs to pick N-1 date data 
@@ -42,10 +43,10 @@ for model_path in MODEL_DIR.glob("*_backward.pkl"):
        latest['Close'], latest['SMA_5'], latest['SMA_20'], latest['RSI'], latest['ATR']
     )
 
-    # 4) generate 5m bars for next_day
+    # 4) generate 5m bars for toda day
     times = pd.date_range(
-      start=datetime.combine(today.date(), time(9,15)),
-      end  =datetime.combine(today.date(), time(15,30)),
+      start=datetime.combine(predicton_date.date(), time(9,15)),
+      end  =datetime.combine(predicton_date.date(), time(15,30)),
       freq='5min'
     )
     records = []
