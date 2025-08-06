@@ -50,7 +50,13 @@ for model_path in MODEL_DIR.glob("*_backward.pkl"):
     )
     records = []
     for ts in times:
-        X = np.array([[ last_sma5, last_sma20, last_rsi, last_atr, last_close ]])
+        X = pd.DataFrame([{
+    'SMA_5': last_sma5,
+    'SMA_20': last_sma20,
+    'RSI': last_rsi,
+    'ATR': last_atr,
+    'Close': last_close
+            }])
         direction = int(m.predict(X)[0])
         pct       = pct = abs(latest['Pct_Change']) / 100  # or a model‐specific learned magnitude
         pred_price= last_close*(1+pct) if direction else last_close*(1-pct)
