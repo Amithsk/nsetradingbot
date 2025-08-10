@@ -3,6 +3,7 @@ import pandas as pd, numpy as np
 from datetime import datetime, timedelta, time
 from pathlib import Path
 import joblib
+import pytz
 
 # 1) Parameters
 #Date stuff
@@ -43,12 +44,15 @@ for model_path in MODEL_DIR.glob("*_backward.pkl"):
        latest['Close'], latest['SMA_5'], latest['SMA_20'], latest['RSI'], latest['ATR']
     )
 
-    # 4) generate 5m bars for toda day
+    # 4) generate 5m bars for today day
+    #Adapted the times to match the yfinance timestamp format
     times = pd.date_range(
       start=datetime.combine(predicton_date.date(), time(9,15)),
       end  =datetime.combine(predicton_date.date(), time(15,30)),
-      freq='5min'
-    )
+      freq='5min',
+      tz=pytz.timezone('Asia/Kolkata')
+    ).tz_convert('UTC') 
+
     records = []
     for ts in times:
         X = pd.DataFrame([{
