@@ -15,12 +15,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+
       - name: Download trained model
         shell: bash            # use bash even on Windows
         run: |
           mkdir -p models
-          curl -L -o models/dqn_nifty_final.zip \
-            https://github.com/Amithsk/nsetradingbot/releases/download/V1.0/dqn_nifty_final.zip
+          curl -L -o models/XGB_backward.pkl \
+             https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/XGB_backward.pkl
+          curl -L -o models/RF_backward.pkl \
+            https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/RF_backward.pkl
+          curl -L -o models/LGBM_backward.pkl \
+            https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/LGBM_backward.pkl
+          curl -L -o models/Logistic_backward.pkl \
+            https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/Logistic_backward.pkl
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
@@ -33,37 +40,76 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run backward script
+      - name: Run backward script code
         shell: bash
         run: |
           python Code/nsebackwardbot.py
+
+      - name: Read the folder date and file date values
+        shell: bash
+        run: |
+          content=$(cat backward_date.txt)
+          IFS=, read folder_date file_date <<< "$content"
+          echo "FOLDER_DATE=$folder_date" >> $GITHUB_ENV
+          echo "FILE_DATE=$file_date" >> $GITHUB_ENV
+    
+      - name: Commit the files
+        shell: bash
+        run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add Output/nifty_xgb_backward_*.csv
-          git commit -m "Backward  evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          git add Output/$FOLDER_DATE/backward/nifty_LGBM_backward_$FILE_DATE.csv
+          git add Output/$FOLDER_DATE/backward/nifty_Logistic_backward_$FILE_DATE.csv
+          git add Output/$FOLDER_DATE/backward/nifty_RF_backward_$FILE_DATE.csv
+          git add Output/$FOLDER_DATE/backward/nifty_XGB_backward_$FILE_DATE.csv
+          git add Output/$FOLDER_DATE/backward/model_metrics_$FILE_DATE.csv
+          git commit -m "Backward evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
       
-      - name: Run forward script
+      
+      - name: Run forward script & commit the files
         shell: bash
         run: |
 
+          # Run the python code
           python Code/nsepredictionbot.py
+      
+
+          # Read the tstr value that the Python code wrote for the git action
+          folder_date=$(cat predicton_date.txt)
+
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add Output/nifty_xgb_forward_*.csv
+          git add Output/$folder_date/forward/nifty_LGBM_forward_$folder_date.csv
+          git add Output/$folder_date/forward/nifty_Logistic_forward_$folder_date.csv
+          git add Output/$folder_date/forward/nifty_RF_forward_$folder_date.csv
+          git add Output/$folder_date/forward/nifty_XGB_forward_$folder_date.csv
+          git add Output/$folder_date/forward/forward_summary_$folder_date.csv 
           git commit -m "Forward  evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
 
 
-      - name: Run the merged evaluation
-        shell: bash
-        run: python Code/nseevaluationscript.py
-
-      - name: Commit evaluation output
+      - name: Run the merged evaluation & commit the files
         shell: bash
         run: |
+          python Code/nseevaluationscript.py      
+         
+          # Read the today_str value that the Python code wrote for the git action
+          folder_date=$(cat evaluation_date.txt)
+
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add Output/predictions_comparison_*.csv Output/daily_summary_*.csv
+          git add Output/$folder_date/evaluation/evaluation_summary_$folder_date.csv       
+          git add Output/$folder_date/evaluation/LGBM_comparison_$folder_date.csv
+          git add Output/$folder_date/evaluation/Logistic_comparison_$folder_date.csv
+          git add Output/$folder_date/evaluation/RF_comparison_$folder_date.csv
+          git add Output/$folder_date/evaluation/XGB_comparison_$folder_date.csv   
           git commit -m "Automated evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
+
+      - name: Cleanup temp files
+        shell: bash
+        run: |
+          rm -f evaluation_date.txt
+          rm -f backward_date.txt
+          rm -f predicton_date.txt
