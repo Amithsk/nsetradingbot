@@ -3,24 +3,27 @@ import pandas as pd, numpy as np
 from datetime import datetime, timedelta, time
 from pathlib import Path
 import joblib
+import pytz
 
 # 1) Parameters
 #Date stuff
 today = datetime.now()
-# compute next trading day…
-next_day = today + timedelta(days=1)
-while next_day.weekday() >= 5:  next_day += timedelta(days=1)
-tstr = next_day.strftime('%Y%m%d')
+predicton_date=datetime.now()
+tstr = today.strftime('%Y%m%d')
 
-if today.weekday() == 0:  # Monday
-    folder_date = (today - timedelta(days=3)).strftime('%Y%m%d')
+#Currently yfiance provides today-1 data,so prediction needs to pick N-1 date data 
+today -= timedelta(days=1)
+if today.weekday() == 5:  # Saturday (index 5)
+    file_date = (today - timedelta(days=1)).strftime('%Y%m%d')
+elif today.weekday() == 6:  # Sunday (index 6)
+    file_date = (today - timedelta(days=2)).strftime('%Y%m%d')
 else:
-    folder_date = today.strftime('%Y%m%d')
+    file_date = today.strftime('%Y%m%d')
 
 
 # Discover all backward CSVs & models
 MODEL_DIR  = Path('./models')
-OUTPUT_BACK_DIR = Path(f"./Output/{folder_date}/backward")
+OUTPUT_BACK_DIR = Path(f"./Output/{tstr}/backward")
 OUTPUT_FORWARD_DIR=Path(f"./Output/{tstr}/forward")
 OUTPUT_FORWARD_DIR.mkdir(parents=True,exist_ok=True)
 #Data frame
@@ -34,22 +37,31 @@ for model_path in MODEL_DIR.glob("*_backward.pkl"):
     m = joblib.load(model_path)
 
     # 3) read its own backward CSV for last features
-    back_csv = OUTPUT_BACK_DIR/f"nifty_{name}_backward_{folder_date}.csv"
+    back_csv = OUTPUT_BACK_DIR/f"nifty_{name}_backward_{file_date}.csv"
     df = pd.read_csv(back_csv, parse_dates=['Datetime'])
     latest = df.iloc[-1]
     last_close, last_sma5, last_sma20, last_rsi, last_atr = (
        latest['Close'], latest['SMA_5'], latest['SMA_20'], latest['RSI'], latest['ATR']
     )
 
-    # 4) generate 5m bars for next_day
+    # 4) generate 5m bars for today day
+    #Adapted the times to match the yfinance timestamp format
     times = pd.date_range(
-      start=datetime.combine(next_day.date(), time(9,15)),
-      end  =datetime.combine(next_day.date(), time(15,30)),
-      freq='5min'
-    )
+      start=datetime.combine(predicton_date.date(), time(9,15)),
+      end  =datetime.combine(predicton_date.date(), time(15,30)),
+      freq='5min',
+      tz=pytz.timezone('Asia/Kolkata')
+    ).tz_convert('UTC') 
+
     records = []
     for ts in times:
-        X = np.array([[ last_sma5, last_sma20, last_rsi, last_atr, last_close ]])
+        X = pd.DataFrame([{
+    'SMA_5': last_sma5,
+    'SMA_20': last_sma20,
+    'RSI': last_rsi,
+    'ATR': last_atr,
+    'Close': last_close
+            }])
         direction = int(m.predict(X)[0])
         pct       = pct = abs(latest['Pct_Change']) / 100  # or a model‐specific learned magnitude
         pred_price= last_close*(1+pct) if direction else last_close*(1-pct)
@@ -91,5 +103,5 @@ summary_df.to_csv(summary_file, index=False)
 print(f"Saved forward summary: {summary_file}")
 
 # Save tstr to file so GitHub Actions can access it
-with open("tstr.txt", "w") as f:
+with open("predicton_date.txt", "w") as f:
     f.write(tstr)

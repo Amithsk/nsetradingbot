@@ -16,14 +16,28 @@ import joblib
 
 #Date stuff
 INTERVAL = '5m'
-today = datetime.now()
-# roll back weekends
+
+today= datetime.now()
+# roll back weekends for the data fetch from yfianance
 if today.weekday() == 5: today -= timedelta(days=1)
 elif today.weekday() == 6: today -= timedelta(days=2)
 end_date = today
+
 start_date = end_date - timedelta(days=55)
 start_str = start_date.strftime('%Y-%m-%d')
 end_str   = end_date.strftime('%Y-%m-%d')
+
+#Currently yfiance provides today-1 day data,so the file name must be today-1 date data information
+temp_file_date = datetime.now()
+if temp_file_date.weekday() == 0:  # Monday
+    file_date = (temp_file_date - timedelta(days=3)).strftime('%Y%m%d') #Move to Friday
+elif temp_file_date.weekday() == 5:  # Saturday
+    file_date = (temp_file_date - timedelta(days=1)).strftime('%Y%m%d')#Move to Friday
+elif temp_file_date.weekday() == 6:  # Sunday
+    file_date = (temp_file_date - timedelta(days=2)).strftime('%Y%m%d')#Move to Friday
+else:
+    file_date = (temp_file_date - timedelta(days=1)).strftime('%Y%m%d')#Move to previous day
+
 
 #Folders for the ouput
 folder_date =end_date.strftime('%Y%m%d')
@@ -148,19 +162,25 @@ for name, model in models.items():
     # 9) Save
 
     #Model output
-    out.to_csv(OUTPUT_DIR/f"nifty_{name}_backward_{folder_date}.csv", index=False)
-    print(f"Saved backward {name} results to: {OUTPUT_DIR}/nifty_{name}_backward_{folder_date}.csv")
+    out.to_csv(OUTPUT_DIR/f"nifty_{name}_backward_{file_date}.csv", index=False)
+    print(f"Saved backward {name} results to: {OUTPUT_DIR}/nifty_{name}_backward_{file_date}.csv")
     
     #Model details
     joblib.dump(model,f"./models/{name}_backward.pkl")
     
 # Accuracy & Classification details
 metrics_df = pd.DataFrame(results)
-metrics_df.to_csv(OUTPUT_DIR / f"model_metrics_{folder_date}.csv", index=False)
+metrics_df.to_csv(OUTPUT_DIR / f"model_metrics_{file_date}.csv", index=False)
 print("Saved classification summary for all models.")
 
+<<<<<<< HEAD
 
 # Save tstr to file so GitHub Actions can access it
 with open("folder_date.txt", "w") as f:
     f.write(folder_date)   
+=======
+# Save folder to file so GitHub Actions can access it
+with open("backward_date.txt", "w") as f:
+    f.write(f"{folder_date},{file_date}")
+>>>>>>> main
 
