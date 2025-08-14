@@ -11,6 +11,7 @@ from sklearn.metrics import accuracy_score, classification_report
 import xgboost as xgb
 import lightgbm as lgb
 import joblib
+import requests
 
 # 1) Parameters
 
@@ -50,8 +51,37 @@ MODEL_DIR.mkdir(parents=True,exist_ok=True)
 results=[]
 
 # 2) Download data
-nifty = yf.download('^NSEI', start=start_str, end=end_str, interval=INTERVAL)
-nifty.columns = [c[0] for c in nifty.columns]
+def fetch_nse_chart(symbol, start_date, end_date, interval="5m"):
+    """
+    Fetch NSE data using Yahoo Finance's chart API directly to avoid regional OHLCV issues.
+    """
+    # Convert dates to Unix timestamps
+    period1 = int(datetime.strptime(start_date, "%Y-%m-%d").timestamp())
+    period2 = int(datetime.strptime(end_date, "%Y-%m-%d").timestamp())
+
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+    params = {
+        "period1": period1,
+        "period2": period2,
+        "interval": interval,
+        "includePrePost": "false",
+        "events": "div,splits"
+    }
+
+    r = requests.get(url, params=params)
+    r.raise_for_status()
+    data = r.json()
+
+    result = data["chart"]["result"][0]
+    timestamps = result["timestamp"]
+    quotes = result["indicators"]["quote"][0]
+
+    df = pd.DataFrame(quotes, index=pd.to_datetime(timestamps, unit="s"))
+    df.index.name = "Datetime"
+    return df.dropna()
+
+print(f"Fetching NSE data from {start_str} to {end_str}...")
+nifty = fetch_nse_chart("^NSEI", start_str, end_str, interval=INTERVAL)
 nifty = nifty.reset_index().dropna()
 
 # 3) Feature engineering
