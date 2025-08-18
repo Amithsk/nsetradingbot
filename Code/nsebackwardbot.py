@@ -80,7 +80,7 @@ def fetch_chart_data(symbol, start_epoch, end_epoch, interval):
         }, index=pd.to_datetime(timestamps, unit="s", utc=True).tz_convert("Asia/Kolkata"))
         return df.dropna()
     except Exception as e:
-        print(f"⚠ Error fetching chart data: {e}")
+        print(f"Error fetching chart data: {e}")
         return pd.DataFrame()
 
 
@@ -102,10 +102,10 @@ def get_nse_data(symbol, start_str, end_str, interval):
     missing_times = df_bulk[df_bulk.isna().any(axis=1)].index
 
     if len(missing_times) == 0:
-        print("✅ No missing intervals, returning bulk data")
+        print("No missing intervals, returning bulk data")
         return df_bulk
 
-    print(f"⚠ Found {len(missing_times)} missing intervals — patching via Chart API...")
+    print(f"Found {len(missing_times)} missing intervals — patching via Chart API...")
 
     patched_rows = []
     for ts in missing_times:
