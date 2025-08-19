@@ -30,24 +30,50 @@ today = datetime.now()
 prev_day = prev_trading_day(today)
 today_str = today.strftime("%Y%m%d")
 prev_str = prev_day.strftime("%Y%m%d")
-today_str ='20250718'
+today_str ='20250813'
+prev_str='20250812'
+
 
 # 1) Load raw prices
 def load_prices(OUTPUT_ROOT, conn):
-
     try:
-        sample= list(Path(OUTPUT_ROOT, today_str, "backward").glob("nifty_*.csv"))[0].as_posix()
+        # Load the latest nifty_*.csv
+        sample = list(Path(OUTPUT_ROOT, today_str, "backward").glob("nifty_*.csv"))[0].as_posix()
         df = pd.read_csv(sample)
         df['Datetime'] = pd.to_datetime(df['Datetime'])
-        price_df = df[['Datetime','Open','High','Low','Close','Volume','SMA_5','SMA_20','RSI','ATR']].drop_duplicates()
+
+        # Keep only relevant columns
+        price_df = df[['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume', 'SMA_5', 'SMA_20', 'RSI', 'ATR']]
+
+        # Rename to match DB schema
         price_df.rename(columns={'Datetime': 'Date'}, inplace=True)
-        price_df.to_sql('nifty_prices', conn, if_exists='replace', index=False)
-    
+
+        # Deduplicate only on Date (not entire row) — your point is correct
+        price_df = price_df.drop_duplicates(subset=["Date"])
+
+        # Use CSV min/max dates instead of hardcoded start_str, end_str
+        csv_start = price_df['Date'].min()
+        csv_end   = price_df['Date'].max()
+
+        query = """
+            SELECT Date FROM nifty_prices
+            WHERE Date BETWEEN %s AND %s
+        """
+        existing = pd.read_sql(query, conn, params=[csv_start, csv_end])
+
+        # Remove rows already in DB
+        if not existing.empty:
+            price_df = price_df[~price_df["Date"].isin(existing["Date"])]
+
+        # Insert new rows
+        if not price_df.empty:
+            price_df.to_sql("nifty_prices", conn, if_exists="append", index=False)
+            print(f"Inserted {len(price_df)} new price rows")
+        else:
+            print("No new price rows to insert")
+
     except Exception as e:
-        print("An error occurred while loading prices:")
-        print(f"Error type: {type(e).__name__}")
-        traceback.print_exc()
-        raise  
+        print(f" Error in load_prices: {e}")
 
 
 # 2) Load predictions
