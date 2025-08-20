@@ -11,6 +11,9 @@ from sklearn.metrics import accuracy_score, classification_report
 import xgboost as xgb
 import lightgbm as lgb
 import joblib
+import requests
+import time,random
+from utils.nseholiday import nseholiday
 
 # 1) Parameters
 
@@ -21,6 +24,7 @@ today= datetime.now()
 # roll back weekends for the data fetch from yfianance
 if today.weekday() == 5: today -= timedelta(days=1)
 elif today.weekday() == 6: today -= timedelta(days=2)
+
 end_date = today
 
 start_date = end_date - timedelta(days=55)
@@ -38,6 +42,16 @@ elif temp_file_date.weekday() == 6:  # Sunday
 else:
     file_date = (temp_file_date - timedelta(days=1)).strftime('%Y%m%d')#Move to previous day
 
+file_date_obj = datetime.strptime(file_date, "%Y%m%d").date()
+
+# Check if holiday
+if nseholiday(file_date_obj):
+    print(f"{file_date_obj} was an NSE holiday. Skipping backward script.")
+    with open("holiday_flag.txt", "w") as f:
+        f.write(str(file_date_obj))
+    exit(0)
+
+
 
 #Folders for the ouput
 folder_date =end_date.strftime('%Y%m%d')
@@ -49,10 +63,101 @@ MODEL_DIR.mkdir(parents=True,exist_ok=True)
 #Data frames
 results=[]
 
-# 2) Download data
-nifty = yf.download('^NSEI', start=start_str, end=end_str, interval=INTERVAL)
-nifty.columns = [c[0] for c in nifty.columns]
+# 2) Download data (bulk + Chart API patch)
+# -------------------------------
+
+def fetch_chart_data(symbol, start_epoch, end_epoch, interval):
+    """Fetch intraday OHLC data from Yahoo Chart API for a specific time range."""
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+    params = {
+        "period1": start_epoch,
+        "period2": end_epoch,
+        "interval": interval,
+        "events": "history",
+        "includePrePost": "false"
+    }
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        result = data["chart"]["result"][0]
+        timestamps = result["timestamp"]
+        indicators = result["indicators"]["quote"][0]
+        df = pd.DataFrame({
+            "Open": indicators["open"],
+            "High": indicators["high"],
+            "Low": indicators["low"],
+            "Close": indicators["close"],
+            "Volume": indicators["volume"]
+        }, index=pd.to_datetime(timestamps, unit="s", utc=True).tz_convert("Asia/Kolkata"))
+        return df.dropna()
+    except Exception as e:
+        print(f"Error fetching chart data: {e}")
+        return pd.DataFrame()
+
+
+def get_nse_data(symbol, start_str, end_str, interval):
+    # Step 1: Bulk fetch from yfinance
+    df_bulk = yf.download(symbol, start=start_str, end=end_str, interval=interval)
+
+    # Flatten columns if multi-index
+    if isinstance(df_bulk.columns, pd.MultiIndex):
+        df_bulk.columns = [c[0] for c in df_bulk.columns]
+
+    # Enforce timezone
+    if df_bulk.index.tz is None:
+        df_bulk.index = df_bulk.index.tz_localize("Asia/Kolkata")
+    else:
+        df_bulk.index = df_bulk.index.tz_convert("Asia/Kolkata")
+
+    # Step 2: Detect missing rows
+    missing_times = df_bulk[df_bulk.isna().any(axis=1)].index
+
+    if len(missing_times) == 0:
+        print("No missing intervals, returning bulk data")
+        return df_bulk
+
+    print(f"Found {len(missing_times)} missing intervals — patching via Chart API...")
+
+    patched_rows = []
+    for ts in missing_times:
+        # Delay to avoid Yahoo rate limits
+        time.sleep(random.uniform(2, 4))
+
+        start_epoch = int(ts.timestamp()) - 60
+        end_epoch = int(ts.timestamp()) + 60
+        df_patch = fetch_chart_data(symbol, start_epoch, end_epoch, interval)
+
+        if not df_patch.empty:
+            # Only keep the row matching this timestamp
+            if ts in df_patch.index:
+                row = df_patch.loc[ts]
+                patched_rows.append({
+                    "Datetime": ts,
+                    "Open": row["Open"],
+                    "High": row["High"],
+                    "Low": row["Low"],
+                    "Close": row["Close"],
+                    "Volume": row["Volume"],
+                })
+
+    if patched_rows:
+        df_patch_final = pd.DataFrame(patched_rows).set_index("Datetime")
+        df_bulk.update(df_patch_final)
+
+    # Final timezone enforcement
+    df_bulk.index = df_bulk.index.tz_convert("Asia/Kolkata")
+
+    return df_bulk
+
+
+# ---- Fetch NIFTY data ----
+nifty = get_nse_data("^NSEI", start_str=start_str, end_str=end_str, interval="5m")
+if isinstance(nifty.columns, pd.MultiIndex):
+    nifty.columns = [c[0] for c in nifty.columns]
 nifty = nifty.reset_index().dropna()
+
+
 
 # 3) Feature engineering
 def compute_rsi(s, window=14):
@@ -155,9 +260,10 @@ for name, model in models.items():
     res['Was_Correct'] = np.where(res['Prediction']==res['Target'], 'Success','Fail')
     res['Predicted_Price'] = np.where(res['Prediction']==1,res['Close']*(1+res['Pct_Change'].abs()/100),res['Close']*(1-res['Pct_Change'].abs()/100))
     out = res.reset_index()[[
-    'Datetime','Close','Predicted_Price','Target','Prediction',
+    'Datetime','Open','High','Low','Volume','Close','Predicted_Price','Target','Prediction',
     'Was_Correct','Pct_Change','SMA_5','SMA_20','RSI','ATR'
         ]]
+    
     # 9) Save
 
     #Model output
@@ -175,4 +281,5 @@ print("Saved classification summary for all models.")
 # Save folder to file so GitHub Actions can access it
 with open("backward_date.txt", "w") as f:
     f.write(f"{folder_date},{file_date}")
+
 
