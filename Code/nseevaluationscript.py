@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from pathlib import Path
+import sys
+from utils.nseholiday import nseholiday
 
 # --- Config ---
 OUTPUT_DIR = Path("./Output")
@@ -18,6 +20,11 @@ today = datetime.now()
 today_str = today.strftime('%Y%m%d')
 prev_day = prev_trading_day(today)
 prev_str = prev_day.strftime('%Y%m%d')
+
+# --- NSE Holiday Check ---
+if nseholiday(prev_str):
+    print(f"{prev_str} was an NSE holiday. Skipping evaluation.")
+    sys.exit(0)
 
 # --- Paths ---
 BACKWARD_DIR = OUTPUT_DIR / today_str / 'backward'
