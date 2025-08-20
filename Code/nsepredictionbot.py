@@ -4,12 +4,19 @@ from datetime import datetime, timedelta, time
 from pathlib import Path
 import joblib
 import pytz
+import sys
+from utils.nseholiday import nseholiday
 
 # 1) Parameters
 #Date stuff
 today = datetime.now()
 predicton_date=datetime.now()
 tstr = today.strftime('%Y%m%d')
+
+# Check if holiday
+if nseholiday(tstr):
+    print(f"{tstr} was an NSE holiday. Skipping forward script.")
+    sys.exit(0)
 
 #Currently yfiance provides today-1 data,so prediction needs to pick N-1 date data 
 today -= timedelta(days=1)
