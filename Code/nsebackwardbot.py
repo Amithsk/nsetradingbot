@@ -13,6 +13,7 @@ import lightgbm as lgb
 import joblib
 import requests
 import time,random
+from utils.nseholiday import nseholiday
 
 # 1) Parameters
 
@@ -23,6 +24,7 @@ today= datetime.now()
 # roll back weekends for the data fetch from yfianance
 if today.weekday() == 5: today -= timedelta(days=1)
 elif today.weekday() == 6: today -= timedelta(days=2)
+
 end_date = today
 
 start_date = end_date - timedelta(days=55)
@@ -39,6 +41,16 @@ elif temp_file_date.weekday() == 6:  # Sunday
     file_date = (temp_file_date - timedelta(days=2)).strftime('%Y%m%d')#Move to Friday
 else:
     file_date = (temp_file_date - timedelta(days=1)).strftime('%Y%m%d')#Move to previous day
+
+file_date_obj = datetime.strptime(file_date, "%Y%m%d").date()
+
+# Check if holiday
+if nseholiday(file_date_obj):
+    print(f"{file_date_obj} was an NSE holiday. Skipping backward script.")
+    with open("holiday_flag.txt", "w") as f:
+        f.write(str(file_date_obj))
+    exit(0)
+
 
 
 #Folders for the ouput
