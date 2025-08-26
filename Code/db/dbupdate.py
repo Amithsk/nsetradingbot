@@ -63,16 +63,21 @@ def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
     try:
         sample = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "backward").glob(f"nifty_*{YDAY_STR}.csv"))[0].as_posix()
         df = pd.read_csv(sample)
-        print("Print the columns", df.columns)
         df['Datetime'] = pd.to_datetime(df['Datetime'])
 
-        price_df = df[['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume', 'SMA_5', 'SMA_20', 'RSI', 'ATR']]
+        price_df = (df[['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume', 'SMA_5', 'SMA_20', 'RSI', 'ATR']]).copy()
         price_df.rename(columns={'Datetime': 'Date'}, inplace=True)
         price_df = price_df.drop_duplicates(subset=["Date"])
 
         csv_start, csv_end = price_df['Date'].min(), price_df['Date'].max()
+        # If you’re passing to SQL, convert to string
+        if pd.notna(csv_start) and pd.notna(csv_end):
+            csv_start = csv_start.strftime("%Y-%m-%d")
+            csv_end   = csv_end.strftime("%Y-%m-%d")
+        else:
+            raise ValueError("price_df has no valid Date values")
         query = "SELECT Date FROM nifty_prices WHERE Date BETWEEN %s AND %s"
-        existing = pd.read_sql(query, conn, params=[csv_start, csv_end])
+        existing = pd.read_sql(query, conn, params=(csv_start, csv_end))
 
         if not existing.empty:
             price_df = price_df[~price_df["Date"].isin(existing["Date"])]
