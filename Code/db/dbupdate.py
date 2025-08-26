@@ -1,12 +1,18 @@
 import os
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import urllib.parse
 from pathlib import Path
 import traceback
 
+# NEW: IST + holiday hook
+from zoneinfo import ZoneInfo
+try:
+    from nsebackwardbot import nseholiday  # your existing holiday function
+except Exception:
+    nseholiday = None
 
 # --- CONFIGURATION ---
 def load_config():
@@ -17,13 +23,31 @@ def load_config():
     OUTPUT_ROOT = "./Output"
     return OUTPUT_ROOT, engine
 
-
-def prev_trading_day(dt):
+# Keep function name; upgrade logic to include NSE holidays
+def prev_trading_day(dt: date):
     dt -= timedelta(days=1)
-    while dt.weekday() >= 5:
+    while dt.weekday() >= 5 or _is_nse_holiday(dt):
         dt -= timedelta(days=1)
     return dt
 
+def _is_nse_holiday(d: date) -> bool:
+    """Use your nseholiday(...) if available. Accept bool or 'HOLIDAY' string."""
+    if nseholiday is None:
+        return False
+    for fmt in ("%Y%m%d", "%Y-%m-%d", "%d%m%Y", "%d-%m-%Y"):
+        try:
+            res = nseholiday(d.strftime(fmt))
+            if isinstance(res, bool):
+                return res
+            if isinstance(res, str) and res.strip().lower() in {"holiday", "true", "yes"}:
+                return True
+        except Exception:
+            continue
+    return False
+
+# --- GLOBAL DATE TOKENS (set in main loop for each folder) ---
+RUN_DATE_STR = None   # folder name (YYYYMMDD) = run day
+YDAY_STR     = None   # previous NSE trading day (YYYYMMDD) for backward/prices
 
 # --- HELPERS ---
 def extract_date_from_folder(folder: Path):
@@ -34,12 +58,12 @@ def extract_date_from_folder(folder: Path):
     except ValueError:
         return None
 
-
-# 1) Load raw prices
-def load_prices(OUTPUT_ROOT, conn, date_str):
+# 1) Load raw prices  (folder path uses RUN_DATE_STR; file name uses YDAY_STR)
+def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
     try:
-        sample = list(Path(OUTPUT_ROOT, date_str, "backward").glob(f"nifty_*{date_str}.csv"))[0].as_posix()
+        sample = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "backward").glob(f"nifty_*{YDAY_STR}.csv"))[0].as_posix()
         df = pd.read_csv(sample)
+        print("Print the columns", df.columns)
         df['Datetime'] = pd.to_datetime(df['Datetime'])
 
         price_df = df[['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume', 'SMA_5', 'SMA_20', 'RSI', 'ATR']]
@@ -55,19 +79,18 @@ def load_prices(OUTPUT_ROOT, conn, date_str):
 
         if not price_df.empty:
             price_df.to_sql("nifty_prices", conn, if_exists="append", index=False)
-            print(f"[{date_str}] Inserted {len(price_df)} new price rows")
+            print(f"[{RUN_DATE_STR}] Inserted {len(price_df)} new price rows (files dated {YDAY_STR})")
         else:
-            print(f"[{date_str}] No new price rows to insert")
+            print(f"[{RUN_DATE_STR}] No new price rows to insert")
 
     except Exception as e:
-        print(f"[{date_str}] Error in load_prices: {e}")
+        print(f"[{RUN_DATE_STR}] Error in load_prices: {e}")
 
-
-# 2) Load predictions
-def load_predictions(OUTPUT_ROOT, conn, date_str):
+# 2) Load predictions  (backward files use YDAY_STR; forward files use RUN_DATE_STR)
+def load_predictions(OUTPUT_ROOT, conn, _date_str_unused):
     try:
-        # backward
-        back_files = list(Path(OUTPUT_ROOT, date_str, "backward").glob(f"nifty_*{date_str}.csv"))
+        # backward => filenames carry YDAY_STR
+        back_files = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "backward").glob(f"nifty_*{YDAY_STR}.csv"))
         for f in back_files:
             f = f.as_posix()
             model = os.path.basename(f).split('_')[1]
@@ -78,8 +101,8 @@ def load_predictions(OUTPUT_ROOT, conn, date_str):
             preds.rename(columns={'Datetime': 'date', 'Prediction': 'predicted_dir'}, inplace=True)
             preds.to_sql('predictions', conn, if_exists='append', index=False)
 
-        # forward
-        fwd_files = list(Path(OUTPUT_ROOT, date_str, "forward").glob(f"nifty_*{date_str}.csv"))
+        # forward => filenames carry RUN_DATE_STR
+        fwd_files = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "forward").glob(f"nifty_*{RUN_DATE_STR}.csv"))
         for f in fwd_files:
             model = os.path.basename(f).split('_')[1]
             df = pd.read_csv(f, parse_dates=['Datetime'])
@@ -90,14 +113,13 @@ def load_predictions(OUTPUT_ROOT, conn, date_str):
             preds.to_sql('predictions', conn, if_exists='append', index=False)
 
     except Exception as e:
-        print(f"[{date_str}] Error in load_predictions: {e}")
+        print(f"[{RUN_DATE_STR}] Error in load_predictions: {e}")
         traceback.print_exc()
 
-
-# 3) Load comparisons
-def load_comparisons(OUTPUT_ROOT, conn, date_str):
+# 3) Load comparisons (evaluation files are stamped with RUN_DATE_STR)
+def load_comparisons(OUTPUT_ROOT, conn, _date_str_unused):
     try:
-        cmp_files = list(Path(OUTPUT_ROOT, date_str, "evaluation").glob(f"*comparison*{date_str}.csv"))
+        cmp_files = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "evaluation").glob(f"*comparison*{RUN_DATE_STR}.csv"))
         for f in cmp_files:
             f = f.as_posix()
             model = os.path.basename(f).split('_')[0]
@@ -108,27 +130,25 @@ def load_comparisons(OUTPUT_ROOT, conn, date_str):
                 .rename(columns={'Prediction': 'predicted_dir'}) \
                 .to_sql('comparisons', conn, if_exists='append', index=False)
     except Exception as e:
-        print(f"[{date_str}] Error in load_comparisons: {e}")
+        print(f"[{RUN_DATE_STR}] Error in load_comparisons: {e}")
         traceback.print_exc()
 
-
-# 4) Load daily summaries
-def load_daily_summary(OUTPUT_ROOT, conn, date_str):
+# 4) Load daily summaries (evaluation summary is stamped with RUN_DATE_STR)
+def load_daily_summary(OUTPUT_ROOT, conn, _date_str_unused):
     try:
-        sum_file = list(Path(OUTPUT_ROOT, date_str, "evaluation").glob(f"evaluation_summary*{date_str}.csv"))[0].as_posix()
+        sum_file = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "evaluation").glob(f"evaluation_summary*{RUN_DATE_STR}.csv"))[0].as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
         df.rename(columns={'date': 'summary_date', 'model': 'model_name'}, inplace=True)
         df.to_sql('model_daily_summary', conn, if_exists='append', index=False)
     except Exception as e:
-        print(f"[{date_str}] Error in load_daily_summary: {e}")
+        print(f"[{RUN_DATE_STR}] Error in load_daily_summary: {e}")
         traceback.print_exc()
 
-
-# 5) Load forward summary
-def load_forward_summary(OUTPUT_ROOT, conn, date_str):
+# 5) Load forward summary (stamped with RUN_DATE_STR)
+def load_forward_summary(OUTPUT_ROOT, conn, _date_str_unused):
     try:
-        sum_file = list(Path(OUTPUT_ROOT, date_str, "forward").glob(f"forward_summary*{date_str}.csv"))[0].as_posix()
+        sum_file = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "forward").glob(f"forward_summary*{RUN_DATE_STR}.csv"))[0].as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
         df.rename(columns={
@@ -140,19 +160,19 @@ def load_forward_summary(OUTPUT_ROOT, conn, date_str):
         }, inplace=True)
         df.to_sql('forward_summary', conn, if_exists='append', index=False)
     except Exception as e:
-        print(f"[{date_str}] Error in load_forward_summary: {e}")
+        print(f"[{RUN_DATE_STR}] Error in load_forward_summary: {e}")
         traceback.print_exc()
-
 
 # --- DRIVER FUNCTION ---
 def process_date(OUTPUT_ROOT, conn, date_str):
-    print(f"\n=== Processing {date_str} ===")
+    # date_str kept for API compatibility, but we drive everything
+    # from RUN_DATE_STR and YDAY_STR globals set in main.
+    print(f"\n=== Processing run folder {RUN_DATE_STR} (backward uses {YDAY_STR}) ===")
     load_prices(OUTPUT_ROOT, conn, date_str)
     load_predictions(OUTPUT_ROOT, conn, date_str)
     load_comparisons(OUTPUT_ROOT, conn, date_str)
     load_daily_summary(OUTPUT_ROOT, conn, date_str)
     load_forward_summary(OUTPUT_ROOT, conn, date_str)
-
 
 # --- MAIN EXECUTION ---
 if __name__ == "__main__":
@@ -162,20 +182,29 @@ if __name__ == "__main__":
     conn = session.connection()
 
     try:
-        # MODE 1: Single date (manual run)
-        # date_str = datetime.now().strftime("%Y%m%d")
-        # process_date(OUTPUT_ROOT, conn, date_str)
+        # MODE 2: Process ALL date folders under OUTPUT_ROOT (backfill/daily both)
+        ist = ZoneInfo("Asia/Kolkata")
+        for folder in sorted(Path(OUTPUT_ROOT).iterdir()):
+            if not folder.is_dir():
+                continue
 
-        # MODE 2: Process ALL date folders under OUTPUT_ROOT
-        for folder in Path(OUTPUT_ROOT).iterdir():
-            if folder.is_dir():
-                date_str = extract_date_from_folder(folder)
-                if date_str:
-                    process_date(OUTPUT_ROOT, conn, date_str)
+            ds = extract_date_from_folder(folder)
+            if not ds:
+                continue
+
+            # 1) RUN_DATE_STR is the folder name (run day)
+            RUN_DATE_STR = ds
+
+            # 2) Compute previous NSE trading day for that run day (for backward/prices)
+            run_day = datetime.strptime(RUN_DATE_STR, "%Y%m%d").date()
+            prev_day = prev_trading_day(run_day)
+            YDAY_STR = prev_day.strftime("%Y%m%d")
+
+            process_date(OUTPUT_ROOT, conn, RUN_DATE_STR)
 
         # session.commit()
         print("Data load finished")
-
+        
     except Exception as e:
         print("Error occurred:", e)
         session.rollback()
