@@ -169,7 +169,6 @@ def load_daily_summary(OUTPUT_ROOT, conn, _date_str_unused):
         sum_file = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "evaluation").glob(f"evaluation_summary*{RUN_DATE_STR}.csv"))[0].as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
-        df['date'] = df['date'].dt.tz_localize(None)
         df.rename(columns={'date': 'summary_date', 'model': 'model_name'}, inplace=True)
         
         #Check existing keys
@@ -190,7 +189,6 @@ def load_forward_summary(OUTPUT_ROOT, conn, _date_str_unused):
         sum_file = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "forward").glob(f"forward_summary*{RUN_DATE_STR}.csv"))[0].as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
-        df['date'] = df['date'].dt.tz_localize(None)
         df.rename(columns={
             'date': 'summary_date',
             'model': 'model_name',
