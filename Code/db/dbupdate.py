@@ -101,10 +101,18 @@ def load_predictions(OUTPUT_ROOT, conn, _date_str_unused):
             model = os.path.basename(f).split('_')[1]
             df = pd.read_csv(f, parse_dates=['Datetime'])
             preds = df[['Datetime', 'Prediction', 'Predicted_Price']].copy()
+            preds['Datetime'] = preds['Datetime'].dt.tz_localize(None)
             preds['model_name'] = model
             preds['is_forward'] = False
             preds.rename(columns={'Datetime': 'date', 'Prediction': 'predicted_dir'}, inplace=True)
-            preds.to_sql('predictions', conn, if_exists='append', index=False)
+            existing = pd.read_sql("SELECT date, model_name, is_forward FROM predictions", conn)
+            
+            # drop any rows from preds that are already in DB
+            preds = preds.merge(existing, on=["date","model_name","is_forward"],how="left", indicator=True)
+            preds = preds[preds["_merge"] == "left_only"].drop(columns=["_merge"])
+            if not preds.empty:
+                preds.to_sql('predictions', conn, if_exists='append', index=False)
+                print(f"[{RUN_DATE_STR}] Inserted {len(preds)} new backward prediction rows (files dated {YDAY_STR})")
 
         # forward => filenames carry RUN_DATE_STR
         fwd_files = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "forward").glob(f"nifty_*{RUN_DATE_STR}.csv"))
@@ -112,10 +120,16 @@ def load_predictions(OUTPUT_ROOT, conn, _date_str_unused):
             model = os.path.basename(f).split('_')[1]
             df = pd.read_csv(f, parse_dates=['Datetime'])
             preds = df[['Datetime', 'Prediction', 'Predicted_Price']].copy()
+            preds['Datetime'] = preds['Datetime'].dt.tz_localize(None)
             preds['model_name'] = model
             preds['is_forward'] = True
             preds.rename(columns={'Datetime': 'date', 'Prediction': 'predicted_dir'}, inplace=True)
-            preds.to_sql('predictions', conn, if_exists='append', index=False)
+            existing = pd.read_sql("SELECT date, model_name, is_forward FROM predictions", conn)
+            preds = preds.merge(existing, on=["date","model_name","is_forward"],how="left", indicator=True)
+            preds = preds[preds["_merge"] == "left_only"].drop(columns=["_merge"])
+            if not preds.empty:
+                preds.to_sql('predictions', conn, if_exists='append', index=False)
+                print(f"[{RUN_DATE_STR}] Inserted {len(preds)} new forward prediction rows (files dated {YDAY_STR})")
 
     except Exception as e:
         print(f"[{RUN_DATE_STR}] Error in load_predictions: {e}")
@@ -129,11 +143,22 @@ def load_comparisons(OUTPUT_ROOT, conn, _date_str_unused):
             f = f.as_posix()
             model = os.path.basename(f).split('_')[0]
             df = pd.read_csv(f, parse_dates=['Datetime'])
+            df['Datetime'] = df['Datetime'].dt.tz_localize(None)
             df['model_name'] = model
             df.rename(columns={'Datetime': 'date', 'true_direction': 'actual_dir'}, inplace=True)
-            df[['date', 'model_name', 'actual_dir', 'Prediction', 'was_correct', 'error_mag']] \
+            
+            #Check existing keys
+            existing = pd.read_sql("SELECT date,model_name FROM comparisons", conn)
+            
+            #drop duplicate
+            df = df.merge(existing, on=["date","model_name"],how="left", indicator=True)
+            df = df[df["_merge"] == "left_only"].drop(columns=["_merge"])
+            if not df.empty:
+                df[['date', 'model_name', 'actual_dir', 'Prediction', 'was_correct', 'error_mag']] \
                 .rename(columns={'Prediction': 'predicted_dir'}) \
                 .to_sql('comparisons', conn, if_exists='append', index=False)
+                print(f"[{RUN_DATE_STR}] Inserted {len(df)} new comparison rows (files dated {RUN_DATE_STR})")
+
     except Exception as e:
         print(f"[{RUN_DATE_STR}] Error in load_comparisons: {e}")
         traceback.print_exc()
@@ -144,8 +169,17 @@ def load_daily_summary(OUTPUT_ROOT, conn, _date_str_unused):
         sum_file = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "evaluation").glob(f"evaluation_summary*{RUN_DATE_STR}.csv"))[0].as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
+        df['date'] = df['date'].dt.tz_localize(None)
         df.rename(columns={'date': 'summary_date', 'model': 'model_name'}, inplace=True)
-        df.to_sql('model_daily_summary', conn, if_exists='append', index=False)
+        
+        #Check existing keys
+        existing = pd.read_sql("SELECT summary_date,model_name FROM model_daily_summary", conn)
+        #drop duplicate
+        df = df.merge(existing, on=["summary_date","model_name"],how="left", indicator=True)
+        df = df[df["_merge"] == "left_only"].drop(columns=["_merge"])
+        if not df.empty:
+            df.to_sql('model_daily_summary', conn, if_exists='append', index=False)
+            print(f"[{RUN_DATE_STR}] Inserted {len(df)} daily summary rows (files dated {RUN_DATE_STR})")
     except Exception as e:
         print(f"[{RUN_DATE_STR}] Error in load_daily_summary: {e}")
         traceback.print_exc()
@@ -156,6 +190,7 @@ def load_forward_summary(OUTPUT_ROOT, conn, _date_str_unused):
         sum_file = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "forward").glob(f"forward_summary*{RUN_DATE_STR}.csv"))[0].as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
+        df['date'] = df['date'].dt.tz_localize(None)
         df.rename(columns={
             'date': 'summary_date',
             'model': 'model_name',
@@ -163,7 +198,15 @@ def load_forward_summary(OUTPUT_ROOT, conn, _date_str_unused):
             'bearish': 'bearish_count',
             'predicted_close_mean': 'avg_pred_price'
         }, inplace=True)
-        df.to_sql('forward_summary', conn, if_exists='append', index=False)
+
+        #Check existing keys
+        existing = pd.read_sql("SELECT summary_date,model_name FROM forward_summary", conn)
+        #drop duplicate
+        df = df.merge(existing, on=["summary_date","model_name"],how="left", indicator=True)
+        df = df[df["_merge"] == "left_only"].drop(columns=["_merge"])
+        if not df.empty:
+            df.to_sql('forward_summary', conn, if_exists='append', index=False)
+            print(f"[{RUN_DATE_STR}] Inserted {len(df)} new forward summary rows (files dated {RUN_DATE_STR})")
     except Exception as e:
         print(f"[{RUN_DATE_STR}] Error in load_forward_summary: {e}")
         traceback.print_exc()
