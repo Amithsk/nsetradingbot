@@ -1,20 +1,19 @@
 # nse_forward_multi.py
 import pandas as pd, numpy as np
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time,date
 from pathlib import Path
 import joblib
 import pytz
 import sys
 from utils.nseholiday import nseholiday
 
+
 # 1) Parameters
 #Date stuff
 today = datetime.now()
 predicton_date=datetime.now()
 tstr = today.strftime('%Y%m%d')
-nseholidaycheck=today.strftime('%Y%m%d').date
-
-
+nseholidaycheck = datetime.strptime(tstr, "%Y%m%d").date()
 
 # Check if holiday
 if nseholiday(nseholidaycheck):
