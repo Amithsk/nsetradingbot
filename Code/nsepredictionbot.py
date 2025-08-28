@@ -12,10 +12,13 @@ from utils.nseholiday import nseholiday
 today = datetime.now()
 predicton_date=datetime.now()
 tstr = today.strftime('%Y%m%d')
+nseholidaycheck=today.strftime('%Y%m%d').date
+
+
 
 # Check if holiday
-if nseholiday(tstr):
-    print(f"{tstr} was an NSE holiday. Skipping forward script.")
+if nseholiday(nseholidaycheck):
+    print(f"{nseholidaycheck} was an NSE holiday. Skipping forward script.")
     sys.exit(0)
 
 #Currently yfiance provides today-1 data,so prediction needs to pick N-1 date data 
