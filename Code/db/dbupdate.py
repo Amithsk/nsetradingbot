@@ -61,7 +61,14 @@ def extract_date_from_folder(folder: Path):
 # 1) Load raw prices  (folder path uses RUN_DATE_STR; file name uses YDAY_STR)
 def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
     try:
-        sample = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "backward").glob(f"nifty_*{YDAY_STR}.csv"))[0].as_posix()
+        matches = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "backward").glob(f"nifty_*{YDAY_STR}.csv"))
+        #If the file is not present print and continue
+        if not matches:
+            print(f"No file found for {YDAY_STR}, skipping...")
+            return None
+
+        sample = matches[0].as_posix()
+       
         df = pd.read_csv(sample)
         df['Datetime'] = pd.to_datetime(df['Datetime'])
 
@@ -96,6 +103,10 @@ def load_predictions(OUTPUT_ROOT, conn, _date_str_unused):
     try:
         # backward => filenames carry YDAY_STR
         back_files = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "backward").glob(f"nifty_*{YDAY_STR}.csv"))
+        #If the file is not present print and continue
+        if not back_files:
+            print(f"No file found for {YDAY_STR}, skipping...")
+            return None
         for f in back_files:
             f = f.as_posix()
             model = os.path.basename(f).split('_')[1]
@@ -112,10 +123,15 @@ def load_predictions(OUTPUT_ROOT, conn, _date_str_unused):
             preds = preds[preds["_merge"] == "left_only"].drop(columns=["_merge"])
             if not preds.empty:
                 preds.to_sql('predictions', conn, if_exists='append', index=False)
-                print(f"[{RUN_DATE_STR}] Inserted {len(preds)} new backward prediction rows (files dated {YDAY_STR})")
+                print(f"[{RUN_DATE_STR}] Inserted {len(preds)} new rows for the {model} backward prediction for (files dated {YDAY_STR})")
 
         # forward => filenames carry RUN_DATE_STR
         fwd_files = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "forward").glob(f"nifty_*{RUN_DATE_STR}.csv"))
+        #If the file is not present print and continue
+        if not fwd_files:
+            print(f"No file found for {YDAY_STR}, skipping...")
+            return None
+        
         for f in fwd_files:
             model = os.path.basename(f).split('_')[1]
             df = pd.read_csv(f, parse_dates=['Datetime'])
@@ -129,7 +145,7 @@ def load_predictions(OUTPUT_ROOT, conn, _date_str_unused):
             preds = preds[preds["_merge"] == "left_only"].drop(columns=["_merge"])
             if not preds.empty:
                 preds.to_sql('predictions', conn, if_exists='append', index=False)
-                print(f"[{RUN_DATE_STR}] Inserted {len(preds)} new forward prediction rows (files dated {YDAY_STR})")
+                print(f"[{RUN_DATE_STR}] Inserted {len(preds)} new rows for the {model} forward prediction for (files dated {YDAY_STR})")
 
     except Exception as e:
         print(f"[{RUN_DATE_STR}] Error in load_predictions: {e}")
@@ -139,6 +155,11 @@ def load_predictions(OUTPUT_ROOT, conn, _date_str_unused):
 def load_comparisons(OUTPUT_ROOT, conn, _date_str_unused):
     try:
         cmp_files = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "evaluation").glob(f"*comparison*{RUN_DATE_STR}.csv"))
+        #If the file is not present print and continue
+        if not cmp_files:
+            print(f"No file found for {YDAY_STR}, skipping...")
+            return None
+               
         for f in cmp_files:
             f = f.as_posix()
             model = os.path.basename(f).split('_')[0]
@@ -157,7 +178,7 @@ def load_comparisons(OUTPUT_ROOT, conn, _date_str_unused):
                 df[['date', 'model_name', 'actual_dir', 'Prediction', 'was_correct', 'error_mag']] \
                 .rename(columns={'Prediction': 'predicted_dir'}) \
                 .to_sql('comparisons', conn, if_exists='append', index=False)
-                print(f"[{RUN_DATE_STR}] Inserted {len(df)} new comparison rows (files dated {RUN_DATE_STR})")
+                print(f"[{RUN_DATE_STR}] Inserted {len(df)} new rows for the  {model} comparison for (files dated {RUN_DATE_STR})")
 
     except Exception as e:
         print(f"[{RUN_DATE_STR}] Error in load_comparisons: {e}")
@@ -166,7 +187,13 @@ def load_comparisons(OUTPUT_ROOT, conn, _date_str_unused):
 # 4) Load daily summaries (evaluation summary is stamped with RUN_DATE_STR)
 def load_daily_summary(OUTPUT_ROOT, conn, _date_str_unused):
     try:
-        sum_file = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "evaluation").glob(f"evaluation_summary*{RUN_DATE_STR}.csv"))[0].as_posix()
+        daily_matches = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "evaluation").glob(f"evaluation_summary*{RUN_DATE_STR}.csv"))
+        #If the file is not present print and continue
+        if not daily_matches:
+            print(f"No file found for {RUN_DATE_STR}, skipping...")
+            return None
+
+        sum_file = daily_matches[0].as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
         df.rename(columns={'date': 'summary_date', 'model': 'model_name'}, inplace=True)
@@ -186,7 +213,13 @@ def load_daily_summary(OUTPUT_ROOT, conn, _date_str_unused):
 # 5) Load forward summary (stamped with RUN_DATE_STR)
 def load_forward_summary(OUTPUT_ROOT, conn, _date_str_unused):
     try:
-        sum_file = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "forward").glob(f"forward_summary*{RUN_DATE_STR}.csv"))[0].as_posix()
+        forward_matches = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "forward").glob(f"forward_summary*{RUN_DATE_STR}.csv"))
+        #If the file is not present print and continue
+        if not forward_matches:
+            print(f"No file found for {RUN_DATE_STR}, skipping...")
+            return None
+
+        sum_file = forward_matches[0].as_posix()
         df = pd.read_csv(sum_file)
         df['date'] = pd.to_datetime(df['date']).dt.date
         df.rename(columns={
