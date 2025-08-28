@@ -60,7 +60,7 @@ for model_path in MODEL_DIR.glob("*_backward.pkl"):
     )
 
     # 4) generate 5m bars for today day
-    #Adapted the times to match the yfinance timestamp format
+    #Adapted the times to match the yfinance timestamp format(backward file format)
     times = pd.date_range(
       start=datetime.combine(predicton_date.date(), time(9,15)),
       end  =datetime.combine(predicton_date.date(), time(15,30)),
