@@ -21,9 +21,10 @@ today_str = today.strftime('%Y%m%d')
 prev_day = prev_trading_day(today)
 prev_str = prev_day.strftime('%Y%m%d')
 
-# --- NSE Holiday Check ---
-if nseholiday(prev_str):
-    print(f"{prev_str} was an NSE holiday. Skipping evaluation.")
+nseholidaycheck = datetime.strptime(prev_str, "%Y%m%d").date()
+
+if nseholiday(nseholidaycheck):
+    print(f"{nseholidaycheck} was an NSE holiday. Skipping rvaluation as the forward file are empty.")
     sys.exit(0)
 
 # --- Paths ---
