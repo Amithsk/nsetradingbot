@@ -66,7 +66,7 @@ for model_path in MODEL_DIR.glob("*_backward.pkl"):
       end  =datetime.combine(predicton_date.date(), time(15,30)),
       freq='5min',
       tz=pytz.timezone('Asia/Kolkata')
-    ).tz_convert('UTC') 
+    )
 
     records = []
     for ts in times:
