@@ -29,6 +29,12 @@ elif today.weekday() == 6:  # Sunday (index 6)
 else:
     file_date = today.strftime('%Y%m%d')
 
+nseholidaycheck = datetime.strptime(file_date, "%Y%m%d").date()
+
+if nseholiday(nseholidaycheck):
+    print(f"{nseholidaycheck} was an NSE holiday. Skipping forward file generation as backward files are empty.")
+    sys.exit(0)
+
 
 # Discover all backward CSVs & models
 MODEL_DIR  = Path('./models')
