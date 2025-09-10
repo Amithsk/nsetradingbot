@@ -1,5 +1,5 @@
 # NSE Daily Bhavcopy Downloader
-# Replicates user behaviour: homepage -> reports -> API -> download PreviousDay bhavcopy
+# Replicates user behaviour: homepage -> reports -> API -> download PreviousDay/Todays bhavcopy
 
 import requests
 import datetime
@@ -44,60 +44,6 @@ def establish_browser_session() -> requests.Session | None:
     return session_obj
 
 
-def save_daily_reports_debug(session_obj: requests.Session) -> None:
-    """Save full JSON for debugging if bhavcopy not found."""
-    try:
-        response_api = session_obj.get(DAILY_API_URL, timeout=20)
-        if response_api.status_code != 200:
-            print("API debug failed:", response_api.status_code)
-            return
-
-        reports_data = response_api.json()
-        prefix = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        debug_dir = Path("debug")
-        debug_dir.mkdir(exist_ok=True)
-
-        full_path = debug_dir / f"daily_reports_{prefix}.json"
-        full_path.write_text(json.dumps(reports_data, indent=2), encoding="utf-8")
-
-        print(f"Debug saved: {full_path}")
-    except Exception as error:
-        print("Debug error:", error)
-
-
-def download_bhavcopy_daily(session_obj: requests.Session) -> Path | None:
-    """Download previous day's PRddmmyy.zip bhavcopy file from API (PreviousDay section)."""
-    try:
-        response_api = session_obj.get(DAILY_API_URL, timeout=20)
-        if response_api.status_code != 200:
-            print("Daily API failed:", response_api.status_code)
-            return None
-
-        reports_data = response_api.json()
-        previous_day_reports = reports_data.get("PreviousDay", [])
-
-        bhavcopy_entry = None
-        for item in previous_day_reports:
-            if "BHAVCOPY-PR-ZIP" in (item.get("fileKey") or ""):
-                bhavcopy_entry = item
-                break
-
-        if not bhavcopy_entry:
-            print("Bhavcopy entry not found in PreviousDay")
-            save_daily_reports_debug(session_obj)
-            return None
-
-        file_name = bhavcopy_entry["fileActlName"]
-        file_url = urljoin(bhavcopy_entry["filePath"], file_name)
-
-        return _save_file(session_obj, file_name, file_url)
-
-    except Exception as error:
-        print("Error fetching bhavcopy:", error)
-        return None
-
-
 def _save_file(session_obj: requests.Session, file_name: str, file_url: str) -> Path | None:
     """Download and save file to bhavcopy/ folder."""
     save_dir = Path("bhavcopy")
@@ -121,6 +67,82 @@ def _save_file(session_obj: requests.Session, file_name: str, file_url: str) -> 
         return None
 
 
+def download_bhavcopy_today(session_obj: requests.Session) -> Path | None:
+    """Try to download today's bhavcopy (T) via archives URL."""
+    today = datetime.datetime.now()
+    file_name = f"cm{today.strftime('%d%b%Y').upper()}bhav.csv.zip"
+    file_url = (
+        "https://archives.nseindia.com/content/historical/EQUITIES/"
+        f"{today.strftime('%Y')}/{today.strftime('%b').upper()}/{file_name}"
+    )
+    print("Trying today file:", file_url)
+    return _save_file(session_obj, file_name, file_url)
+
+
+def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
+    """Download yesterday's bhavcopy from API PreviousDay section."""
+    try:
+        response_api = session_obj.get(DAILY_API_URL, timeout=20)
+        if response_api.status_code != 200:
+            print("Daily API failed:", response_api.status_code)
+            return None
+
+        reports_data = response_api.json()
+        previous_day_reports = reports_data.get("PreviousDay", [])
+
+        bhavcopy_entry = None
+        for item in previous_day_reports:
+            if "BHAVCOPY-PR-ZIP" in (item.get("fileKey") or ""):
+                bhavcopy_entry = item
+                break
+
+        if not bhavcopy_entry:
+            print("Bhavcopy entry not found in PreviousDay")
+            _save_debug(reports_data)
+            return None
+
+        file_name = bhavcopy_entry["fileActlName"]
+        file_url = urljoin(bhavcopy_entry["filePath"], file_name)
+        return _save_file(session_obj, file_name, file_url)
+
+    except Exception as error:
+        print("Error fetching bhavcopy (yesterday):", error)
+        return None
+
+
+def _save_debug(data_obj):
+    """Save debug JSON to file."""
+    debug_dir = Path("debug")
+    debug_dir.mkdir(exist_ok=True)
+    prefix = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    path_debug = debug_dir / f"daily_reports_debug_{prefix}.json"
+    path_debug.write_text(json.dumps(data_obj, indent=2), encoding="utf-8")
+    print(f"Debug JSON saved: {path_debug}")
+
+
+def download_bhavcopy_master(session_obj: requests.Session) -> Path | None:
+    """Master function: after 8 PM IST try today's file first, else yesterday."""
+    now_time = datetime.datetime.now().time()
+    cutoff_time = datetime.time(20, 0, 0)  # 8 PM
+
+    if now_time >= cutoff_time:
+        # Add random wait 0–15 min after cutoff
+        wait_seconds = random.randint(0, 900)
+        print(f"Waiting {wait_seconds} seconds before fetching today's bhavcopy...")
+        time.sleep(wait_seconds)
+
+        # Try today's file first
+        file_path = download_bhavcopy_today(session_obj)
+        if file_path:
+            return file_path
+        # Fallback to yesterday
+        print("Today's file not available, falling back to PreviousDay API.")
+        return download_bhavcopy_yesterday(session_obj)
+    else:
+        # Before 8 PM → always use PreviousDay
+        return download_bhavcopy_yesterday(session_obj)
+
+
 def nse_is_open() -> bool:
     """Check if today is a trading day."""
     today = datetime.datetime.now()
@@ -134,13 +156,18 @@ def nse_is_open() -> bool:
 
 
 if __name__ == "__main__":
+    # Random startup delay (0–60 sec) to avoid looking like a bot
+    startup_delay = random.randint(0, 60)
+    print(f"Startup delay: {startup_delay} seconds")
+    time.sleep(startup_delay)
+
     if not nse_is_open():
         print("NSE closed; skipping.")
     else:
         session_obj = establish_browser_session()
         if session_obj:
-            bhavcopy_path = download_bhavcopy_daily(session_obj)
-            if bhavcopy_path:
-                print("Download complete:", bhavcopy_path)
+            file_path = download_bhavcopy_master(session_obj)
+            if file_path:
+                print("Download complete:", file_path)
             else:
                 print("Bhavcopy not available yet. Check debug folder.")
