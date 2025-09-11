@@ -14,5 +14,7 @@
 #Ignore
 *.xlsx
 
+#Ignore .pyc
+*.pyc
 
 
