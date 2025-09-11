@@ -190,7 +190,7 @@ if __name__ == "__main__":
             file_path = download_bhavcopy_master(session_obj)
             if file_path:
                 print("Download complete:", file_path)
-                #git_commit_changes(file_path)
+                git_commit_changes(file_path)
 
             else:
                 print("Bhavcopy not available yet. Check debug folder.")
