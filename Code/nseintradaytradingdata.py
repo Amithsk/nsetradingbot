@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from urllib.parse import urljoin
 from utils.nseholiday import nseholiday
+import subprocess
+
 
 HOME_URL = "https://www.nseindia.com/"
 REPORTS_URL = "https://www.nseindia.com/all-reports"
@@ -23,6 +25,20 @@ HEADERS_DICT = {
     "Connection": "keep-alive"
 }
 
+def git_commit_changes(file_path: Path):
+    """
+    Commit and push changes to git.
+    Assumes repo is already initialized and remote is configured.
+    """
+    trade_date = datetime.datetime.now().strftime("%d-%b-%Y")
+    commit_message = f"Bhavcopy update {file_path.name} on {trade_date}"
+    try:
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", commit_message], check=True)
+        subprocess.run(["git", "push"], check=True)
+        print("Changes committed and pushed to git.")
+    except subprocess.CalledProcessError as error:
+        print("Git command failed:", error)
 
 def establish_browser_session() -> requests.Session | None:
     """Open homepage + reports page to set cookies (simulate user)."""
@@ -169,5 +185,7 @@ if __name__ == "__main__":
             file_path = download_bhavcopy_master(session_obj)
             if file_path:
                 print("Download complete:", file_path)
+                git_commit_changes(file_path)
+
             else:
                 print("Bhavcopy not available yet. Check debug folder.")
