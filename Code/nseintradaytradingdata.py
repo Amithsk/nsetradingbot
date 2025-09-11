@@ -11,7 +11,8 @@ from urllib.parse import urljoin
 from utils.nseholiday import nseholiday
 import subprocess
 
-
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+OUTPUT_DIR = PROJECT_ROOT / "Output" / "Intraday"
 HOME_URL = "https://www.nseindia.com/"
 REPORTS_URL = "https://www.nseindia.com/all-reports"
 DAILY_API_URL = "https://www.nseindia.com/api/daily-reports?key=CM"
@@ -61,7 +62,10 @@ def establish_browser_session() -> requests.Session | None:
 
 
 def _save_file(session_obj: requests.Session, file_name: str, file_url: str) -> Path | None:
+
     """Download and save file to bhavcopy/ folder."""
+    
+
     save_dir = Path("Output/Intraday")
     save_dir.mkdir(exist_ok=True)
     save_path = save_dir / file_name
