@@ -10,9 +10,12 @@ from pathlib import Path
 from urllib.parse import urljoin
 from utils.nseholiday import nseholiday
 import subprocess
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "Output" / "Intraday"
+DEBUG_DIR = PROJECT_ROOT / "Output" / "Debug"
+
 HOME_URL = "https://www.nseindia.com/"
 REPORTS_URL = "https://www.nseindia.com/all-reports"
 DAILY_API_URL = "https://www.nseindia.com/api/daily-reports?key=CM"
@@ -65,10 +68,8 @@ def _save_file(session_obj: requests.Session, file_name: str, file_url: str) -> 
 
     """Download and save file to bhavcopy/ folder."""
     
-
-    save_dir = Path("Output/Intraday")
-    save_dir.mkdir(exist_ok=True)
-    save_path = save_dir / file_name
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    save_path = OUTPUT_DIR / file_name
 
     try:
         response_file = session_obj.get(file_url, stream=True, timeout=30)
@@ -132,10 +133,10 @@ def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
 
 def _save_debug(data_obj):
     """Save debug JSON to file."""
-    debug_dir = Path("debug")
-    debug_dir.mkdir(exist_ok=True)
+    DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+    DEBUG_DIR.mkdir(exist_ok=True)
     prefix = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    path_debug = debug_dir / f"daily_reports_debug_{prefix}.json"
+    path_debug = DEBUG_DIR / f"daily_reports_debug_{prefix}.json"
     path_debug.write_text(json.dumps(data_obj, indent=2), encoding="utf-8")
     print(f"Debug JSON saved: {path_debug}")
 
@@ -189,7 +190,7 @@ if __name__ == "__main__":
             file_path = download_bhavcopy_master(session_obj)
             if file_path:
                 print("Download complete:", file_path)
-                git_commit_changes(file_path)
+                #git_commit_changes(file_path)
 
             else:
                 print("Bhavcopy not available yet. Check debug folder.")
