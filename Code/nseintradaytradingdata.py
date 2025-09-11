@@ -46,7 +46,7 @@ def establish_browser_session() -> requests.Session | None:
 
 def _save_file(session_obj: requests.Session, file_name: str, file_url: str) -> Path | None:
     """Download and save file to bhavcopy/ folder."""
-    save_dir = Path("bhavcopy")
+    save_dir = Path("Output/Intraday")
     save_dir.mkdir(exist_ok=True)
     save_path = save_dir / file_name
 
