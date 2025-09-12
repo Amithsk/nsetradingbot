@@ -8,7 +8,7 @@ import random
 import json
 from pathlib import Path
 from urllib.parse import urljoin
-from Code.utils.nseholiday import nseholiday
+from utils.nseholiday import nseholiday
 import subprocess
 from pathlib import Path
 
