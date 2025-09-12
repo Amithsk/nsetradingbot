@@ -37,7 +37,15 @@ def git_commit_changes(file_path: Path):
     trade_date = datetime.datetime.now().strftime("%d-%b-%Y")
     commit_message = f"Bhavcopy update {file_path.name} on {trade_date}"
     try:
+        #Stage changes
         subprocess.run(["git", "add", "."], check=True)
+
+        #Check if there are any  staged changes
+        result = subprocess.run(["git", "diff", "--cached","--quiet"])
+        if result.returncode == 0:
+            print("No changes to commit.")
+            return
+        #Commit and push
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
         subprocess.run(["git", "push"], check=True)
         print("Changes committed and pushed to git.")
