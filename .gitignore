@@ -7,6 +7,9 @@
 
 # Ignore .zip and .csv
 *.zip
+# Allow Bhavcopy zips in Output/Intraday
+!Output/Intraday/*.zip
+
 
 #Ignore .txt
 *.txt
