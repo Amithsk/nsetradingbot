@@ -95,18 +95,14 @@ def _save_file(session_obj: requests.Session, file_name: str, file_url: str) -> 
         print("File download error:", error)
         return None
 
-
 def download_bhavcopy_today(session_obj: requests.Session) -> Path | None:
-    """Try to download today's bhavcopy (T) via archives URL."""
+    """Download today's bhavcopy (T) using NSE Daily Reports API."""
     today = datetime.datetime.now()
-    file_name = f"cm{today.strftime('%d%b%Y').upper()}bhav.csv.zip"
-    file_url = (
-        "https://archives.nseindia.com/content/historical/EQUITIES/"
-        f"{today.strftime('%Y')}/{today.strftime('%b').upper()}/{file_name}"
-    )
-    print("Trying today file:", file_url)
-    return _save_file(session_obj, file_name, file_url)
+    file_name = f"PR{today.strftime('%d%m%y')}.zip"
+    file_url = DAILY_API_URL  # Always points to today's daily report zip
 
+    print("Trying today file via API:", file_url, " -> ", file_name)
+    return _save_file(session_obj, file_name, file_url)
 
 def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
     """Download yesterday's bhavcopy from API PreviousDay section."""
