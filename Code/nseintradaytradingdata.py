@@ -45,8 +45,11 @@ def git_commit_changes(file_path: Path):
         if result.returncode == 0:
             print("No changes to commit.")
             return
-        #Commit and push
+        #Commit 
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
+        # Pull latest changes before pushing (to avoid rejection)
+        subprocess.run(["git", "pull", "--rebase"], check=True)
+        #Push changes
         subprocess.run(["git", "push"], check=True)
         print("Changes committed and pushed to git.")
     except subprocess.CalledProcessError as error:
