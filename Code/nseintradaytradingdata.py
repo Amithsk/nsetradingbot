@@ -39,7 +39,7 @@ def git_commit_changes(file_path: Path):
     try:
         # Pull latest changes before pushing (to avoid rejection)
         subprocess.run(["git", "pull", "--rebase"], check=True)
-        
+
         #Stage changes
         subprocess.run(["git", "add", "."], check=True)
 
@@ -77,36 +77,130 @@ def establish_browser_session() -> requests.Session | None:
     return session_obj
 
 
-def _save_file(session_obj: requests.Session, file_name: str, file_url: str) -> Path | None:
+def _save_file(session_obj: requests.Session, file_name: str, file_url: str, out_dir: Path = Path("Output/Intraday")) -> Path | None:
+    """
+    Download file_url (streamed) and save to out_dir/file_name.
+    - Validates HTTP status
+    - Streams to a .part file
+    - Verifies ZIP magic bytes ('PK') before renaming to final file
+    Returns Path on success, None on failure.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    final_path = out_dir / file_name
+    tmp_path = out_dir / (file_name + ".part")
 
-    """Download and save file to bhavcopy/ folder."""
-    
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    save_path = OUTPUT_DIR / file_name
+    # Make a safe copy of headers and set referer/origin for archive hosts
+    headers = HEADERS_DICT.copy() if 'HEADERS' in globals() else {}
+    headers.setdefault("Referer", HOME_URL if 'HOME_URL' in globals() else "https://www.nseindia.com/")
+    headers.setdefault("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
 
     try:
-        response_file = session_obj.get(file_url, stream=True, timeout=30)
-        if response_file.status_code == 200:
-            with open(save_path, "wb") as file_handle:
-                for chunk in response_file.iter_content(chunk_size=8192):
+        with session_obj.get(file_url, headers=headers, stream=True, timeout=30) as r:
+            if r.status_code != 200:
+                print(f"Failed to download {file_url} : HTTP {r.status_code}")
+                # show small snippet for debugging (server often returns HTML/JSON on errors)
+                try:
+                    preview = r.text[:800]
+                except Exception:
+                    preview = "<no-preview-available>"
+                print("Server response preview:", preview)
+                return None
+
+            # Stream first chunk to check magic bytes without loading whole content in memory
+            it = r.iter_content(chunk_size=8192)
+            first_chunk = next(it, b'')
+            if not first_chunk:
+                print("Empty response while downloading file.")
+                return None
+
+            # Quick Content-Type sanity check
+            ct = r.headers.get("Content-Type", "").lower()
+            if "html" in ct or "json" in ct or "text" in ct:
+                # it's suspicious — show debug snippet and abort
+                snippet = first_chunk[:500].decode(errors="replace")
+                print(f"Download returned non-zip content (Content-Type: {ct}). Snippet:\n{snippet}")
+                return None
+
+            # If first_chunk doesn't start with ZIP magic, still write and check after complete stream
+            with open(tmp_path, "wb") as fw:
+                fw.write(first_chunk)
+                for chunk in it:
                     if chunk:
-                        file_handle.write(chunk)
-            print(f"Saved: {save_path}")
-            return save_path
-        else:
-            print("Download failed:", response_file.status_code)
-            return None
-    except Exception as error:
-        print("File download error:", error)
+                        fw.write(chunk)
+
+            # Validate the downloaded file has ZIP signature (PK\x03\x04)
+            with open(tmp_path, "rb") as fr:
+                sig = fr.read(4)
+            if not sig.startswith(b"PK"):
+                print("Downloaded file does not have ZIP signature; removing .part file.")
+                try:
+                    tmp_path.unlink()
+                except Exception:
+                    pass
+                return None
+
+            # All good -> rename
+            tmp_path.replace(final_path)
+            print("Saved:", final_path)
+            return final_path
+
+    except Exception as exc:
+        print("Exception while downloading file:", exc)
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
         return None
 
 def download_bhavcopy_today(session_obj: requests.Session) -> Path | None:
-    """Download today's bhavcopy (T) using NSE Daily Reports API."""
+    """
+    Build today's PR<ddmmyy>.zip filename, query DAILY_API_URL to find the entry
+    and pass the resulting file URL to _save_file() to perform the download.
+    """
     today = datetime.datetime.now()
     file_name = f"PR{today.strftime('%d%m%y')}.zip"
-    file_url = DAILY_API_URL  # Always points to today's daily report zip
 
-    print("Trying today file via API:", file_url, " -> ", file_name)
+    # warm cookies (optional but helpful)
+    try:
+        session_obj.get(HOME_URL, headers=HEADERS_DICT, timeout=10)
+    except Exception:
+        pass  # ignore warming failure; we'll still try the API
+
+    # Query the index API (returns JSON with entries)
+    try:
+        resp = session_obj.get(DAILY_API_URL, headers=HEADERS_DICT, timeout=20)
+    except Exception as e:
+        print("Failed to call DAILY_API_URL:", e)
+        return None
+
+    if resp.status_code != 200:
+        print(f"DAILY_API_URL returned HTTP {resp.status_code}")
+        return None
+
+    try:
+        raw = resp.json()
+        reports = raw.get("data", []) if isinstance(raw, dict) else []
+    except Exception as e:
+        print("DAILY_API_URL response isn't valid JSON:", e)
+        return None
+
+    # Find by fileActlName first, fallback to matching tradingDate
+    report_entry = next((r for r in reports if r.get("fileActlName") == file_name), None)
+    if not report_entry:
+        today_str = today.strftime("%d-%b-%Y")
+        report_entry = next((r for r in reports if r.get("tradingDate") == today_str), None)
+
+    if not report_entry:
+        print(f"No entry for {file_name} found in DAILY_API_URL response")
+        return None
+
+    # Build the download URL (filePath + fileActlName)
+    file_path = report_entry.get("filePath") or ""
+    file_actl = report_entry.get("fileActlName") or file_name
+    file_url = file_path + file_actl
+
+    print("Trying today file via API:", file_url)
+    # download happens inside _save_file
     return _save_file(session_obj, file_name, file_url)
 
 def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
