@@ -3,7 +3,8 @@
 
 import requests
 import datetime
-from datetime import time,timedelta
+import time
+from datetime import timedelta
 import random
 import json
 from pathlib import Path
@@ -24,6 +25,7 @@ HEADERS_DICT = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
     "Accept": "application/json, text/javascript, */*; q=0.01",
     "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
     "Referer": "https://www.nseindia.com/all-reports",
     "Origin": "https://www.nseindia.com",
     "Connection": "keep-alive"
