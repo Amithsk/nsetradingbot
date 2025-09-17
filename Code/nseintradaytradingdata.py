@@ -22,13 +22,22 @@ REPORTS_URL = "https://www.nseindia.com/all-reports"
 DAILY_API_URL = "https://www.nseindia.com/api/daily-reports?key=CM"
 
 HEADERS_DICT = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/129.0.0.0 Safari/537.36"
+    ),
     "Accept": "application/json, text/javascript, */*; q=0.01",
     "Accept-Language": "en-US,en;q=0.9",
     "Accept-Encoding": "gzip, deflate, br",
-    "Referer": "https://www.nseindia.com/all-reports",
+    "Referer": "https://www.nseindia.com",
     "Origin": "https://www.nseindia.com",
-    "Connection": "keep-alive"
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-User": "?1",
 }
 
 def git_commit_changes(file_path: Path):
@@ -290,6 +299,7 @@ def download_bhavcopy_master(session_obj: requests.Session) -> Path | None:
         print("Today's file not available, falling back to PreviousDay API.")
         return download_bhavcopy_yesterday(session_obj)
     else:
+        print("Before 8 PM → always use PreviousDay")
         # Before 8 PM → always use PreviousDay
         return download_bhavcopy_yesterday(session_obj)
 
