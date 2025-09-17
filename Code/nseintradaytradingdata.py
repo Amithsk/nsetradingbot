@@ -37,6 +37,9 @@ def git_commit_changes(file_path: Path):
     trade_date = datetime.datetime.now().strftime("%d-%b-%Y")
     commit_message = f"Bhavcopy update {file_path.name} on {trade_date}"
     try:
+        # Pull latest changes before pushing (to avoid rejection)
+        subprocess.run(["git", "pull", "--rebase"], check=True)
+        
         #Stage changes
         subprocess.run(["git", "add", "."], check=True)
 
@@ -47,8 +50,7 @@ def git_commit_changes(file_path: Path):
             return
         #Commit 
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
-        # Pull latest changes before pushing (to avoid rejection)
-        subprocess.run(["git", "pull", "--rebase"], check=True)
+
         #Push changes
         subprocess.run(["git", "push"], check=True)
         print("Changes committed and pushed to git.")
