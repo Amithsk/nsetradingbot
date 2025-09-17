@@ -3,7 +3,7 @@
 
 import requests
 import datetime
-import time
+from datetime import time,timedelta
 import random
 import json
 from pathlib import Path
@@ -204,34 +204,59 @@ def download_bhavcopy_today(session_obj: requests.Session) -> Path | None:
     return _save_file(session_obj, file_name, file_url)
 
 def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
-    """Download yesterday's bhavcopy from API PreviousDay section."""
+    """Download yesterday's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
+    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+
+    # Adjust for weekend
+    if yesterday.weekday() == 5:  # Saturday → shift back to Friday
+        file_date = yesterday - datetime.timedelta(days=1)
+    elif yesterday.weekday() == 6:  # Sunday → shift back to Friday
+        file_date = yesterday - datetime.timedelta(days=2)
+    else:
+        file_date = yesterday
+
+    file_name = f"PR{file_date.strftime('%d%m%y')}.zip"
+
+
+    # Warm cookies (optional but helpful)
     try:
-        response_api = session_obj.get(DAILY_API_URL, timeout=20)
-        if response_api.status_code != 200:
-            print("Daily API failed:", response_api.status_code)
-            return None
+        session_obj.get(HOME_URL, headers=HEADERS_DICT, timeout=10)
+    except Exception:
+        pass
 
-        reports_data = response_api.json()
-        previous_day_reports = reports_data.get("PreviousDay", [])
-
-        bhavcopy_entry = None
-        for item in previous_day_reports:
-            if "BHAVCOPY-PR-ZIP" in (item.get("fileKey") or ""):
-                bhavcopy_entry = item
-                break
-
-        if not bhavcopy_entry:
-            print("Bhavcopy entry not found in PreviousDay")
-            _save_debug(reports_data)
-            return None
-
-        file_name = bhavcopy_entry["fileActlName"]
-        file_url = urljoin(bhavcopy_entry["filePath"], file_name)
-        return _save_file(session_obj, file_name, file_url)
-
-    except Exception as error:
-        print("Error fetching bhavcopy (yesterday):", error)
+    # Query API JSON
+    try:
+        resp = session_obj.get(DAILY_API_URL, headers=HEADERS_DICT, timeout=20)
+    except Exception as e:
+        print("Failed to call DAILY_API_URL:", e)
         return None
+
+    if resp.status_code != 200:
+        print(f"DAILY_API_URL returned HTTP {resp.status_code}")
+        return None
+
+    try:
+        reports = resp.json().get("data", [])
+    except Exception as e:
+        print("DAILY_API_URL response isn't valid JSON:", e)
+        return None
+
+    # Try to match by file name first
+    report_entry = next((r for r in reports if r.get("fileActlName") == file_name), None)
+    if not report_entry:
+        # Fallback: match by tradingDate (dd-MMM-YYYY)
+        date_str = yesterday.strftime("%d-%b-%Y")
+        report_entry = next((r for r in reports if r.get("tradingDate") == date_str), None)
+
+    if not report_entry:
+        print(f"No entry for {file_name} found in DAILY_API_URL response")
+        return None
+
+    # Build the download URL
+    file_url = report_entry["filePath"] + report_entry["fileActlName"]
+
+    print("Trying yesterday file via API:", file_url)
+    return _save_file(session_obj, file_name, file_url)
 
 
 def _save_debug(data_obj):
