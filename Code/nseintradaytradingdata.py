@@ -196,54 +196,53 @@ def _save_file(session_obj: requests.Session, file_name: str, file_url: str, out
         return None
 
 def download_bhavcopy_today(session_obj: requests.Session) -> Path | None:
-    """
-    Build today's PR<ddmmyy>.zip filename, query DAILY_API_URL to find the entry
-    and pass the resulting file URL to _save_file() to perform the download.
-    """
+    """Download today's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
     today = datetime.datetime.now()
     file_name = f"PR{today.strftime('%d%m%y')}.zip"
 
-    # warm cookies (optional but helpful)
+    # Warm cookies
     try:
         session_obj.get(HOME_URL, headers=HEADERS_DICT, timeout=10)
     except Exception:
-        pass  # ignore warming failure; we'll still try the API
+        pass
 
-    # Query the index API (returns JSON with entries)
+    # Call API
     try:
         resp = session_obj.get(DAILY_API_URL, headers=HEADERS_DICT, timeout=20)
     except Exception as e:
         print("Failed to call DAILY_API_URL:", e)
+        _save_debug({"error": str(e)})
         return None
 
     if resp.status_code != 200:
         print(f"DAILY_API_URL returned HTTP {resp.status_code}")
+        _save_debug({
+            "status": resp.status_code,
+            "headers": dict(resp.headers),
+            "body": resp.text[:500]
+        })
         return None
 
-    try:
-        raw = resp.json()
-        reports = raw.get("data", []) if isinstance(raw, dict) else []
-    except Exception as e:
-        print("DAILY_API_URL response isn't valid JSON:", e)
+    # Parse JSON safely
+    data = parse_api_response(resp)
+    if not data:
         return None
 
-    # Find by fileActlName first, fallback to matching tradingDate
+    reports = collect_all_reports(data)
+
+    # Find today’s file
     report_entry = next((r for r in reports if r.get("fileActlName") == file_name), None)
     if not report_entry:
-        today_str = today.strftime("%d-%b-%Y")
-        report_entry = next((r for r in reports if r.get("tradingDate") == today_str), None)
+        date_str = today.strftime("%d-%b-%Y")
+        report_entry = next((r for r in reports if r.get("tradingDate") == date_str), None)
 
     if not report_entry:
         print(f"No entry for {file_name} found in DAILY_API_URL response")
         return None
 
-    # Build the download URL (filePath + fileActlName)
-    file_path = report_entry.get("filePath") or ""
-    file_actl = report_entry.get("fileActlName") or file_name
-    file_url = file_path + file_actl
-
+    # Download
+    file_url = report_entry["filePath"] + report_entry["fileActlName"]
     print("Trying today file via API:", file_url)
-    # download happens inside _save_file
     return _save_file(session_obj, file_name, file_url)
 
 def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
