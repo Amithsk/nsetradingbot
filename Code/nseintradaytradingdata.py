@@ -40,6 +40,30 @@ HEADERS_DICT = {
     "Sec-Fetch-User": "?1",
 }
 
+def parse_api_response(resp) -> dict | None:
+    """Parse NSE API response. Requests will auto-handle gzip/br if brotli installed."""
+    try:
+        data = resp.json()   # ✅ let requests handle decompression + parsing
+
+        _save_debug({
+            "status": resp.status_code,
+            "headers": dict(resp.headers),
+            "body": data      # save dict, not string
+        })
+        return data
+
+    except Exception as e:
+        print("Failed to parse API response:", e)
+        try:
+            _save_debug({
+                "status": resp.status_code,
+                "headers": dict(resp.headers),
+                "body": resp.text[:2000]  # fallback string
+            })
+        except Exception:
+            pass
+        return None
+
 def git_commit_changes(file_path: Path):
     """
     Commit and push changes to git.
