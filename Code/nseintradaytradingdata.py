@@ -40,6 +40,15 @@ HEADERS_DICT = {
     "Sec-Fetch-User": "?1",
 }
 
+def adjust_for_weekend(date: datetime.datetime) -> datetime.datetime:
+    """Shift Sat/Sun back to Friday."""
+    if date.weekday() == 5:  # Saturday
+        return date - timedelta(days=1)
+    if date.weekday() == 6:  # Sunday
+        return date - timedelta(days=2)
+    return date
+
+
 def collect_all_reports(data: dict) -> list[dict]:
     """Merge CurrentDay, PreviousDay, FutureDay arrays from API JSON."""
     reports = []
@@ -195,10 +204,10 @@ def _save_file(session_obj: requests.Session, file_name: str, file_url: str, out
             pass
         return None
 
-def download_bhavcopy_today(session_obj: requests.Session) -> Path | None:
+def download_bhavcopy_yesterday(session_obj: requests.Session,yesterday) -> Path | None:
     """Download today's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
-    today = datetime.datetime.now()
-    file_name = f"PR{today.strftime('%d%m%y')}.zip"
+   
+    file_name = f"PR{yesterday.strftime('%d%m%y')}.zip"
 
     # Warm cookies
     try:
@@ -233,7 +242,7 @@ def download_bhavcopy_today(session_obj: requests.Session) -> Path | None:
     # Find today’s file
     report_entry = next((r for r in reports if r.get("fileActlName") == file_name), None)
     if not report_entry:
-        date_str = today.strftime("%d-%b-%Y")
+        date_str = yesterday.strftime("%d-%b-%Y")
         report_entry = next((r for r in reports if r.get("tradingDate") == date_str), None)
 
     if not report_entry:
@@ -245,19 +254,10 @@ def download_bhavcopy_today(session_obj: requests.Session) -> Path | None:
     print("Trying today file via API:", file_url)
     return _save_file(session_obj, file_name, file_url)
 
-def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
+def download_bhavcopy_daybefore(session_obj: requests.Session,day_before) -> Path | None:
     """Download yesterday's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
-    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
 
-    # Adjust for weekend
-    if yesterday.weekday() == 5:  # Saturday → Friday
-        file_date = yesterday - datetime.timedelta(days=1)
-    elif yesterday.weekday() == 6:  # Sunday → Friday
-        file_date = yesterday - datetime.timedelta(days=2)
-    else:
-        file_date = yesterday
-
-    file_name = f"PR{file_date.strftime('%d%m%y')}.zip"
+    file_name = f"PR{day_before.strftime('%d%m%y')}.zip"
 
     # Warm cookies
     try:
@@ -292,7 +292,7 @@ def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
     # Find yesterday’s file
     report_entry = next((r for r in reports if r.get("fileActlName") == file_name), None)
     if not report_entry:
-        date_str = file_date.strftime("%d-%b-%Y")
+        date_str = day_before.strftime("%d-%b-%Y")
         report_entry = next((r for r in reports if r.get("tradingDate") == date_str), None)
 
     if not report_entry:
@@ -317,27 +317,36 @@ def _save_debug(data_obj):
 
 
 def download_bhavcopy_master(session_obj: requests.Session) -> Path | None:
-    """Master function: after 8 PM IST try today's file first, else yesterday."""
-    now_time = datetime.datetime.now().time()
-    cutoff_time = datetime.time(20, 0, 0)  # 8 PM
+    """
+    Master function:
+    - Always run in the morning (7–8 AM IST).
+    - Try to get yesterday’s bhavcopy (PRddmmyy.zip).    - If not available, fallback to day-before-yesterday.
+    """
+    
+    today = datetime.datetime.now()
+    yesterday = adjust_for_weekend(today - timedelta(days=1))
+    day_before = adjust_for_weekend(today - timedelta(days=2))
 
-    if now_time >= cutoff_time:
-        # Add random wait 0–15 min after cutoff
-        wait_seconds = random.randint(0, 900)
-        print(f"Waiting {wait_seconds} seconds before fetching today's bhavcopy...")
-        time.sleep(wait_seconds)
+    
+ 
 
-        # Try today's file first
-        file_path = download_bhavcopy_today(session_obj)
-        if file_path:
-            return file_path
-        # Fallback to yesterday
-        print("Today's file not available, falling back to PreviousDay API.")
-        return download_bhavcopy_yesterday(session_obj)
-    else:
-        print("Before 8 PM → always use PreviousDay")
-        # Before 8 PM → always use PreviousDay
-        return download_bhavcopy_yesterday(session_obj)
+    print(f"Today: {today.strftime('%d-%b-%Y')}, trying for {yesterday.strftime('%d-%b-%Y')} first")
+
+    # Try yesterday’s file
+    file_path = download_bhavcopy_yesterday(session_obj, yesterday)
+    if file_path:
+        return file_path
+
+    # Fallback: day-before-yesterday
+    print(f"Yesterday’s file not available, trying {day_before.strftime('%d-%b-%Y')}")
+    file_path = download_bhavcopy_daybefore(session_obj, day_before)
+    if file_path:
+        return file_path
+
+    print("No bhavcopy available for yesterday or day-before-yesterday")
+    return None
+
+    
 
 
 def nse_is_open() -> bool:
