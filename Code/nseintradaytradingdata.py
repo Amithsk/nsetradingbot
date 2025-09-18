@@ -250,55 +250,60 @@ def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
     yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
 
     # Adjust for weekend
-    if yesterday.weekday() == 5:  # Saturday → shift back to Friday
+    if yesterday.weekday() == 5:  # Saturday → Friday
         file_date = yesterday - datetime.timedelta(days=1)
-    elif yesterday.weekday() == 6:  # Sunday → shift back to Friday
+    elif yesterday.weekday() == 6:  # Sunday → Friday
         file_date = yesterday - datetime.timedelta(days=2)
     else:
         file_date = yesterday
 
     file_name = f"PR{file_date.strftime('%d%m%y')}.zip"
 
-
-    # Warm cookies (optional but helpful)
+    # Warm cookies
     try:
         session_obj.get(HOME_URL, headers=HEADERS_DICT, timeout=10)
     except Exception:
         pass
 
-    # Query API JSON
+    # Call API
     try:
         resp = session_obj.get(DAILY_API_URL, headers=HEADERS_DICT, timeout=20)
     except Exception as e:
         print("Failed to call DAILY_API_URL:", e)
+        _save_debug({"error": str(e)})
         return None
 
     if resp.status_code != 200:
         print(f"DAILY_API_URL returned HTTP {resp.status_code}")
+        _save_debug({
+            "status": resp.status_code,
+            "headers": dict(resp.headers),
+            "body": resp.text[:500]
+        })
         return None
 
-    try:
-        reports = resp.json().get("data", [])
-    except Exception as e:
-        print("DAILY_API_URL response isn't valid JSON:", e)
+    # Parse JSON safely
+    data = parse_api_response(resp)
+    if not data:
         return None
 
-    # Try to match by file name first
+    reports = collect_all_reports(data)
+
+    # Find yesterday’s file
     report_entry = next((r for r in reports if r.get("fileActlName") == file_name), None)
     if not report_entry:
-        # Fallback: match by tradingDate (dd-MMM-YYYY)
-        date_str = yesterday.strftime("%d-%b-%Y")
+        date_str = file_date.strftime("%d-%b-%Y")
         report_entry = next((r for r in reports if r.get("tradingDate") == date_str), None)
 
     if not report_entry:
         print(f"No entry for {file_name} found in DAILY_API_URL response")
         return None
 
-    # Build the download URL
+    # Download
     file_url = report_entry["filePath"] + report_entry["fileActlName"]
-
     print("Trying yesterday file via API:", file_url)
     return _save_file(session_obj, file_name, file_url)
+
 
 
 def _save_debug(data_obj):
