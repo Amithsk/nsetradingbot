@@ -40,6 +40,14 @@ HEADERS_DICT = {
     "Sec-Fetch-User": "?1",
 }
 
+def collect_all_reports(data: dict) -> list[dict]:
+    """Merge CurrentDay, PreviousDay, FutureDay arrays from API JSON."""
+    reports = []
+    for key in ("CurrentDay", "PreviousDay", "FutureDay"):
+        if key in data and isinstance(data[key], list):
+            reports.extend(data[key])
+    return reports
+
 def parse_api_response(resp) -> dict | None:
     """Parse NSE API response. Requests will auto-handle gzip/br if brotli installed."""
     try:
