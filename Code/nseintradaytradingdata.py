@@ -15,7 +15,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "Output" / "Intraday"
-DEBUG_DIR = PROJECT_ROOT / "Output" / "Debug"
+DEBUG_DIR = PROJECT_ROOT /"debug"
 
 HOME_URL = "https://www.nseindia.com/"
 REPORTS_URL = "https://www.nseindia.com/all-reports"
@@ -39,6 +39,47 @@ HEADERS_DICT = {
     "Sec-Fetch-Site": "same-origin",
     "Sec-Fetch-User": "?1",
 }
+
+def adjust_for_weekend(date: datetime.datetime) -> datetime.datetime:
+    """Shift Sat/Sun back to Friday."""
+    if date.weekday() == 5:  # Saturday
+        return date - timedelta(days=1)
+    if date.weekday() == 6:  # Sunday
+        return date - timedelta(days=2)
+    return date
+
+
+def collect_all_reports(data: dict) -> list[dict]:
+    """Merge CurrentDay, PreviousDay, FutureDay arrays from API JSON."""
+    reports = []
+    for key in ("CurrentDay", "PreviousDay", "FutureDay"):
+        if key in data and isinstance(data[key], list):
+            reports.extend(data[key])
+    return reports
+
+def parse_api_response(resp) -> dict | None:
+    """Parse NSE API response. Requests will auto-handle gzip/br if brotli installed."""
+    try:
+        data = resp.json()   # ✅ let requests handle decompression + parsing
+
+        _save_debug({
+            "status": resp.status_code,
+            "headers": dict(resp.headers),
+            "body": data      # save dict, not string
+        })
+        return data
+
+    except Exception as e:
+        print("Failed to parse API response:", e)
+        try:
+            _save_debug({
+                "status": resp.status_code,
+                "headers": dict(resp.headers),
+                "body": resp.text[:2000]  # fallback string
+            })
+        except Exception:
+            pass
+        return None
 
 def git_commit_changes(file_path: Path):
     """
@@ -163,99 +204,44 @@ def _save_file(session_obj: requests.Session, file_name: str, file_url: str, out
             pass
         return None
 
-def download_bhavcopy_today(session_obj: requests.Session) -> Path | None:
-    """
-    Build today's PR<ddmmyy>.zip filename, query DAILY_API_URL to find the entry
-    and pass the resulting file URL to _save_file() to perform the download.
-    """
-    today = datetime.datetime.now()
-    file_name = f"PR{today.strftime('%d%m%y')}.zip"
+def download_bhavcopy_yesterday(session_obj: requests.Session,yesterday) -> Path | None:
+    """Download today's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
+   
+    file_name = f"PR{yesterday.strftime('%d%m%y')}.zip"
 
-    # warm cookies (optional but helpful)
-    try:
-        session_obj.get(HOME_URL, headers=HEADERS_DICT, timeout=10)
-    except Exception:
-        pass  # ignore warming failure; we'll still try the API
-
-    # Query the index API (returns JSON with entries)
-    try:
-        resp = session_obj.get(DAILY_API_URL, headers=HEADERS_DICT, timeout=20)
-    except Exception as e:
-        print("Failed to call DAILY_API_URL:", e)
-        return None
-
-    if resp.status_code != 200:
-        print(f"DAILY_API_URL returned HTTP {resp.status_code}")
-        return None
-
-    try:
-        raw = resp.json()
-        reports = raw.get("data", []) if isinstance(raw, dict) else []
-    except Exception as e:
-        print("DAILY_API_URL response isn't valid JSON:", e)
-        return None
-
-    # Find by fileActlName first, fallback to matching tradingDate
-    report_entry = next((r for r in reports if r.get("fileActlName") == file_name), None)
-    if not report_entry:
-        today_str = today.strftime("%d-%b-%Y")
-        report_entry = next((r for r in reports if r.get("tradingDate") == today_str), None)
-
-    if not report_entry:
-        print(f"No entry for {file_name} found in DAILY_API_URL response")
-        return None
-
-    # Build the download URL (filePath + fileActlName)
-    file_path = report_entry.get("filePath") or ""
-    file_actl = report_entry.get("fileActlName") or file_name
-    file_url = file_path + file_actl
-
-    print("Trying today file via API:", file_url)
-    # download happens inside _save_file
-    return _save_file(session_obj, file_name, file_url)
-
-def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
-    """Download yesterday's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
-    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-
-    # Adjust for weekend
-    if yesterday.weekday() == 5:  # Saturday → shift back to Friday
-        file_date = yesterday - datetime.timedelta(days=1)
-    elif yesterday.weekday() == 6:  # Sunday → shift back to Friday
-        file_date = yesterday - datetime.timedelta(days=2)
-    else:
-        file_date = yesterday
-
-    file_name = f"PR{file_date.strftime('%d%m%y')}.zip"
-
-
-    # Warm cookies (optional but helpful)
+    # Warm cookies
     try:
         session_obj.get(HOME_URL, headers=HEADERS_DICT, timeout=10)
     except Exception:
         pass
 
-    # Query API JSON
+    # Call API
     try:
         resp = session_obj.get(DAILY_API_URL, headers=HEADERS_DICT, timeout=20)
     except Exception as e:
         print("Failed to call DAILY_API_URL:", e)
+        _save_debug({"error": str(e)})
         return None
 
     if resp.status_code != 200:
         print(f"DAILY_API_URL returned HTTP {resp.status_code}")
+        _save_debug({
+            "status": resp.status_code,
+            "headers": dict(resp.headers),
+            "body": resp.text[:500]
+        })
         return None
 
-    try:
-        reports = resp.json().get("data", [])
-    except Exception as e:
-        print("DAILY_API_URL response isn't valid JSON:", e)
+    # Parse JSON safely
+    data = parse_api_response(resp)
+    if not data:
         return None
 
-    # Try to match by file name first
+    reports = collect_all_reports(data)
+
+    # Find today’s file
     report_entry = next((r for r in reports if r.get("fileActlName") == file_name), None)
     if not report_entry:
-        # Fallback: match by tradingDate (dd-MMM-YYYY)
         date_str = yesterday.strftime("%d-%b-%Y")
         report_entry = next((r for r in reports if r.get("tradingDate") == date_str), None)
 
@@ -263,11 +249,61 @@ def download_bhavcopy_yesterday(session_obj: requests.Session) -> Path | None:
         print(f"No entry for {file_name} found in DAILY_API_URL response")
         return None
 
-    # Build the download URL
+    # Download
     file_url = report_entry["filePath"] + report_entry["fileActlName"]
+    print("Trying today file via API:", file_url)
+    return _save_file(session_obj, file_name, file_url)
 
+def download_bhavcopy_daybefore(session_obj: requests.Session,day_before) -> Path | None:
+    """Download yesterday's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
+
+    file_name = f"PR{day_before.strftime('%d%m%y')}.zip"
+
+    # Warm cookies
+    try:
+        session_obj.get(HOME_URL, headers=HEADERS_DICT, timeout=10)
+    except Exception:
+        pass
+
+    # Call API
+    try:
+        resp = session_obj.get(DAILY_API_URL, headers=HEADERS_DICT, timeout=20)
+    except Exception as e:
+        print("Failed to call DAILY_API_URL:", e)
+        _save_debug({"error": str(e)})
+        return None
+
+    if resp.status_code != 200:
+        print(f"DAILY_API_URL returned HTTP {resp.status_code}")
+        _save_debug({
+            "status": resp.status_code,
+            "headers": dict(resp.headers),
+            "body": resp.text[:500]
+        })
+        return None
+
+    # Parse JSON safely
+    data = parse_api_response(resp)
+    if not data:
+        return None
+
+    reports = collect_all_reports(data)
+
+    # Find yesterday’s file
+    report_entry = next((r for r in reports if r.get("fileActlName") == file_name), None)
+    if not report_entry:
+        date_str = day_before.strftime("%d-%b-%Y")
+        report_entry = next((r for r in reports if r.get("tradingDate") == date_str), None)
+
+    if not report_entry:
+        print(f"No entry for {file_name} found in DAILY_API_URL response")
+        return None
+
+    # Download
+    file_url = report_entry["filePath"] + report_entry["fileActlName"]
     print("Trying yesterday file via API:", file_url)
     return _save_file(session_obj, file_name, file_url)
+
 
 
 def _save_debug(data_obj):
@@ -281,27 +317,36 @@ def _save_debug(data_obj):
 
 
 def download_bhavcopy_master(session_obj: requests.Session) -> Path | None:
-    """Master function: after 8 PM IST try today's file first, else yesterday."""
-    now_time = datetime.datetime.now().time()
-    cutoff_time = datetime.time(20, 0, 0)  # 8 PM
+    """
+    Master function:
+    - Always run in the morning (7–8 AM IST).
+    - Try to get yesterday’s bhavcopy (PRddmmyy.zip).    - If not available, fallback to day-before-yesterday.
+    """
+    
+    today = datetime.datetime.now()
+    yesterday = adjust_for_weekend(today - timedelta(days=1))
+    day_before = adjust_for_weekend(today - timedelta(days=2))
 
-    if now_time >= cutoff_time:
-        # Add random wait 0–15 min after cutoff
-        wait_seconds = random.randint(0, 900)
-        print(f"Waiting {wait_seconds} seconds before fetching today's bhavcopy...")
-        time.sleep(wait_seconds)
+    
+ 
 
-        # Try today's file first
-        file_path = download_bhavcopy_today(session_obj)
-        if file_path:
-            return file_path
-        # Fallback to yesterday
-        print("Today's file not available, falling back to PreviousDay API.")
-        return download_bhavcopy_yesterday(session_obj)
-    else:
-        print("Before 8 PM → always use PreviousDay")
-        # Before 8 PM → always use PreviousDay
-        return download_bhavcopy_yesterday(session_obj)
+    print(f"Today: {today.strftime('%d-%b-%Y')}, trying for {yesterday.strftime('%d-%b-%Y')} first")
+
+    # Try yesterday’s file
+    file_path = download_bhavcopy_yesterday(session_obj, yesterday)
+    if file_path:
+        return file_path
+
+    # Fallback: day-before-yesterday
+    print(f"Yesterday’s file not available, trying {day_before.strftime('%d-%b-%Y')}")
+    file_path = download_bhavcopy_daybefore(session_obj, day_before)
+    if file_path:
+        return file_path
+
+    print("No bhavcopy available for yesterday or day-before-yesterday")
+    return None
+
+    
 
 
 def nse_is_open() -> bool:
