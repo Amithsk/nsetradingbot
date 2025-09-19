@@ -64,7 +64,7 @@ def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
         matches = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "backward").glob(f"nifty_*{YDAY_STR}.csv"))
         #If the file is not present print and continue
         if not matches:
-            print(f"No file found for {YDAY_STR}, skipping...")
+            print(f"No file found for {YDAY_STR} load prices, skipping...")
             return None
 
         sample = matches[0].as_posix()
@@ -105,7 +105,7 @@ def load_predictions(OUTPUT_ROOT, conn, _date_str_unused):
         back_files = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "backward").glob(f"nifty_*{YDAY_STR}.csv"))
         #If the file is not present print and continue
         if not back_files:
-            print(f"No file found for {YDAY_STR}, skipping...")
+            print(f"No file found for {YDAY_STR} prediction files, skipping...")
             return None
         for f in back_files:
             f = f.as_posix()
@@ -129,7 +129,7 @@ def load_predictions(OUTPUT_ROOT, conn, _date_str_unused):
         fwd_files = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "forward").glob(f"nifty_*{RUN_DATE_STR}.csv"))
         #If the file is not present print and continue
         if not fwd_files:
-            print(f"No file found for {YDAY_STR}, skipping...")
+            print(f"No file found for {YDAY_STR} forward files, skipping...")
             return None
         
         for f in fwd_files:
@@ -157,7 +157,7 @@ def load_comparisons(OUTPUT_ROOT, conn, _date_str_unused):
         cmp_files = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "evaluation").glob(f"*comparison*{RUN_DATE_STR}.csv"))
         #If the file is not present print and continue
         if not cmp_files:
-            print(f"No file found for {YDAY_STR}, skipping...")
+            print(f"No file found for {YDAY_STR} comparison file, skipping...")
             return None
                
         for f in cmp_files:
@@ -190,7 +190,7 @@ def load_daily_summary(OUTPUT_ROOT, conn, _date_str_unused):
         daily_matches = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "evaluation").glob(f"evaluation_summary*{RUN_DATE_STR}.csv"))
         #If the file is not present print and continue
         if not daily_matches:
-            print(f"No file found for {RUN_DATE_STR}, skipping...")
+            print(f"No file found for {RUN_DATE_STR} summary file, skipping...")
             return None
 
         sum_file = daily_matches[0].as_posix()
@@ -216,7 +216,7 @@ def load_forward_summary(OUTPUT_ROOT, conn, _date_str_unused):
         forward_matches = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "forward").glob(f"forward_summary*{RUN_DATE_STR}.csv"))
         #If the file is not present print and continue
         if not forward_matches:
-            print(f"No file found for {RUN_DATE_STR}, skipping...")
+            print(f"No file found for {RUN_DATE_STR} forward file, skipping...")
             return None
 
         sum_file = forward_matches[0].as_posix()
@@ -281,7 +281,7 @@ if __name__ == "__main__":
 
             process_date(OUTPUT_ROOT, conn, RUN_DATE_STR)
 
-        # session.commit()
+        #session.commit()
         print("Data load finished")
         
     except Exception as e:
