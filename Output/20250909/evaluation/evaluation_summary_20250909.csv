@@ -1,5 +1,0 @@
-model,date,total_bars,correct,incorrect,accuracy_pct,avg_error_mag
-LGBM,2025-09-10,74,38,36,51.35,62.0021
-Logistic,2025-09-10,74,36,38,48.65,63.8729
-RF,2025-09-10,74,36,38,48.65,63.8729
-XGB,2025-09-10,74,36,38,48.65,63.8729
