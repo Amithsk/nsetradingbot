@@ -1,6 +1,6 @@
 # Ignore virtual environment
 /botenv/
-/.botenv/
+
 
 # Ignore everything in the models folder except .gitkeep
 /models/
