@@ -91,7 +91,8 @@ for model_path in MODEL_DIR.glob("*_backward.pkl"):
     pred_df.to_csv(OUTPUT_FORWARD_DIR/f"nifty_{name}_forward_{tstr}.csv", index=False)
     print(f"Saved forward for {name} to: nifty_{name}_forward_{tstr}.csv")
     
-
+    #To ensure the date is in ISO format YYYY-MM-DD
+    date_str_iso = datetime.strptime(tstr, "%Y%m%d").strftime("%Y-%m-%d")
     # Summarize predictions
     num_total   = len(pred_df)
     num_bullish = pred_df['Prediction'].sum()
@@ -100,7 +101,7 @@ for model_path in MODEL_DIR.glob("*_backward.pkl"):
 
     summary_data = {
     'model': name,
-    'date':  tstr,
+    'date':  date_str_iso,
     'total_bars': num_total,
     'bullish': num_bullish,
     'bearish': num_bearish,
