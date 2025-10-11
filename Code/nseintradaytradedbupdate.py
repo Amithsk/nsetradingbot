@@ -19,6 +19,8 @@ Requirements:
 """
 
 import os
+import urllib.parse
+from sqlalchemy import create_engine
 import re
 import io
 import sys
@@ -45,9 +47,9 @@ logger = logging.getLogger("cand_pipeline_modular")
 DEFAULT_CONFIG = {
     "db": {
         "host": "localhost",
-        "user": "intraday_user",
+        "user": "root",
         "password": "your_password",
-        "db": "intraday_db",
+        "db": "intradaytrading",
         "port": 3306
     },
     "thresholds": {
@@ -55,6 +57,10 @@ DEFAULT_CONFIG = {
         "candidate_top_n": 50,
         "tt_top_n": 20
     },
+     "paths": {
+        "output_root": "./Output/Intraday" 
+    },
+    
     "mappings": {
         "GL": {"security": "SECURITY", "pct": ["PERCENT_CG", "PERCENT_CHG"], "close": ["CLOSE_PRIC", "CLOSE_PRICE"], "prev_close": "PREV_CL_PR"},
         "HL": {"security": "SECURITY", "status": "NEW_STATUS", "new": "NEW", "previous": "PREVIOUS"},
@@ -95,19 +101,33 @@ def load_config(path: str = None) -> dict:
                 merged[k] = v
     return merged
 
-def connect_db(db_cfg: dict):
-    params = {                 
+def connect_db(db_cfg: dict = None):
+    """
+    Create and return a SQLAlchemy engine using environment variable MYSQL_PASSWORD.
+    If db_cfg is provided, it overrides environment variables.
+    """
+    # 1. Get DB credentials (from env or config)
+    password = os.getenv('MYSQL_PASSWORD') or (db_cfg.get("password") if db_cfg else "")
+    encoded_pw = urllib.parse.quote_plus(password)  # escape special characters safely
 
-        "host": db_cfg.get("host", "localhost"),
-        "user": db_cfg.get("user"),
-        "password": db_cfg.get("password"),
-        "db": db_cfg.get("db"),
-        "port": int(db_cfg.get("port", 3306)),
-        "charset": "utf8mb4",
-        "cursorclass": pymysql.cursors.DictCursor,
-        "autocommit": True
-    }
-    return pymysql.connect(**params)
+    user = db_cfg.get("user", "root") if db_cfg else "root"
+    host = db_cfg.get("host", "localhost") if db_cfg else "localhost"
+    port = db_cfg.get("port", 3306) if db_cfg else 3306
+    dbname = db_cfg.get("db", "intradaytrading") if db_cfg else "nifty"
+
+    # 2. Build SQLAlchemy engine URL
+    DATABASE_URL = f"mysql+pymysql://{user}:{encoded_pw}@{host}:{port}/{dbname}"
+
+    # 3. Create the engine
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        echo=False  # Set True only if you want SQL logs for debugging
+    )
+
+    logger.info("SQLAlchemy engine created for DB: %s", dbname)
+    return engine
 
 def extract_trade_date_from_filename(fname: str) -> str:
     m = re.search(r'(\d{6})', fname)
@@ -504,7 +524,7 @@ def upsert_candidatelist(enriched_csv: str, cfg: dict) -> None:
                 )
                 cur.execute(insert_sql, params)
                 cnt += 1
-        conn.commit()
+        #conn.commit()
         logger.info("Upserted %d candidate rows into intraday_bhavcopy", cnt)
     finally:
         conn.close()
@@ -525,8 +545,42 @@ if __name__ == "__main__":
     ZIP_PATH = args.zipfile
     CONFIG_PATH = args.config
 
-    # Step 1: configload()
+    # Step 0 configload()
     cfg = configload(CONFIG_PATH)
+    # Step 1: Resolve the ZIP path (auto from OUTPUT_ROOT if not absolute)
+    zip_arg = args.zipfile
+    output_root = cfg.get("paths", {}).get("output_root", "./Output/Intraday")
+    
+    if args.zipfile:
+        ZIP_PATH = args.zipfile
+        if not os.path.isabs(ZIP_PATH):
+            ZIP_PATH = os.path.join(output_root, ZIP_PATH)
+    else:
+        # 👇 automatically use the most recent ZIP in the folder
+        zips = sorted(
+            [f for f in os.listdir(output_root) if f.lower().endswith(".zip")],
+            key=lambda f: os.path.getmtime(os.path.join(output_root, f)),
+            reverse=True,
+        )
+        if not zips:
+            logger.error("No ZIP files found in %s", output_root)
+            sys.exit(1)
+        ZIP_PATH = os.path.join(output_root, zips[0])
+        logger.info("No ZIP argument passed — using latest ZIP: %s", ZIP_PATH)
+
+    if not os.path.exists(ZIP_PATH):
+        logger.error("ZIP file not found: %s", ZIP_PATH)
+        sys.exit(1)
+
+    if not os.path.isabs(zip_arg):
+        ZIP_PATH = os.path.join(output_root, zip_arg)
+    else:
+        ZIP_PATH = zip_arg
+
+    if not os.path.exists(ZIP_PATH):
+        logger.error("ZIP file not found: %s", ZIP_PATH)
+        sys.exit(1)
+
 
     # Step 2: candidatelistgeneration()
     cand_df, diag = candidatelistgeneration(ZIP_PATH, cfg)
@@ -534,7 +588,9 @@ if __name__ == "__main__":
         logger.warning("Diag: %s", d)
 
     # Step 3: writecandidatelisttocsv()
-    out_csv = cfg["output"].get("candidates_csv", "candidates_preview.csv")
+    out_dir = cfg["paths"]["output_root"]
+    out_file = cfg["output"]["candidates_csv"]
+    out_csv = os.path.join(out_dir, out_file)
     writecandidatelisttocsv = writecandidatelisttocsv  # alias for clarity
     writecandidatelisttocsv(cand_df, out_csv)
 
