@@ -535,18 +535,18 @@ def upsert_candidatelist(enriched_csv: str, cfg: dict) -> None:
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("zipfile", help="Path to daily ZIP (e.g., PR031025.zip)")
+    p.add_argument("zipfile", nargs="?",help="Path to daily ZIP (e.g., PR031025.zip)")
     p.add_argument("config", nargs="?", help="Path to config YAML/JSON (optional)", default=None)
     p.add_argument("--preview", action="store_true", help="Preview only (no DB writes)")
     return p.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
-    ZIP_PATH = args.zipfile
     CONFIG_PATH = args.config
 
     # Step 0 configload()
     cfg = configload(CONFIG_PATH)
+
     # Step 1: Resolve the ZIP path (auto from OUTPUT_ROOT if not absolute)
     zip_arg = args.zipfile
     output_root = cfg.get("paths", {}).get("output_root", "./Output/Intraday")
