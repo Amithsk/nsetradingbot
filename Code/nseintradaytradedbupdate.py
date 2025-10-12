@@ -70,8 +70,10 @@ DEFAULT_CONFIG = {
     "behavior": {
         "exclude_etf": True,
         "exclude_sme": True,
-        "preview_only": False,
+        "preview_only": False, #If True, the script skips the final DB-upsert stage (upsert_candidatelist() for intraday_bhavcopy). If False, it runs the full pipeline including that final step.
         "dry_run": True  # if True, DB writes are rolled back; if False, DB writes are committed
+        #For validation purposes, set dry_run to True and preview_only to False to run the full pipeline without committing changes.
+        #For production use, set dry_run to False and preview_only to False to run the full pipeline and commit changes.
     },
     "output": {
         "candidates_csv": "candidates_preview.csv"
@@ -240,6 +242,20 @@ def build_extras_json_from_series(row_series: pd.Series) -> str:
     extras_json = json.dumps(extras, ensure_ascii=False)
     json.loads(extras_json)
     return extras_json
+def none_if_nan(val):
+    """Return None for NaN/inf-like values; otherwise return original value."""
+    try:
+        if val is None:
+            return None
+        # pandas / numpy NaN check
+        if pd.isna(val):
+            return None
+        # float inf check
+        if isinstance(val, (float,)) and (math.isinf(val)):
+            return None
+        return val
+    except Exception:
+        return None
 
 # ---------------------------
 # The functions to handle the data
@@ -472,7 +488,7 @@ def Updatecandidatelistcsv(zip_path: str, candidates_csv: str, cfg: dict, update
 
 def _upsert_gainer_loser_table(engine, candidate_dataframe: pd.DataFrame, is_dry_run: bool = True):
     """
-    Upsert daily gainer/loser snapshot into gainer_loser.
+    Upsert gainer_loser audit table. Replaces NaN with None before DB call.
     Expects candidate_dataframe columns: trade_date, symbol, pct_change, prev_close, last_price, reason_set, notes
     """
     ddl_statement = text("""
@@ -505,62 +521,72 @@ def _upsert_gainer_loser_table(engine, candidate_dataframe: pd.DataFrame, is_dry
         updated_at = NOW();
     """)
 
-    # Build parameter dicts
-    parameter_rows = []
-    for _, source_row in candidate_dataframe.iterrows():
-        raw_notes = source_row.get("notes")
-        if isinstance(raw_notes, str) and raw_notes.strip().startswith(('{', '[')):
-            notes_json = raw_notes
-        elif raw_notes is not None:
-            notes_json = safe_json_dumps({"notes": raw_notes})
-        else:
-            notes_json = None
+    records = []
+    for _, rec in candidate_dataframe.iterrows():
+        # sanitize numeric fields so we never pass NaN to pymysql
+        pct = none_if_nan(rec.get("pct_change"))
+        prev = none_if_nan(rec.get("prev_close"))
+        last = none_if_nan(rec.get("last_price"))
 
-        parameter_rows.append({
-            "trade_date": source_row.get("trade_date"),
-            "symbol": source_row.get("symbol"),
-            "pct_change": source_row.get("pct_change"),
-            "prev_close": source_row.get("prev_close"),
-            "last_price": source_row.get("last_price"),
-            "reason_set": source_row.get("reason_set"),
+        # notes: ensure it's a JSON string or None
+        raw_notes = rec.get("notes")
+        notes_json = None
+        if isinstance(raw_notes, str) and raw_notes.strip().startswith(('{', '[')):
+            # validate strict JSON
+            try:
+                json.loads(raw_notes)
+                notes_json = raw_notes
+            except Exception:
+                notes_json = json.dumps({"raw_notes": raw_notes}, ensure_ascii=False)
+        elif raw_notes is not None and not pd.isna(raw_notes):
+            notes_json = json.dumps({"notes": str(raw_notes)}, ensure_ascii=False)
+
+        records.append({
+            "trade_date": rec.get("trade_date"),
+            "symbol": rec.get("symbol"),
+            "pct_change": pct,
+            "prev_close": prev,
+            "last_price": last,
+            "reason_set": rec.get("reason_set"),
             "notes": notes_json
         })
 
-    if not parameter_rows:
-        logger.info("No data available to upsert into gainer_loser table.")
+    if not records:
+        logger.info("No gainer_loser records to upsert.")
         return
 
     if is_dry_run:
-        logger.info("[DRY RUN] Preparing to upsert %d rows into gainer_loser table.", len(parameter_rows))
-        with engine.connect() as connection:
-            transaction = connection.begin()
+        logger.info("[DRY RUN] Preparing to upsert %d rows into gainer_loser table.", len(records))
+        with engine.connect() as conn:
+            tx = conn.begin()
             try:
-                connection.execute(ddl_statement)
-                for index, param in enumerate(parameter_rows, start=1):
-                    logger.info("[DRY RUN] gainer_loser upsert %d/%d: %s", index, len(parameter_rows), {"symbol": param["symbol"], "trade_date": param["trade_date"]})
-                    connection.execute(upsert_statement, [param])
-                transaction.rollback()
-                logger.info("[DRY RUN] gainer_loser transaction rolled back.")
-            except Exception as e:
-                logger.exception("Error during dry-run upsert for gainer_loser: %s", e)
+                conn.execute(ddl_statement)
+                for i, param in enumerate(records, start=1):
+                    logger.info("[DRY RUN] gainer_loser upsert %d/%d: %s", i, len(records), {"symbol": param["symbol"], "trade_date": param["trade_date"]})
+                    conn.execute(upsert_statement, [param])
+                tx.rollback()
+                logger.info("[DRY RUN] Rolled back gainer_loser dry-run.")
+            except Exception:
                 try:
-                    transaction.rollback()
+                    tx.rollback()
                 except Exception:
                     pass
+                logger.exception("[DRY RUN] Error during gainer_loser dry-run; rolled back.")
                 raise
         return
 
+    # production path - commit in batches
     batch_size = 500
-    with engine.begin() as connection:
-        connection.execute(ddl_statement)
-        for start in range(0, len(parameter_rows), batch_size):
-            batch = parameter_rows[start:start + batch_size]
-            connection.execute(upsert_statement, batch)
-    logger.info("Upserted %d records into gainer_loser table.", len(parameter_rows))
+    with engine.begin() as conn:
+        conn.execute(ddl_statement)
+        for start in range(0, len(records), batch_size):
+            batch = records[start:start+batch_size]
+            conn.execute(upsert_statement, batch)
+    logger.info("Upserted %d records into gainer_loser table.", len(records))
 
 def _upsert_circuit_hitter_table(engine, candidate_dataframe: pd.DataFrame, is_dry_run: bool = True):
     """
-    Upsert daily circuit_hitter data.
+    Upsert circuit_hitter audit table. Converts NaN to None and ensures notes are valid JSON or NULL.
     Expects candidate_dataframe columns: trade_date, symbol, status, reason_set, notes
     """
     ddl_statement = text("""
@@ -589,55 +615,61 @@ def _upsert_circuit_hitter_table(engine, candidate_dataframe: pd.DataFrame, is_d
         updated_at = NOW();
     """)
 
-    parameter_rows = []
-    for _, source_row in candidate_dataframe.iterrows():
-        raw_notes = source_row.get("notes")
+    records = []
+    for _, rec in candidate_dataframe.iterrows():
+        raw_notes = rec.get("notes")
+        notes_json = None
         if isinstance(raw_notes, str) and raw_notes.strip().startswith(('{', '[')):
-            notes_json = raw_notes
-        elif raw_notes is not None:
-            notes_json = safe_json_dumps({"notes": raw_notes})
-        else:
-            notes_json = None
+            try:
+                json.loads(raw_notes)
+                notes_json = raw_notes
+            except Exception:
+                notes_json = json.dumps({"raw_notes": raw_notes}, ensure_ascii=False)
+        elif raw_notes is not None and not pd.isna(raw_notes):
+            notes_json = json.dumps({"notes": str(raw_notes)}, ensure_ascii=False)
 
-        parameter_rows.append({
-            "trade_date": source_row.get("trade_date"),
-            "symbol": source_row.get("symbol"),
-            "status": source_row.get("status"),
-            "reason_set": source_row.get("reason_set"),
+        status_val = rec.get("status") if ("status" in rec.index and not pd.isna(rec.get("status"))) else None
+
+        records.append({
+            "trade_date": rec.get("trade_date"),
+            "symbol": rec.get("symbol"),
+            "status": status_val,
+            "reason_set": rec.get("reason_set"),
             "notes": notes_json
         })
 
-    if not parameter_rows:
-        logger.info("No data available to upsert into circuit_hitter table.")
+    if not records:
+        logger.info("No circuit_hitter records to upsert.")
         return
 
     if is_dry_run:
-        logger.info("[DRY RUN] Preparing to upsert %d rows into circuit_hitter table.", len(parameter_rows))
-        with engine.connect() as connection:
-            transaction = connection.begin()
+        logger.info("[DRY RUN] Preparing to upsert %d rows into circuit_hitter table.", len(records))
+        with engine.connect() as conn:
+            tx = conn.begin()
             try:
-                connection.execute(ddl_statement)
-                for index, param in enumerate(parameter_rows, start=1):
-                    logger.info("[DRY RUN] circuit_hitter upsert %d/%d: %s", index, len(parameter_rows), {"symbol": param["symbol"], "trade_date": param["trade_date"], "status": param["status"]})
-                    connection.execute(upsert_statement, [param])
-                transaction.rollback()
-                logger.info("[DRY RUN] circuit_hitter transaction rolled back.")
-            except Exception as e:
-                logger.exception("Error during dry-run upsert for circuit_hitter: %s", e)
+                conn.execute(ddl_statement)
+                for i, param in enumerate(records, start=1):
+                    logger.info("[DRY RUN] Upserting circuit_hitter %d/%d: %s", i, len(records), {"symbol": param["symbol"], "trade_date": param["trade_date"]})
+                    conn.execute(upsert_statement, [param])
+                tx.rollback()
+                logger.info("[DRY RUN] Rolled back circuit_hitter dry-run.")
+            except Exception:
                 try:
-                    transaction.rollback()
+                    tx.rollback()
                 except Exception:
                     pass
+                logger.exception("[DRY RUN] Error during circuit_hitter dry-run; rolled back.")
                 raise
         return
 
+    # production commit path
     batch_size = 500
-    with engine.begin() as connection:
-        connection.execute(ddl_statement)
-        for start in range(0, len(parameter_rows), batch_size):
-            batch = parameter_rows[start:start + batch_size]
-            connection.execute(upsert_statement, batch)
-    logger.info("Upserted %d records into circuit_hitter table.", len(parameter_rows))
+    with engine.begin() as conn:
+        conn.execute(ddl_statement)
+        for start in range(0, len(records), batch_size):
+            batch = records[start:start+batch_size]
+            conn.execute(upsert_statement, batch)
+    logger.info("Upserted %d records into circuit_hitter table.", len(records))
 
 # ingest_audit writer
 def _write_ingest_audit_row(
