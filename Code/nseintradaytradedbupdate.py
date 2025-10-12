@@ -540,6 +540,11 @@ def _upsert_circuit_hitter_from_candidates(engine, df_cand: pd.DataFrame, cfg: d
 
 # 5) upsert_candidatelist() -> upsert enriched CSV rows into intraday_bhavcopy
 def upsert_candidatelist(enriched_csv: str, cfg: dict) -> None:
+    """
+    Upsert enriched CSV rows into intraday_bhavcopy.
+    - dry_run (cfg["behavior"]["dry_run"]) executes per-row with logging and rolls back.
+    - production uses batched executemany (fast) and commits.
+    """
     df = pd.read_csv(enriched_csv)
     engine = connect_db(cfg["db"])
     dry_run = cfg["behavior"].get("dry_run", True)
@@ -569,87 +574,78 @@ def upsert_candidatelist(enriched_csv: str, cfg: dict) -> None:
       updated_at = NOW();
     """)
 
+    # Prepare rows list with sanitized extras_json
     rows = []
     for _, r in df.iterrows():
         mkt_flag = 1 if str(r.get("mkt") or r.get("mkt_flag") or "").strip().upper() == "Y" else 0
-        # for each pandas Series r (row) when preparing params:
-        extras_json = build_extras_json_from_series(r)
-        params = {
-    "trade_date": r.get("trade_date"),
-    "symbol": r.get("symbol"),
-    "mkt_flag": mkt_flag,
-    "ind_sec": r.get("ind_sec"),
-    "corp_ind": r.get("corp_ind"),
-    "prev_close": r.get("prev_close"),
-    "open": r.get("open"),
-    "high": r.get("high"),
-    "low": r.get("low"),
-    "close": r.get("close"),
-    "net_trdval": r.get("net_trdval"),
-    "net_trdqty": r.get("net_trdqty"),
-    "trades": r.get("trades"),
-    "hi_52_wk": r.get("hi_52_wk"),
-    "lo_52_wk": r.get("lo_52_wk"),
-    "extras": extras_json
-}
+        # build strict JSON for extras (using your helper)
+        try:
+            extras_json = build_extras_json_from_series(r)
+        except Exception as e:
+            # Fallback: stringify everything (safe but lossy)
+            logger.warning("Failed to build extras JSON for %s: %s. Using fallback stringified extras.", r.get("symbol"), e)
+            extras_json = json.dumps({k: (None if r.get(k) is None else str(r.get(k))) for k in r.index if k not in {
+                "trade_date","symbol","mkt","mkt_flag","prev_close","open","high","low","close",
+                "net_trdval","net_trdqty","trades","ind_sec","corp_ind","hi_52_wk","lo_52_wk"
+            }}, ensure_ascii=False)
 
-      
-        rows.append({
+        row_map = {
             "trade_date": r.get("trade_date"),
             "symbol": r.get("symbol"),
             "mkt_flag": mkt_flag,
-            "ind_sec": r.get("ind_sec"),
-            "corp_ind": r.get("corp_ind"),
-            "prev_close": r.get("prev_close"),
-            "open": r.get("open"),
-            "high": r.get("high"),
-            "low": r.get("low"),
-            "close": r.get("close"),
-            "net_trdval": r.get("net_trdval"),
-            "net_trdqty": r.get("net_trdqty"),
-            "trades": r.get("trades"),
-            "hi_52_wk": r.get("hi_52_wk"),
-            "lo_52_wk": r.get("lo_52_wk"),
-            "extras": extras
-        })
+            "ind_sec": r.get("ind_sec") if "ind_sec" in r else None,
+            "corp_ind": r.get("corp_ind") if "corp_ind" in r else None,
+            "prev_close": r.get("prev_close") if "prev_close" in r else None,
+            "open": r.get("open") if "open" in r else None,
+            "high": r.get("high") if "high" in r else None,
+            "low": r.get("low") if "low" in r else None,
+            "close": r.get("close") if "close" in r else None,
+            "net_trdval": r.get("net_trdval") if "net_trdval" in r else None,
+            "net_trdqty": r.get("net_trdqty") if "net_trdqty" in r else None,
+            "trades": r.get("trades") if "trades" in r else None,
+            "hi_52_wk": r.get("hi_52_wk") if "hi_52_wk" in r else None,
+            "lo_52_wk": r.get("lo_52_wk") if "lo_52_wk" in r else None,
+            "extras": extras_json
+        }
+        rows.append(row_map)
 
     if not rows:
         logger.info("No enriched rows to upsert into intraday_bhavcopy.")
         return
-    
+
+    # Dry-run: insert one-by-one with verbose logging and guarantee rollback
     if dry_run:
         logger.info("[DRY RUN] Starting manual transaction (no commit). Total rows: %d", len(rows))
         with engine.connect() as conn:
             trans = conn.begin()
             try:
                 for i, row in enumerate(rows, start=1):
-                    # Show first few key fields + truncated extras for readability
                     preview = {k: row[k] for k in ('symbol', 'trade_date', 'prev_close', 'open', 'high', 'low', 'close') if k in row}
-                    logger.info("[DRY RUN] Inserting row %d/%d: %s ...", i, len(rows), preview)
-
-                    # You can also print a compact version to stdout (optional)
-                    # print(f"[DRY RUN] Row {i}/{len(rows)}:", preview)
-
-                    # execute the statement for one row at a time
+                    logger.info("[DRY RUN] Inserting row %d/%d: %s", i, len(rows), preview)
+                    # execute single row
                     conn.execute(insert_sql, [row])
-
-                logger.info("[DRY RUN] Executed %d rows successfully — rolling back all changes.", len(rows))
-            except Exception as e:
-                logger.exception("[DRY RUN] Error while inserting — rolling back. Error: %s", e)
+                # done executing - rollback for safety
+                logger.info("[DRY RUN] Executed %d rows — now rolling back.", len(rows))
                 trans.rollback()
-                raise
-            finally:
+            except Exception:
+                # rollback on error and re-raise (no double-rollback)
                 try:
                     trans.rollback()
                 except Exception:
                     pass
-    return
+                logger.exception("[DRY RUN] Error during insert; transaction rolled back.")
+                raise
+        return
 
-
-
+    # Production: batch insert (fast) with engine.begin() (auto commit)
+    batch_size = 500
+    inserted = 0
     with engine.begin() as conn:
-        conn.execute(insert_sql, rows)
-    logger.info("Upserted %d candidate rows into intraday_bhavcopy", len(rows))
+        for i in range(0, len(rows), batch_size):
+            batch = rows[i:i+batch_size]
+            conn.execute(insert_sql, batch)
+            inserted += len(batch)
+    logger.info("Upserted %d candidate rows into intraday_bhavcopy", inserted)
 
 
 # ---------------------------
