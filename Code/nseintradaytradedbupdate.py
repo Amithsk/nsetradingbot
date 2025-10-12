@@ -9,18 +9,18 @@ Modular candidate pipeline with single-responsibility functions:
 - Updatecandidatelistcsv()
 - upsert_candidatelist()
 
-Also: helper functions to update circuit_hitter and gainer_loser tables.
+Also: helper functions to update circuit_hitter, gainer_loser and ingest_audit tables.
 
 Usage:
   python cand_pipeline_modular.py /path/to/PR031025.zip config.yaml --preview
 
 Requirements:
-  pip install pandas pyyaml pymysql
+  pip install pandas pyyaml sqlalchemy pymysql
 """
 
 import os
 import urllib.parse
-from sqlalchemy import create_engine,text
+from sqlalchemy import create_engine, text
 import re
 import io
 import sys
@@ -31,10 +31,9 @@ import logging
 import argparse
 import math
 from datetime import datetime
-from typing import Tuple, Dict, List, Any
+from typing import Tuple, List
 import numpy as np
 import pandas as pd
-
 
 # ---------------------------
 # Logging
@@ -58,10 +57,9 @@ DEFAULT_CONFIG = {
         "candidate_top_n": 50,
         "tt_top_n": 20
     },
-     "paths": {
-        "output_root": "./Output/Intraday" 
+    "paths": {
+        "output_root": "./Output/Intraday"
     },
-    
     "mappings": {
         "GL": {"security": "SECURITY", "pct": ["PERCENT_CG", "PERCENT_CHG"], "close": ["CLOSE_PRIC", "CLOSE_PRICE"], "prev_close": "PREV_CL_PR"},
         "HL": {"security": "SECURITY", "status": "NEW_STATUS", "new": "NEW", "previous": "PREVIOUS"},
@@ -73,17 +71,17 @@ DEFAULT_CONFIG = {
         "exclude_etf": True,
         "exclude_sme": True,
         "preview_only": False,
-        "dry_run": True # if True, DB writes are rolled back,If False, DB writes are committed
+        "dry_run": True  # if True, DB writes are rolled back; if False, DB writes are committed
     },
     "output": {
         "candidates_csv": "candidates_preview.csv"
-    },
-  
+    }
 }
 
 # ---------------------------
 # Utilities
 # ---------------------------
+
 def load_config(path: str = None) -> dict:
     if not path:
         return DEFAULT_CONFIG.copy()
@@ -96,7 +94,6 @@ def load_config(path: str = None) -> dict:
             cfg = json.load(f)
     merged = DEFAULT_CONFIG.copy()
     if cfg:
-        # shallow merge for top-level keys
         for k, v in cfg.items():
             if isinstance(v, dict) and k in merged:
                 merged[k].update(v)
@@ -106,29 +103,26 @@ def load_config(path: str = None) -> dict:
 
 def connect_db(db_cfg: dict = None):
     """
-    Create and return a SQLAlchemy engine using environment variable MYSQL_PASSWORD.
-    If db_cfg is provided, it overrides environment variables.
+    Create and return a SQLAlchemy engine. db_cfg overrides environment variables if provided.
     """
-    # 1. Get DB credentials (from env or config)
-    password = os.getenv('MYSQL_PASSWORD') or (db_cfg.get("password") if db_cfg else "")
-    encoded_pw = urllib.parse.quote_plus(password)  # escape special characters safely
+    # Credentials: prefer MYSQL_PASSWORD env over config password
+    env_password = os.getenv('MYSQL_PASSWORD')
+    password = env_password if env_password is not None else (db_cfg.get("password") if db_cfg else "")
+    encoded_pw = urllib.parse.quote_plus(password)
 
     user = db_cfg.get("user", "root") if db_cfg else "root"
     host = db_cfg.get("host", "localhost") if db_cfg else "localhost"
     port = db_cfg.get("port", 3306) if db_cfg else 3306
     dbname = db_cfg.get("db", "intradaytrading") if db_cfg else "intradaytrading"
 
-    # 2. Build SQLAlchemy engine URL
     DATABASE_URL = f"mysql+pymysql://{user}:{encoded_pw}@{host}:{port}/{dbname}"
 
-    # 3. Create the engine
     engine = create_engine(
         DATABASE_URL,
         pool_pre_ping=True,
         pool_recycle=3600,
-        echo=False  # Set True only if you want SQL logs for debugging
+        echo=False
     )
-
     logger.info("SQLAlchemy engine created for DB: %s", dbname)
     return engine
 
@@ -194,11 +188,11 @@ def normalize_symbol(sym):
         return None
     return str(sym).strip().upper()
 
+# JSON sanitization helpers
 def _make_json_serializable(value):
     """Normalize pandas / numpy / python values into JSON-safe values."""
     if value is None:
         return None
-    # numpy integers/floats
     if isinstance(value, (np.integer,)):
         return int(value)
     if isinstance(value, (np.floating, float)):
@@ -207,9 +201,8 @@ def _make_json_serializable(value):
             return None
         return f
     s = str(value).strip()
-    if s == "" or s.lower() in ("nan","none","null","n/a"):
+    if s == "" or s.lower() in ("nan", "none", "null", "n/a"):
         return None
-    # try numeric conversion from strings
     try:
         if "." in s:
             f = float(s.replace(",", ""))
@@ -222,17 +215,29 @@ def _make_json_serializable(value):
         pass
     return s
 
-def build_extras_json_from_series(r):
-    skip = {"trade_date","symbol","mkt","mkt_flag","prev_close","open","high","low","close",
-            "net_trdval","net_trdqty","trades","ind_sec","corp_ind","hi_52_wk","lo_52_wk"}
+def safe_json_dumps(obj: dict) -> str:
+    """Convert a dictionary to a JSON string with safe conversion of values."""
+    serializable = {}
+    for k, v in obj.items():
+        serializable[k] = _make_json_serializable(v)
+    try:
+        text = json.dumps(serializable, ensure_ascii=False)
+        json.loads(text)
+        return text
+    except Exception as e:
+        logger.warning("safe_json_dumps fallback: %s", e)
+        return json.dumps({k: (None if serializable[k] is None else str(serializable[k])) for k in serializable}, ensure_ascii=False)
+
+def build_extras_json_from_series(row_series: pd.Series) -> str:
+    """Build a strict JSON 'extras' string from a pandas Series (row)."""
+    skip = {"trade_date", "symbol", "mkt", "mkt_flag", "prev_close", "open", "high", "low", "close",
+            "net_trdval", "net_trdqty", "trades", "ind_sec", "corp_ind", "hi_52_wk", "lo_52_wk"}
     extras = {}
-    for k in r.index:
-        if k in skip:
+    for column in row_series.index:
+        if column in skip:
             continue
-        extras[k] = _make_json_serializable(r.get(k))
-    # produce strict JSON text
+        extras[column] = _make_json_serializable(row_series.get(column))
     extras_json = json.dumps(extras, ensure_ascii=False)
-    # sanity-check
     json.loads(extras_json)
     return extras_json
 
@@ -250,10 +255,11 @@ def configload(config_path: str = None) -> dict:
 def candidatelistgeneration(zip_path: str, cfg: dict) -> Tuple[pd.DataFrame, List[str]]:
     diagnostics = []
     with zipfile.ZipFile(zip_path, 'r') as z:
-        found = find_files_in_zip(zip_path)
+        found_files = find_files_in_zip(zip_path)
         candidates = {}
+
         # HL (circuit) first
-        for fname in found["HL"]:
+        for fname in found_files["HL"]:
             try:
                 df = read_csv_from_zip(z, fname)
             except Exception as e:
@@ -276,7 +282,7 @@ def candidatelistgeneration(zip_path: str, cfg: dict) -> Tuple[pd.DataFrame, Lis
                     entry["status"] = row.get(status_col)
 
         # GL (gainers/losers)
-        for fname in found["GL"]:
+        for fname in found_files["GL"]:
             try:
                 df = read_csv_from_zip(z, fname)
             except Exception as e:
@@ -314,7 +320,7 @@ def candidatelistgeneration(zip_path: str, cfg: dict) -> Tuple[pd.DataFrame, Lis
                 entry["prev_close"] = prev if prev is not None else entry["prev_close"]
 
         # TT (top turnover)
-        for fname in found["TT"]:
+        for fname in found_files["TT"]:
             try:
                 df = read_csv_from_zip(z, fname)
             except Exception as e:
@@ -357,12 +363,13 @@ def candidatelistgeneration(zip_path: str, cfg: dict) -> Tuple[pd.DataFrame, Lis
             "turnover": v.get("turnover"),
             "notes": json.dumps({k: v.get(k) for k in ("status",) if v.get(k) is not None})
         })
-    df_cand = pd.DataFrame(rows, columns=["trade_date","symbol","reason_set","primary_reason","pct_change","prev_close","last_price","turnover","notes"])
+    df_cand = pd.DataFrame(rows, columns=["trade_date", "symbol", "reason_set", "primary_reason", "pct_change", "prev_close", "last_price", "turnover", "notes"])
     logger.info("Candidate generation produced %d symbols", len(df_cand))
     return df_cand, diagnostics
 
 # 3) writecandidatelisttocsv()
 def writecandidatelisttocsv(df: pd.DataFrame, out_path: str) -> str:
+    os.makedirs(os.path.dirname(out_path), exist_ok=True) if os.path.dirname(out_path) else None
     df.to_csv(out_path, index=False)
     logger.info("Wrote candidates CSV: %s (%d rows)", out_path, len(df))
     return out_path
@@ -372,173 +379,351 @@ def Updatecandidatelistcsv(zip_path: str, candidates_csv: str, cfg: dict, update
     """
     - reads candidates_csv
     - looks up PR files in zip and merges PR fields into CSV (creates enriched CSV)
-    - optionally upserts raw rows into gainer_loser and circuit_hitter tables for audit
+    - optionally upserts rows into gainer_loser and circuit_hitter tables for audit
     Returns enriched_csv_path and diagnostics
     """
     diagnostics = []
     df_cand = pd.read_csv(candidates_csv)
     pr_map = {}
     with zipfile.ZipFile(zip_path, 'r') as z:
-        found = find_files_in_zip(zip_path)
-        pr_files = found.get("PR", [])
-        for pr in pr_files:
+        found_files = find_files_in_zip(zip_path)
+        pr_files = found_files.get("PR", [])
+        for pr_file in pr_files:
             try:
-                pr_df = read_csv_from_zip(z, pr)
+                pr_df = read_csv_from_zip(z, pr_file)
             except Exception as e:
-                diagnostics.append(f"PR read error {pr}: {e}")
+                diagnostics.append(f"PR read error {pr_file}: {e}")
                 continue
             security_col = cfg["mappings"]["PR"]["security"]
             if security_col not in pr_df.columns:
-                diagnostics.append(f"PR file {pr} missing {security_col}")
+                diagnostics.append(f"PR file {pr_file} missing {security_col}")
                 continue
-            for _, r in pr_df.iterrows():
-                sym = normalize_symbol(r.get(security_col))
+            for _, row in pr_df.iterrows():
+                sym = normalize_symbol(row.get(security_col))
                 if not sym:
                     continue
-                # store the raw row dict
-                pr_map.setdefault(sym, r.to_dict())
+                pr_map.setdefault(sym, row.to_dict())
 
-        # merge PR info
+        # merge PR info into candidates (enriched)
         enriched_rows = []
-        for _, r in df_cand.iterrows():
-            sym = normalize_symbol(r["symbol"])
-            merged = r.to_dict()
+        for _, candidate_row in df_cand.iterrows():
+            sym = normalize_symbol(candidate_row["symbol"])
+            merged_record = candidate_row.to_dict()
             pr_row = pr_map.get(sym)
             if pr_row:
-                # map PR columns into merged (use mapping keys)
                 pr_map_cols = cfg["mappings"]["PR"]
-                for key, col in pr_map_cols.items():
-                    if isinstance(col, list):
-                        for c in col:
+                for mapping_key, mapping_col in pr_map_cols.items():
+                    if isinstance(mapping_col, list):
+                        for c in mapping_col:
                             if c in pr_row:
-                                merged[key] = pr_row.get(c)
+                                merged_record[mapping_key] = pr_row.get(c)
                                 break
                     else:
-                        merged[key] = pr_row.get(col) if col in pr_row else None
-                merged["pr_source_file"] = pr  # last matched PR file
+                        merged_record[mapping_key] = pr_row.get(mapping_col) if mapping_col in pr_row else None
+                merged_record["pr_source_file"] = pr_file
             else:
                 diagnostics.append(f"PR record not found for candidate {sym}")
-            enriched_rows.append(merged)
+            enriched_rows.append(merged_record)
 
         enriched_df = pd.DataFrame(enriched_rows)
         enriched_csv = candidates_csv.replace(".csv", ".enriched.csv")
+        os.makedirs(os.path.dirname(enriched_csv), exist_ok=True) if os.path.dirname(enriched_csv) else None
         enriched_df.to_csv(enriched_csv, index=False)
         logger.info("Created enriched CSV: %s (%d rows)", enriched_csv, len(enriched_df))
 
-        # optionally update raw audit tables (gainer_loser / circuit_hitter)
-        #if update_aux_tables:
-        #    conn = connect_db(cfg["db"])
-        #    try:
-        #        _upsert_gainer_loser_from_candidates(conn, df_cand, cfg)
-        #        _upsert_circuit_hitter_from_candidates(conn, df_cand, cfg)
-        #    finally:
-        #        conn.close()
+    # Optionally upsert audit tables
+    if update_aux_tables:
+        engine = connect_db(cfg["db"])
+        try:
+            # Upsert the raw candidate snapshot into gainer_loser and circuit_hitter audit tables
+            _upsert_gainer_loser_table(engine, df_cand, is_dry_run=cfg["behavior"].get("dry_run", True))
+            _upsert_circuit_hitter_table(engine, df_cand, is_dry_run=cfg["behavior"].get("dry_run", True))
+
+            # ingest audit: compute matched_pr_count
+            matched_pr_count = sum(1 for r in enriched_rows if r.get("pr_source_file"))
+            processed_files_list = []
+            try:
+                processed_files_list = find_files_in_zip(zip_path)["PR"] + find_files_in_zip(zip_path)["GL"] + find_files_in_zip(zip_path)["HL"] + find_files_in_zip(zip_path)["TT"]
+            except Exception:
+                processed_files_list = []
+            # choose trade date if available (first candidate row)
+            extracted_trade_date = enriched_rows[0].get("trade_date") if enriched_rows else None
+            _write_ingest_audit_row(
+                engine=engine,
+                zip_filename=os.path.basename(zip_path),
+                trade_date=extracted_trade_date,
+                processed_file_list=processed_files_list,
+                candidate_count=len(df_cand),
+                matched_pr_count=matched_pr_count,
+                warnings_list=diagnostics,
+                is_dry_run=cfg["behavior"].get("dry_run", True)
+            )
+        finally:
+            try:
+                engine.dispose()
+            except Exception:
+                pass
 
     return enriched_csv, diagnostics
 
-# helper: _upsert_gainer_loser_from_candidates
-def _upsert_gainer_loser_from_candidates(engine, df_cand: pd.DataFrame, cfg: dict):
-    ddl = text("""
+# ---------------------------
+# Audit upsert helpers (clear variable names)
+# ---------------------------
+
+def _upsert_gainer_loser_table(engine, candidate_dataframe: pd.DataFrame, is_dry_run: bool = True):
+    """
+    Upsert daily gainer/loser snapshot into gainer_loser.
+    Expects candidate_dataframe columns: trade_date, symbol, pct_change, prev_close, last_price, reason_set, notes
+    """
+    ddl_statement = text("""
     CREATE TABLE IF NOT EXISTS gainer_loser (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      trade_date DATE,
-      symbol VARCHAR(64),
-      pct_change DECIMAL(9,4),
-      prev_close DECIMAL(18,4),
-      last_price DECIMAL(18,4),
-      reason_set VARCHAR(255),
-      notes JSON,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY ux_symbol_date_reason (symbol, trade_date)
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        trade_date DATE,
+        symbol VARCHAR(128) NOT NULL,
+        pct_change DECIMAL(9,4),
+        prev_close DECIMAL(18,4),
+        last_price DECIMAL(18,4),
+        reason_set VARCHAR(255),
+        notes JSON,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NULL,
+        UNIQUE KEY ux_gl_symbol_date (symbol, trade_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
 
-    upsert_sql = text("""
-    INSERT INTO gainer_loser (trade_date, symbol, pct_change, prev_close, last_price, reason_set, notes)
-    VALUES (:trade_date, :symbol, :pct_change, :prev_close, :last_price, :reason_set, :notes)
+    upsert_statement = text("""
+    INSERT INTO gainer_loser
+        (trade_date, symbol, pct_change, prev_close, last_price, reason_set, notes)
+    VALUES
+        (:trade_date, :symbol, :pct_change, :prev_close, :last_price, :reason_set, :notes)
     ON DUPLICATE KEY UPDATE
-      pct_change = VALUES(pct_change),
-      prev_close = VALUES(prev_close),
-      last_price = VALUES(last_price),
-      reason_set = VALUES(reason_set),
-      notes = VALUES(notes),
-      created_at = NOW();
+        pct_change = VALUES(pct_change),
+        prev_close = VALUES(prev_close),
+        last_price = VALUES(last_price),
+        reason_set = VALUES(reason_set),
+        notes = VALUES(notes),
+        updated_at = NOW();
     """)
 
-    rows = [
-        {
-            "trade_date": r.get("trade_date"),
-            "symbol": r.get("symbol"),
-            "pct_change": r.get("pct_change"),
-            "prev_close": r.get("prev_close"),
-            "last_price": r.get("last_price"),
-            "reason_set": r.get("reason_set"),
-            "notes": r.get("notes")
-        }
-        for _, r in df_cand[df_cand["primary_reason"] == "gainer_loser"].iterrows()
-    ]
+    # Build parameter dicts
+    parameter_rows = []
+    for _, source_row in candidate_dataframe.iterrows():
+        raw_notes = source_row.get("notes")
+        if isinstance(raw_notes, str) and raw_notes.strip().startswith(('{', '[')):
+            notes_json = raw_notes
+        elif raw_notes is not None:
+            notes_json = safe_json_dumps({"notes": raw_notes})
+        else:
+            notes_json = None
 
-    if not rows:
-        logger.info("No gainer_loser candidates to upsert.")
-        return
-
-    with engine.begin() as conn:
-        conn.execute(ddl)
-        conn.execute(upsert_sql, rows)
-    logger.info("Upserted %d rows into gainer_loser", len(rows))
-
-# helper: _upsert_circuit_hitter_from_candidates
-def _upsert_circuit_hitter_from_candidates(engine, df_cand: pd.DataFrame, cfg: dict):
-    ddl = text("""
-    CREATE TABLE IF NOT EXISTS circuit_hitter (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      trade_date DATE,
-      symbol VARCHAR(64),
-      status VARCHAR(64),
-      reason_set VARCHAR(255),
-      notes JSON,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY ux_symbol_date (symbol, trade_date)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    """)
-
-    upsert_sql = text("""
-    INSERT INTO circuit_hitter (trade_date, symbol, status, reason_set, notes)
-    VALUES (:trade_date, :symbol, :status, :reason_set, :notes)
-    ON DUPLICATE KEY UPDATE
-      status = VALUES(status),
-      reason_set = VALUES(reason_set),
-      notes = VALUES(notes),
-      created_at = NOW();
-    """)
-
-    subset = df_cand[df_cand["reason_set"].str.contains("circuit", na=False)]
-    rows = []
-    for _, r in subset.iterrows():
-        notes = r.get("notes") or "{}"
-        try:
-            status = json.loads(notes).get("status", None)
-        except Exception:
-            status = None
-        rows.append({
-            "trade_date": r.get("trade_date"),
-            "symbol": r.get("symbol"),
-            "status": status,
-            "reason_set": r.get("reason_set"),
-            "notes": notes
+        parameter_rows.append({
+            "trade_date": source_row.get("trade_date"),
+            "symbol": source_row.get("symbol"),
+            "pct_change": source_row.get("pct_change"),
+            "prev_close": source_row.get("prev_close"),
+            "last_price": source_row.get("last_price"),
+            "reason_set": source_row.get("reason_set"),
+            "notes": notes_json
         })
 
-    if not rows:
-        logger.info("No circuit_hitter candidates to upsert.")
+    if not parameter_rows:
+        logger.info("No data available to upsert into gainer_loser table.")
         return
 
-    with engine.begin() as conn:
-        conn.execute(ddl)
-        conn.execute(upsert_sql, rows)
-    logger.info("Upserted %d rows into circuit_hitter", len(rows))
+    if is_dry_run:
+        logger.info("[DRY RUN] Preparing to upsert %d rows into gainer_loser table.", len(parameter_rows))
+        with engine.connect() as connection:
+            transaction = connection.begin()
+            try:
+                connection.execute(ddl_statement)
+                for index, param in enumerate(parameter_rows, start=1):
+                    logger.info("[DRY RUN] gainer_loser upsert %d/%d: %s", index, len(parameter_rows), {"symbol": param["symbol"], "trade_date": param["trade_date"]})
+                    connection.execute(upsert_statement, [param])
+                transaction.rollback()
+                logger.info("[DRY RUN] gainer_loser transaction rolled back.")
+            except Exception as e:
+                logger.exception("Error during dry-run upsert for gainer_loser: %s", e)
+                try:
+                    transaction.rollback()
+                except Exception:
+                    pass
+                raise
+        return
 
+    batch_size = 500
+    with engine.begin() as connection:
+        connection.execute(ddl_statement)
+        for start in range(0, len(parameter_rows), batch_size):
+            batch = parameter_rows[start:start + batch_size]
+            connection.execute(upsert_statement, batch)
+    logger.info("Upserted %d records into gainer_loser table.", len(parameter_rows))
 
-# 5) upsert_candidatelist() -> upsert enriched CSV rows into intraday_bhavcopy
+def _upsert_circuit_hitter_table(engine, candidate_dataframe: pd.DataFrame, is_dry_run: bool = True):
+    """
+    Upsert daily circuit_hitter data.
+    Expects candidate_dataframe columns: trade_date, symbol, status, reason_set, notes
+    """
+    ddl_statement = text("""
+    CREATE TABLE IF NOT EXISTS circuit_hitter (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        trade_date DATE,
+        symbol VARCHAR(128) NOT NULL,
+        status VARCHAR(32),
+        reason_set VARCHAR(255),
+        notes JSON,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NULL,
+        UNIQUE KEY ux_ch_symbol_date (symbol, trade_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """)
+
+    upsert_statement = text("""
+    INSERT INTO circuit_hitter
+        (trade_date, symbol, status, reason_set, notes)
+    VALUES
+        (:trade_date, :symbol, :status, :reason_set, :notes)
+    ON DUPLICATE KEY UPDATE
+        status = VALUES(status),
+        reason_set = VALUES(reason_set),
+        notes = VALUES(notes),
+        updated_at = NOW();
+    """)
+
+    parameter_rows = []
+    for _, source_row in candidate_dataframe.iterrows():
+        raw_notes = source_row.get("notes")
+        if isinstance(raw_notes, str) and raw_notes.strip().startswith(('{', '[')):
+            notes_json = raw_notes
+        elif raw_notes is not None:
+            notes_json = safe_json_dumps({"notes": raw_notes})
+        else:
+            notes_json = None
+
+        parameter_rows.append({
+            "trade_date": source_row.get("trade_date"),
+            "symbol": source_row.get("symbol"),
+            "status": source_row.get("status"),
+            "reason_set": source_row.get("reason_set"),
+            "notes": notes_json
+        })
+
+    if not parameter_rows:
+        logger.info("No data available to upsert into circuit_hitter table.")
+        return
+
+    if is_dry_run:
+        logger.info("[DRY RUN] Preparing to upsert %d rows into circuit_hitter table.", len(parameter_rows))
+        with engine.connect() as connection:
+            transaction = connection.begin()
+            try:
+                connection.execute(ddl_statement)
+                for index, param in enumerate(parameter_rows, start=1):
+                    logger.info("[DRY RUN] circuit_hitter upsert %d/%d: %s", index, len(parameter_rows), {"symbol": param["symbol"], "trade_date": param["trade_date"], "status": param["status"]})
+                    connection.execute(upsert_statement, [param])
+                transaction.rollback()
+                logger.info("[DRY RUN] circuit_hitter transaction rolled back.")
+            except Exception as e:
+                logger.exception("Error during dry-run upsert for circuit_hitter: %s", e)
+                try:
+                    transaction.rollback()
+                except Exception:
+                    pass
+                raise
+        return
+
+    batch_size = 500
+    with engine.begin() as connection:
+        connection.execute(ddl_statement)
+        for start in range(0, len(parameter_rows), batch_size):
+            batch = parameter_rows[start:start + batch_size]
+            connection.execute(upsert_statement, batch)
+    logger.info("Upserted %d records into circuit_hitter table.", len(parameter_rows))
+
+# ingest_audit writer
+def _write_ingest_audit_row(
+    engine,
+    zip_filename: str,
+    trade_date: str | None,
+    processed_file_list: list,
+    candidate_count: int,
+    matched_pr_count: int,
+    warnings_list: list | None = None,
+    is_dry_run: bool = True
+):
+    """
+    Insert a single ingest/audit record into ingest_audit table.
+    """
+    ddl_create = text("""
+    CREATE TABLE IF NOT EXISTS ingest_audit (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      zip_file VARCHAR(512) NOT NULL,
+      trade_date DATE NULL,
+      file_list JSON NULL,
+      candidates_count INT DEFAULT 0,
+      matched_pr_count INT DEFAULT 0,
+      warnings TEXT NULL,
+      started_at DATETIME NULL,
+      finished_at DATETIME NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """)
+
+    insert_statement = text("""
+    INSERT INTO ingest_audit
+      (zip_file, trade_date, file_list, candidates_count, matched_pr_count, warnings, started_at, finished_at)
+    VALUES
+      (:zip_file, :trade_date, :file_list, :candidates_count, :matched_pr_count, :warnings, :started_at, :finished_at)
+    """)
+
+    start_ts = datetime.utcnow()
+    finish_ts = datetime.utcnow()
+    warnings_joined = "\n".join([str(w) for w in warnings_list]) if warnings_list else None
+
+    try:
+        file_list_json_text = json.dumps(processed_file_list, ensure_ascii=False)
+        json.loads(file_list_json_text)
+    except Exception:
+        file_list_json_text = safe_json_dumps({"files": processed_file_list})
+
+    params = {
+        "zip_file": zip_filename,
+        "trade_date": trade_date,
+        "file_list": file_list_json_text,
+        "candidates_count": int(candidate_count or 0),
+        "matched_pr_count": int(matched_pr_count or 0),
+        "warnings": warnings_joined,
+        "started_at": start_ts,
+        "finished_at": finish_ts
+    }
+
+    if is_dry_run:
+        logger.info("[DRY RUN] Will write ingest audit for zip=%s trade_date=%s candidates=%d matched_pr=%d",
+                    zip_filename, trade_date, candidate_count, matched_pr_count)
+        with engine.connect() as connection:
+            transaction = connection.begin()
+            try:
+                connection.execute(ddl_create)
+                connection.execute(insert_statement, params)
+                transaction.rollback()
+                logger.info("[DRY RUN] Ingest audit simulated and rolled back.")
+            except Exception as e:
+                logger.exception("[DRY RUN] Error writing ingest audit (rolled back): %s", e)
+                try:
+                    transaction.rollback()
+                except Exception:
+                    pass
+                raise
+        return
+
+    with engine.begin() as connection:
+        connection.execute(ddl_create)
+        connection.execute(insert_statement, params)
+    logger.info("Wrote ingest audit: zip=%s trade_date=%s candidates=%d matched_pr=%d",
+                zip_filename, trade_date, candidate_count, matched_pr_count)
+
+# ---------------------------
+# Main upsert to intraday_bhavcopy
+# ---------------------------
 def upsert_candidatelist(enriched_csv: str, cfg: dict) -> None:
     """
     Upsert enriched CSV rows into intraday_bhavcopy.
@@ -574,79 +759,71 @@ def upsert_candidatelist(enriched_csv: str, cfg: dict) -> None:
       updated_at = NOW();
     """)
 
-    # Prepare rows list with sanitized extras_json
-    rows = []
-    for _, r in df.iterrows():
-        mkt_flag = 1 if str(r.get("mkt") or r.get("mkt_flag") or "").strip().upper() == "Y" else 0
-        # build strict JSON for extras (using your helper)
+    rows_to_insert = []
+    for _, row in df.iterrows():
+        market_flag = 1 if str(row.get("mkt") or row.get("mkt_flag") or "").strip().upper() == "Y" else 0
         try:
-            extras_json = build_extras_json_from_series(r)
+            extras_json = build_extras_json_from_series(row)
         except Exception as e:
-            # Fallback: stringify everything (safe but lossy)
-            logger.warning("Failed to build extras JSON for %s: %s. Using fallback stringified extras.", r.get("symbol"), e)
-            extras_json = json.dumps({k: (None if r.get(k) is None else str(r.get(k))) for k in r.index if k not in {
+            logger.warning("Failed to build extras JSON for %s: %s. Using fallback stringified extras.", row.get("symbol"), e)
+            extras_json = json.dumps({k: (None if row.get(k) is None else str(row.get(k))) for k in row.index if k not in {
                 "trade_date","symbol","mkt","mkt_flag","prev_close","open","high","low","close",
                 "net_trdval","net_trdqty","trades","ind_sec","corp_ind","hi_52_wk","lo_52_wk"
             }}, ensure_ascii=False)
 
         row_map = {
-            "trade_date": r.get("trade_date"),
-            "symbol": r.get("symbol"),
-            "mkt_flag": mkt_flag,
-            "ind_sec": r.get("ind_sec") if "ind_sec" in r else None,
-            "corp_ind": r.get("corp_ind") if "corp_ind" in r else None,
-            "prev_close": r.get("prev_close") if "prev_close" in r else None,
-            "open": r.get("open") if "open" in r else None,
-            "high": r.get("high") if "high" in r else None,
-            "low": r.get("low") if "low" in r else None,
-            "close": r.get("close") if "close" in r else None,
-            "net_trdval": r.get("net_trdval") if "net_trdval" in r else None,
-            "net_trdqty": r.get("net_trdqty") if "net_trdqty" in r else None,
-            "trades": r.get("trades") if "trades" in r else None,
-            "hi_52_wk": r.get("hi_52_wk") if "hi_52_wk" in r else None,
-            "lo_52_wk": r.get("lo_52_wk") if "lo_52_wk" in r else None,
+            "trade_date": row.get("trade_date"),
+            "symbol": row.get("symbol"),
+            "mkt_flag": market_flag,
+            "ind_sec": row.get("ind_sec") if "ind_sec" in row else None,
+            "corp_ind": row.get("corp_ind") if "corp_ind" in row else None,
+            "prev_close": row.get("prev_close") if "prev_close" in row else None,
+            "open": row.get("open") if "open" in row else None,
+            "high": row.get("high") if "high" in row else None,
+            "low": row.get("low") if "low" in row else None,
+            "close": row.get("close") if "close" in row else None,
+            "net_trdval": row.get("net_trdval") if "net_trdval" in row else None,
+            "net_trdqty": row.get("net_trdqty") if "net_trdqty" in row else None,
+            "trades": row.get("trades") if "trades" in row else None,
+            "hi_52_wk": row.get("hi_52_wk") if "hi_52_wk" in row else None,
+            "lo_52_wk": row.get("lo_52_wk") if "lo_52_wk" in row else None,
             "extras": extras_json
         }
-        rows.append(row_map)
+        rows_to_insert.append(row_map)
 
-    if not rows:
+    if not rows_to_insert:
         logger.info("No enriched rows to upsert into intraday_bhavcopy.")
         return
 
-    # Dry-run: insert one-by-one with verbose logging and guarantee rollback
     if dry_run:
-        logger.info("[DRY RUN] Starting manual transaction (no commit). Total rows: %d", len(rows))
+        logger.info("[DRY RUN] Starting manual transaction (no commit). Total rows: %d", len(rows_to_insert))
         with engine.connect() as conn:
             trans = conn.begin()
             try:
-                for i, row in enumerate(rows, start=1):
-                    preview = {k: row[k] for k in ('symbol', 'trade_date', 'prev_close', 'open', 'high', 'low', 'close') if k in row}
-                    logger.info("[DRY RUN] Inserting row %d/%d: %s", i, len(rows), preview)
-                    # execute single row
-                    conn.execute(insert_sql, [row])
-                # done executing - rollback for safety
-                logger.info("[DRY RUN] Executed %d rows — now rolling back.", len(rows))
+                for idx, row_map in enumerate(rows_to_insert, start=1):
+                    preview = {k: row_map[k] for k in ('symbol', 'trade_date', 'prev_close', 'open', 'high', 'low', 'close') if k in row_map}
+                    logger.info("[DRY RUN] Inserting row %d/%d: %s", idx, len(rows_to_insert), preview)
+                    conn.execute(insert_sql, [row_map])
                 trans.rollback()
-            except Exception:
-                # rollback on error and re-raise (no double-rollback)
+                logger.info("[DRY RUN] Completed dry-run inserts and rolled back.")
+            except Exception as e:
+                logger.exception("[DRY RUN] Error during dry-run inserts: %s", e)
                 try:
                     trans.rollback()
                 except Exception:
                     pass
-                logger.exception("[DRY RUN] Error during insert; transaction rolled back.")
                 raise
         return
 
-    # Production: batch insert (fast) with engine.begin() (auto commit)
+    # Production: batch insert
     batch_size = 500
-    inserted = 0
+    inserted_count = 0
     with engine.begin() as conn:
-        for i in range(0, len(rows), batch_size):
-            batch = rows[i:i+batch_size]
+        for start in range(0, len(rows_to_insert), batch_size):
+            batch = rows_to_insert[start:start + batch_size]
             conn.execute(insert_sql, batch)
-            inserted += len(batch)
-    logger.info("Upserted %d candidate rows into intraday_bhavcopy", inserted)
-
+            inserted_count += len(batch)
+    logger.info("Upserted %d candidate rows into intraday_bhavcopy", inserted_count)
 
 # ---------------------------
 # CLI and orchestrator
@@ -654,41 +831,35 @@ def upsert_candidatelist(enriched_csv: str, cfg: dict) -> None:
 
 def parse_args():
     p = argparse.ArgumentParser()
-    # make zipfile optional
     p.add_argument("zipfile", nargs="?", help="Path to daily ZIP (e.g., PR031025.zip)")
     p.add_argument("config", nargs="?", help="Path to config YAML/JSON (optional)", default=None)
-    p.add_argument("--preview", action="store_true", help="Preview only (no DB writes)")
+    p.add_argument("--preview", action="store_true", help="Preview only (no DB writes) - alias for behavior.preview_only")
     return p.parse_args()
-
 
 if __name__ == "__main__":
     args = parse_args()
     CONFIG_PATH = args.config
 
-    # Step 0: load config
     cfg = configload(CONFIG_PATH)
     logger.info("Config loaded")
 
-    # Resolve OUTPUT_ROOT
     output_root = cfg.get("paths", {}).get("output_root", "./Output/Intraday")
-    # ensure output_root is normalized and exists
     output_root = os.path.normpath(output_root)
 
-    # CLI zip argument (may be None)
-    zip_arg = args.zipfile
+    if args.preview:
+        cfg["behavior"]["preview_only"] = True
+        cfg["behavior"]["dry_run"] = True
 
+    zip_arg = args.zipfile
     if zip_arg:
-        # If user passed a zip path, accept absolute or relative (relative -> relative to output_root)
         if os.path.isabs(zip_arg):
             ZIP_PATH = zip_arg
         else:
             ZIP_PATH = os.path.join(output_root, zip_arg)
     else:
-        # No zip argument passed: pick the most recent zip in output_root
         if not os.path.isdir(output_root):
             logger.error("Configured output_root does not exist or is not a directory: %s", output_root)
             sys.exit(1)
-
         zips = sorted(
             [f for f in os.listdir(output_root) if f.lower().endswith(".zip")],
             key=lambda f: os.path.getmtime(os.path.join(output_root, f)),
@@ -698,31 +869,29 @@ if __name__ == "__main__":
             logger.error("No ZIP files found in output_root: %s", output_root)
             sys.exit(1)
         ZIP_PATH = os.path.join(output_root, zips[0])
-        # normalize and log (show forward slashes)
         ZIP_PATH = os.path.normpath(ZIP_PATH)
         logger.info("No ZIP argument passed — using latest ZIP: %s", ZIP_PATH.replace("\\", "/"))
 
-    # Final normalize and existence check (covers both branches)
     ZIP_PATH = os.path.normpath(ZIP_PATH)
     if not os.path.exists(ZIP_PATH):
         logger.error("ZIP file not found: %s", ZIP_PATH)
         sys.exit(1)
 
-    # Now run pipeline steps (unchanged)
-    cand_df, diag = candidatelistgeneration(ZIP_PATH, cfg)
-    for d in diag:
-        logger.warning("Diag: %s", d)
+    # Pipeline steps
+    candidate_df, diagnostics = candidatelistgeneration(ZIP_PATH, cfg)
+    for diag in diagnostics:
+        logger.warning("Diag: %s", diag)
 
-    out_csv = os.path.join(output_root, cfg["output"].get("candidates_csv", "candidates_preview.csv"))
-    writecandidatelisttocsv(cand_df, out_csv)
+    out_csv_path = os.path.join(output_root, cfg["output"].get("candidates_csv", "candidates_preview.csv"))
+    writecandidatelisttocsv(candidate_df, out_csv_path)
 
-    enriched_csv, upd_diag = Updatecandidatelistcsv(ZIP_PATH, out_csv, cfg, update_aux_tables=True)
-    for d in upd_diag:
+    enriched_csv_path, enrichment_diagnostics = Updatecandidatelistcsv(ZIP_PATH, out_csv_path, cfg, update_aux_tables=True)
+    for d in enrichment_diagnostics:
         logger.warning("Update diag: %s", d)
 
     if not args.preview and not cfg["behavior"].get("preview_only"):
-        upsert_candidatelist(enriched_csv, cfg)
+        upsert_candidatelist(enriched_csv_path, cfg)
     else:
-        logger.info("Preview mode: skipping DB upsert. Enriched CSV at %s", enriched_csv)
+        logger.info("Preview mode: skipping DB upsert. Enriched CSV at %s", enriched_csv_path)
 
     logger.info("Pipeline finished.")
