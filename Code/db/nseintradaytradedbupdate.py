@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 cand_pipeline_modular.py
 
@@ -9,13 +8,6 @@ Modular candidate pipeline with single-responsibility functions:
 - Updatecandidatelistcsv()
 - upsert_candidatelist()
 
-Also: helper functions to update circuit_hitter, gainer_loser and ingest_audit tables.
-
-Usage:
-  python cand_pipeline_modular.py /path/to/PR031025.zip config.yaml --preview
-
-Requirements:
-  pip install pandas pyyaml sqlalchemy pymysql
 """
 
 import os
@@ -34,6 +26,8 @@ from datetime import datetime
 from typing import Tuple, List
 import numpy as np
 import pandas as pd
+from dateutil import parser as dateutil_parser
+
 
 # ---------------------------
 # Logging
@@ -128,17 +122,6 @@ def connect_db(db_cfg: dict = None):
     logger.info("SQLAlchemy engine created for DB: %s", dbname)
     return engine
 
-def extract_trade_date_from_filename(fname: str) -> str:
-    m = re.search(r'(\d{6})', fname)
-    if not m:
-        return ""
-    s = m.group(1)
-    dd, mm, yy = int(s[:2]), int(s[2:4]), int(s[4:6])
-    yyyy = 2000 + yy if yy < 70 else 1900 + yy
-    try:
-        return datetime(yyyy, mm, dd).date().isoformat()
-    except Exception:
-        return ""
 
 def read_csv_from_zip(z: zipfile.ZipFile, name: str) -> pd.DataFrame:
     raw = z.read(name).decode('utf-8', errors='replace')
@@ -256,6 +239,154 @@ def none_if_nan(val):
         return val
     except Exception:
         return None
+# ---------------------------
+# Robust date extraction helpers
+# ---------------------------
+COMMON_DATE_COL_NAMES = [
+    "TRADE_DATE", "TRADE DATE", "DATE", "AS_OF_DATE", "AS OF", "AS_OF", "REPORT_DATE", "FILE_DATE"
+]
+
+def _parse_date_value(v):
+    """Try to parse a single value into an ISO date (YYYY-MM-DD). Returns str or None."""
+    try:
+        if v is None:
+            return None
+        s = str(v).strip()
+        if s == "" or s.lower() in ("nan", "none", "null"):
+            return None
+
+        # Numeric 8-digit YYYYMMDD
+        if s.isdigit() and len(s) == 8:
+            try:
+                dt = datetime.strptime(s, "%Y%m%d").date()
+                return dt.isoformat()
+            except Exception:
+                pass
+
+        # Try dateutil (handles many human formats). Prefer dayfirst since many CSVs are DD/MM/YY.
+        try:
+            dt = dateutil_parser.parse(s, dayfirst=True, yearfirst=False)
+            return dt.date().isoformat()
+        except Exception:
+            pass
+
+        # Fallback to pandas parsing (infer formats)
+        try:
+            ts = pd.to_datetime(s, dayfirst=True, errors="coerce", infer_datetime_format=True)
+            if not pd.isna(ts):
+                return ts.date().isoformat()
+        except Exception:
+            pass
+
+    except Exception:
+        pass
+    return None
+
+def extract_trade_date_from_df(df: pd.DataFrame) -> str:
+    """
+    Inspect DataFrame for a date column and return ISO date string 'YYYY-MM-DD' if found, else ''.
+    Strategy:
+      1. Check common column names (case-insensitive).
+      2. Try any column that looks date-like by sampling values.
+      3. Scan first few cells as last resort.
+    """
+    if df is None or df.empty:
+        return ""
+
+    cols = [str(c).strip().upper() for c in df.columns]
+
+    # 1) common column names
+    for can in COMMON_DATE_COL_NAMES:
+        if can in cols:
+            ser = df.iloc[:, cols.index(can)].dropna().astype(str).str.strip()
+            parsed = ser.apply(_parse_date_value).dropna()
+            if not parsed.empty:
+                return parsed.mode().iloc[0]
+
+    # 2) try other columns by sampling up to first 30 non-null values
+    for idx, col in enumerate(cols):
+        ser = df.iloc[:, idx]
+        sample_vals = ser.dropna().astype(str).str.strip().head(30)
+        if sample_vals.empty:
+            continue
+        parsed = sample_vals.apply(_parse_date_value).dropna()
+        if not parsed.empty:
+            mode_date = parsed.mode().iloc[0]
+            # accept if at least ~50% of parsed samples match the mode
+            if (parsed == mode_date).sum() >= max(1, int(len(parsed) * 0.5)):
+                return mode_date
+
+    # 3) scan first few cells
+    nrows = min(10, len(df))
+    ncols = min(6, len(df.columns))
+    candidates = []
+    for r in range(nrows):
+        for c in range(ncols):
+            try:
+                v = df.iat[r, c]
+            except Exception:
+                continue
+            p = _parse_date_value(v)
+            if p:
+                candidates.append(p)
+    if candidates:
+        ser = pd.Series(candidates)
+        return ser.mode().iloc[0]
+
+    return ""
+def extract_trade_date_from_filename(fname: str) -> str:
+    """
+    Extract trade date from filename only (basename).
+    Priority:
+      1) 8-digit token -> try YYYYMMDD then DDMMYYYY
+      2) 6-digit token -> interpret as DDMMYY (preferred)
+    Returns ISO date string 'YYYY-MM-DD' or empty string if none found/invalid.
+    """
+    base = os.path.basename(fname)
+    # 1) 8-digit: prefer YYYYMMDD, then DDMMYYYY
+    m8 = re.search(r'(\d{8})', base)
+    if m8:
+        token = m8.group(1)
+        for fmt in ("%Y%m%d", "%d%m%Y"):
+            try:
+                dt = datetime.strptime(token, fmt).date()
+                return dt.isoformat()
+            except Exception:
+                continue
+
+    # 2) 6-digit: interpret as DDMMYY (explicitly)
+    #    Use pivot relative to current year to expand 2-digit year -> 20xx (preferred)
+    m6 = re.search(r'(\d{6})', base)
+    if m6:
+        token = m6.group(1)
+        dd = int(token[0:2])
+        mm = int(token[2:4])
+        yy = int(token[4:6])
+
+        # Pivot: if yy <= (current_year%100 + 5) => 2000+yy else 1900+yy
+        cur_year = datetime.utcnow().year
+        pivot = (cur_year % 100) + 5
+        yyyy = 2000 + yy if yy <= pivot else 1900 + yy
+
+        try:
+            # Interpret as DDMMYY => day=dd, month=mm
+            dt = datetime(yyyy, mm, dd).date()
+            return dt.isoformat()
+        except Exception:
+            # As a defensive fallback attempt MMDDYY if the above failed (rare)
+            try:
+                dt = datetime(yyyy, dd, mm).date()
+                return dt.isoformat()
+            except Exception:
+                pass
+
+    return ""
+
+# ---------------------------
+# End date helpers
+# ---------------------------
+
+
 
 # ---------------------------
 # The functions to handle the data
@@ -285,14 +416,25 @@ def candidatelistgeneration(zip_path: str, cfg: dict) -> Tuple[pd.DataFrame, Lis
             if sec_col not in df.columns:
                 diagnostics.append(f"HL {fname} missing column {sec_col}")
                 continue
+
+            # <-- get date from filename only -->
+            trade_date = extract_trade_date_from_filename(os.path.basename(fname))
+
             status_col = cfg["mappings"]["HL"].get("status")
             status_col = status_col if status_col in df.columns else None
             for _, row in df.iterrows():
                 sym = normalize_symbol(row.get(sec_col))
                 if not sym:
                     continue
-                trade_date = extract_trade_date_from_filename(os.path.basename(fname))
-                entry = candidates.setdefault(sym, {"symbol": sym, "trade_date": trade_date, "reasons": set(), "pct": None, "last_price": None, "prev_close": None, "turnover": None})
+                entry = candidates.setdefault(sym, {
+                    "symbol": sym,
+                    "trade_date": trade_date,
+                    "reasons": set(),
+                    "pct": None,
+                    "last_price": None,
+                    "prev_close": None,
+                    "turnover": None
+                })
                 entry["reasons"].add("circuit")
                 if status_col:
                     entry["status"] = row.get(status_col)
@@ -308,6 +450,10 @@ def candidatelistgeneration(zip_path: str, cfg: dict) -> Tuple[pd.DataFrame, Lis
             if sec_col not in df.columns:
                 diagnostics.append(f"GL {fname} missing column {sec_col}")
                 continue
+
+            # <-- get date from filename only -->
+            trade_date = extract_trade_date_from_filename(os.path.basename(fname))
+
             pct_col = safe_first_existing_col(df, cfg["mappings"]["GL"]["pct"])
             close_col = safe_first_existing_col(df, cfg["mappings"]["GL"]["close"])
             prev_col = cfg["mappings"]["GL"]["prev_close"]
@@ -325,11 +471,18 @@ def candidatelistgeneration(zip_path: str, cfg: dict) -> Tuple[pd.DataFrame, Lis
                 sym = normalize_symbol(row.get(sec_col))
                 if not sym:
                     continue
-                trade_date = extract_trade_date_from_filename(os.path.basename(fname))
                 pct = to_float_safe(row.get(pct_col)) if pct_col else None
                 last_price = to_float_safe(row.get(close_col)) if close_col else None
                 prev = to_float_safe(row.get(prev_col)) if prev_col else None
-                entry = candidates.setdefault(sym, {"symbol": sym, "trade_date": trade_date, "reasons": set(), "pct": None, "last_price": None, "prev_close": None, "turnover": None})
+                entry = candidates.setdefault(sym, {
+                    "symbol": sym,
+                    "trade_date": trade_date,
+                    "reasons": set(),
+                    "pct": None,
+                    "last_price": None,
+                    "prev_close": None,
+                    "turnover": None
+                })
                 entry["reasons"].add("gainer_loser")
                 entry["pct"] = pct if pct is not None else entry["pct"]
                 entry["last_price"] = last_price if last_price is not None else entry["last_price"]
@@ -346,6 +499,10 @@ def candidatelistgeneration(zip_path: str, cfg: dict) -> Tuple[pd.DataFrame, Lis
             if sec_col not in df.columns:
                 diagnostics.append(f"TT {fname} missing column {sec_col}")
                 continue
+
+            # <-- get date from filename only -->
+            trade_date = extract_trade_date_from_filename(os.path.basename(fname))
+
             val_col = safe_first_existing_col(df, cfg["mappings"]["TT"]["net_trdval"])
             qty_col = safe_first_existing_col(df, cfg["mappings"]["TT"]["net_trdqty"])
             if val_col:
@@ -356,12 +513,20 @@ def candidatelistgeneration(zip_path: str, cfg: dict) -> Tuple[pd.DataFrame, Lis
                 topn = df.sort_values("_QTY", ascending=False).head(cfg["thresholds"]["tt_top_n"])
             else:
                 topn = df.head(cfg["thresholds"]["tt_top_n"])
+
             for _, row in topn.iterrows():
                 sym = normalize_symbol(row.get(sec_col))
                 if not sym:
                     continue
-                trade_date = extract_trade_date_from_filename(os.path.basename(fname))
-                entry = candidates.setdefault(sym, {"symbol": sym, "trade_date": trade_date, "reasons": set(), "pct": None, "last_price": None, "prev_close": None, "turnover": None})
+                entry = candidates.setdefault(sym, {
+                    "symbol": sym,
+                    "trade_date": trade_date,
+                    "reasons": set(),
+                    "pct": None,
+                    "last_price": None,
+                    "prev_close": None,
+                    "turnover": None
+                })
                 entry["reasons"].add("top_turnover")
                 entry["turnover"] = to_float_safe(row.get(val_col)) if val_col else entry["turnover"]
 
@@ -383,6 +548,7 @@ def candidatelistgeneration(zip_path: str, cfg: dict) -> Tuple[pd.DataFrame, Lis
     logger.info("Candidate generation produced %d symbols", len(df_cand))
     return df_cand, diagnostics
 
+
 # 3) writecandidatelisttocsv()
 def writecandidatelisttocsv(df: pd.DataFrame, out_path: str) -> str:
     os.makedirs(os.path.dirname(out_path), exist_ok=True) if os.path.dirname(out_path) else None
@@ -392,12 +558,6 @@ def writecandidatelisttocsv(df: pd.DataFrame, out_path: str) -> str:
 
 # 4) Updatecandidatelistcsv() -> enrich the CSV from PR and optionally update gainer_loser and circuit_hitter tables
 def Updatecandidatelistcsv(zip_path: str, candidates_csv: str, cfg: dict, update_aux_tables: bool = True) -> Tuple[str, List[str]]:
-    """
-    - reads candidates_csv
-    - looks up PR files in zip and merges PR fields into CSV (creates enriched CSV)
-    - optionally upserts rows into gainer_loser and circuit_hitter tables for audit
-    Returns enriched_csv_path and diagnostics
-    """
     diagnostics = []
     df_cand = pd.read_csv(candidates_csv)
     pr_map = {}
@@ -410,6 +570,10 @@ def Updatecandidatelistcsv(zip_path: str, candidates_csv: str, cfg: dict, update
             except Exception as e:
                 diagnostics.append(f"PR read error {pr_file}: {e}")
                 continue
+
+            # <-- determine trade date from PR filename only -->
+            trade_date = extract_trade_date_from_filename(os.path.basename(pr_file))
+
             security_col = cfg["mappings"]["PR"]["security"]
             if security_col not in pr_df.columns:
                 diagnostics.append(f"PR file {pr_file} missing {security_col}")
@@ -418,7 +582,10 @@ def Updatecandidatelistcsv(zip_path: str, candidates_csv: str, cfg: dict, update
                 sym = normalize_symbol(row.get(security_col))
                 if not sym:
                     continue
-                pr_map.setdefault(sym, row.to_dict())
+                rec = row.to_dict()
+                # attach the filename-derived trade date for later merging
+                rec["TRADE_DATE_FROM_FILENAME"] = trade_date
+                pr_map.setdefault(sym, rec)
 
         # merge PR info into candidates (enriched)
         enriched_rows = []
@@ -437,6 +604,10 @@ def Updatecandidatelistcsv(zip_path: str, candidates_csv: str, cfg: dict, update
                     else:
                         merged_record[mapping_key] = pr_row.get(mapping_col) if mapping_col in pr_row else None
                 merged_record["pr_source_file"] = pr_file
+
+                # <-- force trade_date from PR filename if present -->
+                if pr_row.get("TRADE_DATE_FROM_FILENAME"):
+                    merged_record["trade_date"] = pr_row.get("TRADE_DATE_FROM_FILENAME")
             else:
                 diagnostics.append(f"PR record not found for candidate {sym}")
             enriched_rows.append(merged_record)
@@ -447,22 +618,19 @@ def Updatecandidatelistcsv(zip_path: str, candidates_csv: str, cfg: dict, update
         enriched_df.to_csv(enriched_csv, index=False)
         logger.info("Created enriched CSV: %s (%d rows)", enriched_csv, len(enriched_df))
 
-    # Optionally upsert audit tables
+    # (rest of Updatecandidatelistcsv unchanged: upsert audit tables)
     if update_aux_tables:
         engine = connect_db(cfg["db"])
         try:
-            # Upsert the raw candidate snapshot into gainer_loser and circuit_hitter audit tables
             _upsert_gainer_loser_table(engine, df_cand, is_dry_run=cfg["behavior"].get("dry_run", True))
             _upsert_circuit_hitter_table(engine, df_cand, is_dry_run=cfg["behavior"].get("dry_run", True))
 
-            # ingest audit: compute matched_pr_count
             matched_pr_count = sum(1 for r in enriched_rows if r.get("pr_source_file"))
-            processed_files_list = []
             try:
                 processed_files_list = find_files_in_zip(zip_path)["PR"] + find_files_in_zip(zip_path)["GL"] + find_files_in_zip(zip_path)["HL"] + find_files_in_zip(zip_path)["TT"]
             except Exception:
                 processed_files_list = []
-            # choose trade date if available (first candidate row)
+
             extracted_trade_date = enriched_rows[0].get("trade_date") if enriched_rows else None
             _write_ingest_audit_row(
                 engine=engine,
