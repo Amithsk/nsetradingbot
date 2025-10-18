@@ -261,31 +261,37 @@ if __name__ == "__main__":
     conn = session.connection()
 
     try:
-        # MODE 2: Process ALL date folders under OUTPUT_ROOT (backfill/daily both)
-        ist = ZoneInfo("Asia/Kolkata")
-        for folder in sorted(Path(OUTPUT_ROOT).iterdir()):
-            if not folder.is_dir():
-                continue
+        # Ask user which folder (run date) to process
+        folder_input = input("Enter the folder name (e.g., 20251015): ").strip()
+        folder_path = Path(OUTPUT_ROOT) / folder_input
 
-            ds = extract_date_from_folder(folder)
-            if not ds:
-                continue
+        if not folder_path.exists() or not folder_path.is_dir():
+            print(f" Folder not found: {folder_path}")
+            raise SystemExit(1)
 
-            # 1) RUN_DATE_STR is the folder name (run day)
-            RUN_DATE_STR = ds
+        # Validate and extract folder name
+        ds = extract_date_from_folder(folder_path)
+        if not ds:
+            print(f"Invalid folder name format. Expected YYYYMMDD (e.g., 20251015)")
+            raise SystemExit(1)
 
-            # 2) Compute previous NSE trading day for that run day (for backward/prices)
-            run_day = datetime.strptime(RUN_DATE_STR, "%Y%m%d").date()
-            prev_day = prev_trading_day(run_day)
-            YDAY_STR = prev_day.strftime("%Y%m%d")
+        # 1) RUN_DATE_STR is the folder name (run day)
+        RUN_DATE_STR = ds
 
-            process_date(OUTPUT_ROOT, conn, RUN_DATE_STR)
+        # 2) Compute previous NSE trading day for that run day (for backward/prices)
+        run_day = datetime.strptime(RUN_DATE_STR, "%Y%m%d").date()
+        prev_day = prev_trading_day(run_day)
+        YDAY_STR = prev_day.strftime("%Y%m%d")
+
+        print(f"\nProcessing only folder {RUN_DATE_STR} (previous trading day: {YDAY_STR})")
+        process_date(OUTPUT_ROOT, conn, RUN_DATE_STR)
 
         #session.commit()
-        print("Data load finished")
-        
+        print("\nData load finished successfully.")
+
     except Exception as e:
         print("Error occurred:", e)
+        traceback.print_exc()
         session.rollback()
     finally:
         session.close()
