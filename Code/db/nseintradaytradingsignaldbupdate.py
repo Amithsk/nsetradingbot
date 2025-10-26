@@ -102,8 +102,63 @@ def load_config(config_path: str = None):
 
 
 # -------------------------
-# Helpers: JSON sanitizer
+# Helpers: JSON sanitizer /Trade date
 # -------------------------
+
+def trading_day(engine_obj, date_iso: str = None) -> str | None:
+    """
+    Return an ISO date string representing a valid trading day (a date that exists in intraday_bhavcopy).
+
+    Behavior:
+      - If date_iso is provided:
+         * If intraday_bhavcopy has rows for date_iso -> return date_iso
+         * Else -> return the most recent trade_date < date_iso (or None if none)
+      - If date_iso is None:
+         * Return the MAX(trade_date) from intraday_bhavcopy (latest available trading day)
+         * If intraday_bhavcopy is empty -> fallback to yesterday adjusted for weekend
+
+    Returns:
+        ISO date string like '2025-10-24', or None when no suitable date can be determined.
+    """
+    # 1) try to use DB info (preferred)
+    try:
+        # If user passed a date, check if that date has rows
+        if date_iso:
+            q = text("SELECT COUNT(1) AS c FROM intraday_bhavcopy WHERE trade_date = :d")
+            df = pd.read_sql(q, engine_obj, params={"d": date_iso})
+            if not df.empty and int(df["c"].iloc[0]) > 0:
+                return pd.to_datetime(date_iso).date().isoformat()
+
+            # find previous trading day strictly before date_iso
+            q_prev = text("SELECT MAX(trade_date) AS prev FROM intraday_bhavcopy WHERE trade_date < :d")
+            df_prev = pd.read_sql(q_prev, engine_obj, params={"d": date_iso})
+            if not df_prev.empty and not pd.isna(df_prev["prev"].iloc[0]):
+                return pd.to_datetime(df_prev["prev"].iloc[0]).date().isoformat()
+
+            # no earlier trading day in DB
+            return None
+
+        # date_iso not provided -> return latest available trade_date
+        q_latest = text("SELECT MAX(trade_date) AS last_date FROM intraday_bhavcopy")
+        df_latest = pd.read_sql(q_latest, engine_obj)
+        if not df_latest.empty and not pd.isna(df_latest["last_date"].iloc[0]):
+            return pd.to_datetime(df_latest["last_date"].iloc[0]).date().isoformat()
+
+    except Exception:
+        # If DB is unreachable or query fails, fall through to local weekend fallback
+        logger.exception("trading_day: DB lookup failed, falling back to local weekend-adjusted date")
+
+    # 2) Fallback: use "yesterday" adjusted for weekend (local heuristic)
+    today = datetime.now()
+    yesterday = today - timedelta(days=1)
+    if yesterday.weekday() == 5:  # Saturday -> use Friday
+        yesterday -= timedelta(days=1)
+    elif yesterday.weekday() == 6:  # Sunday -> use Friday
+        yesterday -= timedelta(days=2)
+    return yesterday.date().isoformat()
+
+    
+
 def sanitize_json_cell(val):
     """
     Convert a Python value into a JSON-text string suitable for inserting into a JSON column,
@@ -730,7 +785,8 @@ if __name__ == "__main__":
             behavior_cfg = cfg.get("behavior", DEFAULT_CONFIG["behavior"])
 
             # Default behavior: backfill-first then run yesterday
-            default_date = (date.today() - timedelta(days=1)).isoformat()
+
+            default_date = trading_day(engine)
             if behavior_cfg.get("preview_only", False):
                 # preview_only: just compute features/signals, skip DB upserts
                 logger.info("IDE mode: preview_only is True; computing features/signals without DB writes")
