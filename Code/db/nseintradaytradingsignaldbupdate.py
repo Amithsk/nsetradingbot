@@ -276,6 +276,12 @@ def upsert_features(engine_obj, df_features, dry_run=False):
     if df_features is None or df_features.empty:
         logger.info("No features to upsert.")
         return
+    
+    if dry_run:
+        logger.info("Dry-run enabled: would upsert %d feature rows (skipping DB writes).", len(df_features))
+        # optionally dump sample to log or to CSV for inspection
+        logger.debug("Sample features (dry-run): %s", df_features.head(10).to_dict(orient="records"))
+        return
 
     temp_table = "tmp_strategy_features_upsert"
     conn = engine_obj.connect()
@@ -323,6 +329,11 @@ def upsert_signals(engine_obj, df_signals, dry_run=False):
     """
     if df_signals is None or df_signals.empty:
         logger.info("No signals to upsert.")
+        return
+    
+    if dry_run:
+        logger.info("Dry-run enabled: would upsert %d signals (skipping DB writes).", len(df_signals))
+        logger.debug("Sample signals (dry-run): %s", df_signals.head(10).to_dict(orient="records"))
         return
 
     df = df_signals.copy()
@@ -405,6 +416,11 @@ def record_run(engine_obj, run_name, run_params, run_summary=None, dry_run=False
     """
     params_json = json.dumps(run_params)
     summary_json = json.dumps(run_summary) if run_summary is not None else None
+    
+    if dry_run:
+        logger.info("Dry-run: skipping record_run for %s (would insert run metadata).", run_name)
+        logger.debug("Run params (dry-run): %s; summary: %s", params_json, summary_json)
+        return
     insert_sql = text("""
       INSERT INTO strategy_runs (strategy, params, run_name, started_at, finished_at, summary)
       VALUES (:strategy, :params, :run_name, :started_at, :finished_at, :summary)
