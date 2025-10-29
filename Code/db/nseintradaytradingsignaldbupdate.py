@@ -4,11 +4,11 @@ import logging
 import argparse
 import urllib.parse
 from datetime import date, datetime, timedelta
-
 import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError,IntegrityError
+
 
 # -------------------------
 # Default Config
@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     },
     "behavior": {
         "preview_only": False,  # If True: compute features/signals but skip DB upserts (no CSVs are written)
-        "dry_run": True         # If True: DB writes are executed inside transactions that are rolled back
+        "dry_run": False         # If True: DB writes are executed inside transactions that are rolled back
     },
     "output": {
         # Kept for future debugging — not written by default
@@ -410,45 +410,86 @@ def upsert_signals(engine_obj, df_signals, dry_run=False):
         conn.close()
 
 
-def record_run(engine_obj, run_name, run_params, run_summary=None, dry_run=False):
+def record_run(engine_obj, run_name, params, run_summary=None, started_at=None, finished_at=None, dry_run=False, logger=None):
     """
-    Insert strategy_runs row; honored dry_run by rolling back if True.
+    Record a pipeline run in strategy_runs.
+
+    Behaviour:
+      - If dry_run is True: log what would be inserted and do nothing.
+      - If a row with the same run_name already exists: log a warning and skip (do not raise).
+      - On any other DB error: re-raise after logging.
+
+    Purposefully conservative: avoid raising IntegrityError for duplicate run_name so re-runs don't crash the whole pipeline.
     """
-    params_json = json.dumps(run_params)
-    summary_json = json.dumps(run_summary) if run_summary is not None else None
-    
-    if dry_run:
-        logger.info("Dry-run: skipping record_run for %s (would insert run metadata).", run_name)
-        logger.debug("Run params (dry-run): %s; summary: %s", params_json, summary_json)
-        return
+    if logger is None:
+        import logging
+        logger = logging.getLogger(__name__)
+
+    logger.info("record_run: run_name=%s dry_run=%s", run_name, bool(dry_run))
+
+    payload = {
+        "strategy": "batch_signal_generation",
+        "params": json.dumps(params) if not isinstance(params, str) else params,
+        "run_name": run_name,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "summary": json.dumps(run_summary) if run_summary is not None and not isinstance(run_summary, str) else run_summary
+    }
+
     insert_sql = text("""
       INSERT INTO strategy_runs (strategy, params, run_name, started_at, finished_at, summary)
       VALUES (:strategy, :params, :run_name, :started_at, :finished_at, :summary)
     """)
-    conn = engine_obj.connect()
-    tx = conn.begin()
+
+    select_sql = text("SELECT id, run_name, started_at, finished_at FROM strategy_runs WHERE run_name = :run_name LIMIT 1")
+
+    conn = None
     try:
-        now = datetime.utcnow()
-        conn.execute(insert_sql, {
-            "strategy": "batch_signal_generation",
-            "params": params_json,
-            "run_name": run_name,
-            "started_at": now,
-            "finished_at": now,
-            "summary": summary_json
-        })
+        conn = engine_obj.connect()
+        # Pre-check: does this run_name already exist?
+        existing = conn.execute(select_sql, {"run_name": run_name}).first()
+        if existing:
+            # Already recorded — log and exit without error.
+            logger.warning("record_run: run '%s' already exists in strategy_runs (id=%s, started_at=%s, finished_at=%s) — skipping insert.",
+                           run_name, existing.get("id") if hasattr(existing, "get") else existing[0],
+                           existing.get("started_at") if hasattr(existing, "get") else existing[2] if len(existing) > 2 else None,
+                           existing.get("finished_at") if hasattr(existing, "get") else existing[3] if len(existing) > 3 else None)
+            return
+
+        # If dry_run: log what we would do and skip DB writes.
         if dry_run:
-            tx.rollback()
-            logger.info("Dry-run: rolled back strategy_runs insert.")
-        else:
+            logger.info("Dry-run: would INSERT strategy_runs row: run_name=%s summary=%s params=%s", run_name, payload["summary"], payload["params"])
+            return
+
+        # Normal path: attempt insert inside transaction.
+        tx = conn.begin()
+        try:
+            conn.execute(insert_sql, payload)
             tx.commit()
             logger.info("Recorded strategy_runs entry %s", run_name)
-    except Exception as e:
-        tx.rollback()
-        logger.exception("Recording strategy_runs failed and rolled back: %s", e)
+        except IntegrityError as e:
+            # Handle duplicate key races that slip through the pre-check (concurrent run or race)
+            tx.rollback()
+            # If duplicate entry on run_name, log and return rather than raising to top-level.
+            msg = str(e).lower()
+            if "duplicate" in msg and "run_name" in msg or "duplicate entry" in msg:
+                logger.warning("record_run: duplicate entry detected for run '%s' while inserting — another process recorded it. Skipping. DB message: %s", run_name, e)
+                return
+            else:
+                logger.exception("record_run: IntegrityError while inserting run '%s' — re-raising.", run_name)
+                raise
+        except SQLAlchemyError:
+            tx.rollback()
+            logger.exception("record_run: unexpected DB error while inserting run '%s' — re-raising.", run_name)
+            raise
+
+    except SQLAlchemyError as e:
+        # If the connection-level select or connect failed (unlikely), log and re-raise.
+        logger.exception("record_run: DB connection / query error for run '%s'.", run_name)
         raise
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 # -------------------------
