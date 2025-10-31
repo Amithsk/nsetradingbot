@@ -271,77 +271,66 @@ def fetch_bhavcopy_range(engine_obj, start_date, end_date):
 def upsert_features(engine_obj, df_features, dry_run=False):
     """
     Upsert strategy_features. If dry_run=True, rollback at the end.
-    Split INSERT and DROP into separate executes to avoid multi-statement errors.
+    Uses engine_obj.begin() to manage the transaction safely.
     """
     if df_features is None or df_features.empty:
         logger.info("No features to upsert.")
         return
-    
+
     if dry_run:
         logger.info("Dry-run enabled: would upsert %d feature rows (skipping DB writes).", len(df_features))
-        # optionally dump sample to log or to CSV for inspection
         logger.debug("Sample features (dry-run): %s", df_features.head(10).to_dict(orient="records"))
         return
 
     temp_table = "tmp_strategy_features_upsert"
-    conn = engine_obj.connect()
-    tx = conn.begin()
     try:
-        df = df_features.copy()
-        df["trade_date"] = pd.to_datetime(df["trade_date"])
-        # write temp table
-        df.to_sql(temp_table, conn, index=False, if_exists="replace")
+        # engine.begin() returns a Connection that has an active transaction,
+        # and commits/rolls-back automatically on exit.
+        with engine_obj.begin() as conn:
+            df = df_features.copy()
+            df["trade_date"] = pd.to_datetime(df["trade_date"])
+            # write temp table using the Connection
+            df.to_sql(temp_table, conn, index=False, if_exists="replace")
 
-        # INSERT (single statement)
-        insert_sql = f"""
-        INSERT INTO strategy_features (trade_date, symbol, feature_name, value, created_at)
-        SELECT trade_date, symbol, feature_name, value, NOW() FROM {temp_table}
-        ON DUPLICATE KEY UPDATE value=VALUES(value), created_at=NOW()
-        """
-        conn.execute(text(insert_sql))
+            insert_sql = f"""
+            INSERT INTO strategy_features (trade_date, symbol, feature_name, value, created_at)
+            SELECT trade_date, symbol, feature_name, value, NOW() FROM {temp_table}
+            ON DUPLICATE KEY UPDATE value=VALUES(value), created_at=NOW()
+            """
+            conn.execute(text(insert_sql))
 
-        # DROP temp table (separate statement)
-        conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
-
-        if dry_run:
-            tx.rollback()
-            logger.info("Dry-run: rolled back features upsert (no DB changes).")
-        else:
-            tx.commit()
-            logger.info("Features upsert committed (%d rows).", len(df))
-    except Exception as e:
-        tx.rollback()
-        logger.exception("Features upsert failed and rolled back: %s", e)
-        try:
+            # DROP temp table (separate statement)
             conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
+
+        logger.info("Features upsert committed (%d rows).", len(df))
+    except Exception as e:
+        logger.exception("Features upsert failed: %s", e)
+        # attempt cleanup outside transaction
+        try:
+            with engine_obj.connect() as cleanup_conn:
+                cleanup_conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
         except Exception:
             pass
         raise
-    finally:
-        conn.close()
-
 
 def upsert_signals(engine_obj, df_signals, dry_run=False):
     """
     Upsert rows into strategy_signals.
     Ensures JSON columns 'params' and 'notes' are valid JSON text or NULL.
-    Uses separate execute calls for INSERT and DROP.
+    Uses engine_obj.begin() to avoid nested-begin errors.
     """
     if df_signals is None or df_signals.empty:
         logger.info("No signals to upsert.")
         return
-    
+
     if dry_run:
         logger.info("Dry-run enabled: would upsert %d signals (skipping DB writes).", len(df_signals))
         logger.debug("Sample signals (dry-run): %s", df_signals.head(10).to_dict(orient="records"))
         return
 
     df = df_signals.copy()
-
-    # Ensure trade_date is datetime
     df["trade_date"] = pd.to_datetime(df["trade_date"])
 
-    # sanitize params and notes
     if "params" in df.columns:
         sanitize_json_column(df, "params")
     else:
@@ -352,7 +341,6 @@ def upsert_signals(engine_obj, df_signals, dry_run=False):
     else:
         df["notes"] = None
 
-    # DEBUG: log first few notes to inspect content
     try:
         sample_notes = df[["symbol", "trade_date", "notes"]].head(10).to_dict(orient="records")
         logger.info("Sample 'notes' values (post-sanitize): %s", sample_notes)
@@ -360,138 +348,76 @@ def upsert_signals(engine_obj, df_signals, dry_run=False):
         pass
 
     temp_table = "tmp_strategy_signals_upsert"
-    conn = engine_obj.connect()
-    tx = conn.begin()
     try:
-        # write temp table
-        df.to_sql(temp_table, conn, index=False, if_exists="replace")
+        with engine_obj.begin() as conn:
+            df.to_sql(temp_table, conn, index=False, if_exists="replace")
 
-        # perform insert (single statement)
-        insert_sql = f"""
-        INSERT INTO strategy_signals
-          (trade_date, strategy, version, params, symbol, signal_type, signal_score, entry_model, qty, entry_price, stop_price, target_price, expected_hold_days, notes, created_at)
-        SELECT trade_date, strategy, version, params, symbol, signal_type, signal_score, entry_model, qty, entry_price, stop_price, target_price, expected_hold_days, notes, NOW()
-        FROM {temp_table}
-        ON DUPLICATE KEY UPDATE
-          signal_type=VALUES(signal_type),
-          signal_score=VALUES(signal_score),
-          entry_model=VALUES(entry_model),
-          qty=VALUES(qty),
-          entry_price=VALUES(entry_price),
-          stop_price=VALUES(stop_price),
-          target_price=VALUES(target_price),
-          expected_hold_days=VALUES(expected_hold_days),
-          params=VALUES(params),
-          notes=VALUES(notes),
-          created_at=NOW()
-        """
-        conn.execute(text(insert_sql))
+            insert_sql = f"""
+            INSERT INTO strategy_signals
+              (trade_date, strategy, version, params, symbol, signal_type, signal_score, entry_model, qty, entry_price, stop_price, target_price, expected_hold_days, notes, created_at)
+            SELECT trade_date, strategy, version, params, symbol, signal_type, signal_score, entry_model, qty, entry_price, stop_price, target_price, expected_hold_days, notes, NOW()
+            FROM {temp_table}
+            ON DUPLICATE KEY UPDATE
+              signal_type=VALUES(signal_type),
+              signal_score=VALUES(signal_score),
+              entry_model=VALUES(entry_model),
+              qty=VALUES(qty),
+              entry_price=VALUES(entry_price),
+              stop_price=VALUES(stop_price),
+              target_price=VALUES(target_price),
+              expected_hold_days=VALUES(expected_hold_days),
+              params=VALUES(params),
+              notes=VALUES(notes),
+              created_at=NOW()
+            """
+            conn.execute(text(insert_sql))
+            conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
 
-        # drop temp table (separate statement)
-        conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
-
-        if dry_run:
-            tx.rollback()
-            logger.info("Dry-run: rolled back signals upsert (no DB changes).")
-        else:
-            tx.commit()
-            logger.info("Signals upsert committed (%d rows).", len(df))
-
+        logger.info("Signals upsert committed (%d rows).", len(df))
     except Exception as e:
-        tx.rollback()
-        logger.exception("Signals upsert failed and rolled back: %s", e)
+        logger.exception("Signals upsert failed: %s", e)
         # attempt cleanup
         try:
-            conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
+            with engine_obj.connect() as cleanup_conn:
+                cleanup_conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
         except Exception:
             pass
         raise
-    finally:
-        conn.close()
 
-
-def record_run(engine_obj, run_name, params, run_summary=None, started_at=None, finished_at=None, dry_run=False, logger=None):
+def record_run(engine_obj, run_name, run_params, run_summary=None, dry_run=False):
     """
-    Record a pipeline run in strategy_runs.
-
-    Behaviour:
-      - If dry_run is True: log what would be inserted and do nothing.
-      - If a row with the same run_name already exists: log a warning and skip (do not raise).
-      - On any other DB error: re-raise after logging.
-
-    Purposefully conservative: avoid raising IntegrityError for duplicate run_name so re-runs don't crash the whole pipeline.
+    Insert strategy_runs row; honor dry_run by not persisting.
+    Uses engine_obj.begin() so we don't try to begin() on a connection that already has a tx.
     """
-    if logger is None:
-        import logging
-        logger = logging.getLogger(__name__)
+    params_json = json.dumps(run_params)
+    summary_json = json.dumps(run_summary) if run_summary is not None else None
 
-    logger.info("record_run: run_name=%s dry_run=%s", run_name, bool(dry_run))
-
-    payload = {
-        "strategy": "batch_signal_generation",
-        "params": json.dumps(params) if not isinstance(params, str) else params,
-        "run_name": run_name,
-        "started_at": started_at,
-        "finished_at": finished_at,
-        "summary": json.dumps(run_summary) if run_summary is not None and not isinstance(run_summary, str) else run_summary
-    }
+    if dry_run:
+        logger.info("Dry-run: skipping record_run for %s (would insert run metadata).", run_name)
+        logger.debug("Run params (dry-run): %s; summary: %s", params_json, summary_json)
+        return
 
     insert_sql = text("""
       INSERT INTO strategy_runs (strategy, params, run_name, started_at, finished_at, summary)
       VALUES (:strategy, :params, :run_name, :started_at, :finished_at, :summary)
     """)
 
-    select_sql = text("SELECT id, run_name, started_at, finished_at FROM strategy_runs WHERE run_name = :run_name LIMIT 1")
-
-    conn = None
     try:
-        conn = engine_obj.connect()
-        # Pre-check: does this run_name already exist?
-        existing = conn.execute(select_sql, {"run_name": run_name}).first()
-        if existing:
-            # Already recorded — log and exit without error.
-            logger.warning("record_run: run '%s' already exists in strategy_runs (id=%s, started_at=%s, finished_at=%s) — skipping insert.",
-                           run_name, existing.get("id") if hasattr(existing, "get") else existing[0],
-                           existing.get("started_at") if hasattr(existing, "get") else existing[2] if len(existing) > 2 else None,
-                           existing.get("finished_at") if hasattr(existing, "get") else existing[3] if len(existing) > 3 else None)
-            return
-
-        # If dry_run: log what we would do and skip DB writes.
-        if dry_run:
-            logger.info("Dry-run: would INSERT strategy_runs row: run_name=%s summary=%s params=%s", run_name, payload["summary"], payload["params"])
-            return
-
-        # Normal path: attempt insert inside transaction.
-        tx = conn.begin()
-        try:
-            conn.execute(insert_sql, payload)
-            tx.commit()
-            logger.info("Recorded strategy_runs entry %s", run_name)
-        except IntegrityError as e:
-            # Handle duplicate key races that slip through the pre-check (concurrent run or race)
-            tx.rollback()
-            # If duplicate entry on run_name, log and return rather than raising to top-level.
-            msg = str(e).lower()
-            if "duplicate" in msg and "run_name" in msg or "duplicate entry" in msg:
-                logger.warning("record_run: duplicate entry detected for run '%s' while inserting — another process recorded it. Skipping. DB message: %s", run_name, e)
-                return
-            else:
-                logger.exception("record_run: IntegrityError while inserting run '%s' — re-raising.", run_name)
-                raise
-        except SQLAlchemyError:
-            tx.rollback()
-            logger.exception("record_run: unexpected DB error while inserting run '%s' — re-raising.", run_name)
-            raise
-
-    except SQLAlchemyError as e:
-        # If the connection-level select or connect failed (unlikely), log and re-raise.
-        logger.exception("record_run: DB connection / query error for run '%s'.", run_name)
+        now = datetime.utcnow()
+        # use engine.begin() to get a connection & transaction in one go
+        with engine_obj.begin() as conn:
+            conn.execute(insert_sql, {
+                "strategy": "batch_signal_generation",
+                "params": params_json,
+                "run_name": run_name,
+                "started_at": now,
+                "finished_at": now,
+                "summary": summary_json
+            })
+        logger.info("Recorded strategy_runs entry %s", run_name)
+    except Exception as e:
+        logger.exception("Recording strategy_runs failed: %s", e)
         raise
-    finally:
-        if conn is not None:
-            conn.close()
-
-
 # -------------------------
 # Feature computations
 # -------------------------
