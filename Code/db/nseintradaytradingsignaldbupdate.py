@@ -488,18 +488,25 @@ def generate_momentum_signals_for_date(engine_obj, target_date, lookback=MOMENTU
         logger.info("No momentum features for %s", target_date)
         return pd.DataFrame()
 
-    df_sorted = df_mom.sort_values("value", ascending=False).head(top_n)
+    # pick top N by absolute magnitude, then preserve sign for side
+    top_idx = df_mom['value'].abs().nlargest(top_n).index
+    df_sorted = df_mom.loc[top_idx].copy()
+    # optional: sort with largest positive first or by magnitude descending:
+    df_sorted = df_sorted.reindex(df_sorted['value'].abs().sort_values(ascending=False).index)
+
     rows = []
-    params = {"lookback_days": lookback, "top_n": top_n}
+    params = {"lookback_days": lookback, "top_n": top_n, "selection": "abs_magnitude"}
     for _, r in df_sorted.iterrows():
+        score = float(r["value"])
+        side = "LONG" if score >= 0 else "SHORT"
         rows.append({
             "trade_date": target_date,
             "strategy": "momentum_topn",
             "version": "v1",
             "params": json.dumps(params),
             "symbol": r["symbol"],
-            "signal_type": "LONG",
-            "signal_score": float(r["value"]),
+            "signal_type": side,
+            "signal_score": score,
             "entry_model": "next_open",
             "qty": None,
             "entry_price": None,
@@ -510,6 +517,7 @@ def generate_momentum_signals_for_date(engine_obj, target_date, lookback=MOMENTU
         })
     logger.info("Generated %d momentum signals for %s", len(rows), target_date)
     return pd.DataFrame(rows)
+
 
 
 def generate_gap_follow_signals_for_date(engine_obj, target_date, gap_threshold_percent=GAP_MINIMUM_PERCENT):
