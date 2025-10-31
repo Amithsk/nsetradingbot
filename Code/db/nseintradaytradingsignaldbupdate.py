@@ -330,6 +330,29 @@ def upsert_signals(engine_obj, df_signals, dry_run=False):
 
     df = df_signals.copy()
     df["trade_date"] = pd.to_datetime(df["trade_date"])
+    #To check if signal_type matches signal_score sign
+    try:
+        # Ensure signal_score is numeric (coerce errors to NaN)
+        df['signal_score'] = pd.to_numeric(df['signal_score'], errors='coerce')
+        # Create expected type ('LONG'/'SHORT') from the score sign
+        df['expected_type'] = df['signal_score'].apply(lambda s: 'LONG' if pd.notna(s) and s >= 0 else 'SHORT')
+        # Normalize existing column for comparison; if missing, create placeholder
+        if 'signal_type' not in df.columns:
+            df['signal_type'] = df['expected_type']
+        else:
+            df['signal_type'] = df['signal_type'].astype(str).str.upper().fillna('')
+        # Find mismatches
+        mismatches = df[df['signal_type'] != df['expected_type']]
+        if not mismatches.empty:
+            logger.warning("Detected %d signal_type mismatches (will auto-fix) before DB upsert. Sample:", len(mismatches))
+            logger.warning("%s", mismatches[['symbol', 'signal_score', 'signal_type', 'expected_type']].head(20).to_dict(orient='records'))
+            # Auto-fix: overwrite stored label with expected_type
+            df.loc[mismatches.index, 'signal_type'] = df.loc[mismatches.index, 'expected_type']
+        # drop helper column
+        df.drop(columns=['expected_type'], inplace=True)
+    except Exception:
+        # If validation itself fails, log and continue (do not block DB writes unless you want to)
+        logger.exception("Signal validation guard failed — continuing without auto-fix.")
 
     if "params" in df.columns:
         sanitize_json_column(df, "params")
