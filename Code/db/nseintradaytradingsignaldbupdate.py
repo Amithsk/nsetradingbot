@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError,IntegrityError
+from Code.utils.nseintradaytrading_utils import enrich_signals_with_stops_targets
 
 
 # -------------------------
@@ -376,23 +377,28 @@ def upsert_signals(engine_obj, df_signals, dry_run=False):
             df.to_sql(temp_table, conn, index=False, if_exists="replace")
 
             insert_sql = f"""
-            INSERT INTO strategy_signals
-              (trade_date, strategy, version, params, symbol, signal_type, signal_score, entry_model, qty, entry_price, stop_price, target_price, expected_hold_days, notes, created_at)
-            SELECT trade_date, strategy, version, params, symbol, signal_type, signal_score, entry_model, qty, entry_price, stop_price, target_price, expected_hold_days, notes, NOW()
-            FROM {temp_table}
-            ON DUPLICATE KEY UPDATE
-              signal_type=VALUES(signal_type),
-              signal_score=VALUES(signal_score),
-              entry_model=VALUES(entry_model),
-              qty=VALUES(qty),
-              entry_price=VALUES(entry_price),
-              stop_price=VALUES(stop_price),
-              target_price=VALUES(target_price),
-              expected_hold_days=VALUES(expected_hold_days),
-              params=VALUES(params),
-              notes=VALUES(notes),
-              created_at=NOW()
-            """
+                INSERT INTO strategy_signals
+                (trade_date, strategy, version, params, symbol, signal_type, signal_score,
+                    entry_model, qty, entry_price, stop_price, target_price,
+                        expected_hold_days, notes, created_at)
+                SELECT trade_date, strategy, version, params, symbol, signal_type, signal_score,
+                entry_model, qty, entry_price, stop_price, target_price,
+                expected_hold_days, notes, NOW()
+                FROM {temp_table}
+                ON DUPLICATE KEY UPDATE
+                signal_type = VALUES(signal_type),
+                signal_score = VALUES(signal_score),
+                entry_model = VALUES(entry_model),
+                qty = VALUES(qty),
+                -- Safe preservation: keep existing DB value if incoming value is NULL
+                entry_price = COALESCE(VALUES(entry_price), strategy_signals.entry_price),
+                stop_price  = COALESCE(VALUES(stop_price),  strategy_signals.stop_price),
+                target_price = COALESCE(VALUES(target_price), strategy_signals.target_price),
+                expected_hold_days = COALESCE(VALUES(expected_hold_days), strategy_signals.expected_hold_days),
+                params = VALUES(params),
+                notes = VALUES(notes),
+                created_at = NOW();
+                """
             conn.execute(text(insert_sql))
             conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
 
@@ -719,6 +725,9 @@ def run_signal_generation_for_date(target_date_iso: str, engine_obj=None, behavi
     df_vol = generate_volatility_breakout_signals_for_date(engine_obj, target_date_iso)
 
     df_all_signals = pd.concat([df for df in (df_mom, df_gap, df_vol) if not df.empty], ignore_index=True, sort=False) if any([not df.empty for df in (df_mom, df_gap, df_vol)]) else pd.DataFrame()
+    df_all_signals = enrich_signals_with_stops_targets(engine, df_all_signals,
+                                                   atr_lookback=14, atr_stop_mult=1.5, atr_target_mult=3.0)
+    
     logger.info("Total signals generated for %s: %d", target_date_iso, len(df_all_signals))
 
     # 4) upsert signals (honoring dry_run)
