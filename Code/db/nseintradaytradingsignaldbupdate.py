@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import logging
 import argparse
@@ -16,6 +17,8 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from Code.utils.nseintradaytrading_utils import enrich_signals_with_stops_targets
+from Code.utils.nseintradaytradingdb_utils import find_offending_cells, sanitize_df_for_sql, safe_to_sql, merge_temp_to_target
+
 
 
 # -------------------------
@@ -325,7 +328,7 @@ def upsert_signals(engine_obj, df_signals, dry_run=False):
     """
     Upsert rows into strategy_signals.
     Ensures JSON columns 'params' and 'notes' are valid JSON text or NULL.
-    Uses engine_obj.begin() to avoid nested-begin errors.
+    Uses engine_obj.begin() to run merge and cleanup.
     """
     if df_signals is None or df_signals.empty:
         logger.info("No signals to upsert.")
@@ -336,42 +339,48 @@ def upsert_signals(engine_obj, df_signals, dry_run=False):
         logger.debug("Sample signals (dry-run): %s", df_signals.head(10).to_dict(orient="records"))
         return
 
+    # Work on a local copy
     df = df_signals.copy()
+    # Normalize date column
     df["trade_date"] = pd.to_datetime(df["trade_date"])
-    #To check if signal_type matches signal_score sign
+
+    # Validate & align signal_type with sign of signal_score
     try:
-        # Ensure signal_score is numeric (coerce errors to NaN)
         df['signal_score'] = pd.to_numeric(df['signal_score'], errors='coerce')
-        # Create expected type ('LONG'/'SHORT') from the score sign
         df['expected_type'] = df['signal_score'].apply(lambda s: 'LONG' if pd.notna(s) and s >= 0 else 'SHORT')
-        # Normalize existing column for comparison; if missing, create placeholder
         if 'signal_type' not in df.columns:
             df['signal_type'] = df['expected_type']
         else:
             df['signal_type'] = df['signal_type'].astype(str).str.upper().fillna('')
-        # Find mismatches
         mismatches = df[df['signal_type'] != df['expected_type']]
         if not mismatches.empty:
-            logger.warning("Detected %d signal_type mismatches (will auto-fix) before DB upsert. Sample:", len(mismatches))
-            logger.warning("%s", mismatches[['symbol', 'signal_score', 'signal_type', 'expected_type']].head(20).to_dict(orient='records'))
-            # Auto-fix: overwrite stored label with expected_type
+            logger.warning("Detected %d signal_type mismatches (auto-fixing). Sample: %s",
+                           len(mismatches),
+                           mismatches[['symbol', 'signal_score', 'signal_type', 'expected_type']].head(20).to_dict(orient='records'))
             df.loc[mismatches.index, 'signal_type'] = df.loc[mismatches.index, 'expected_type']
-        # drop helper column
-        df.drop(columns=['expected_type'], inplace=True)
+        df.drop(columns=['expected_type'], inplace=True, errors='ignore')
     except Exception:
-        # If validation itself fails, log and continue (do not block DB writes unless you want to)
         logger.exception("Signal validation guard failed — continuing without auto-fix.")
 
+    # Ensure json/text columns exist
     if "params" in df.columns:
-        sanitize_json_column(df, "params")
+        # assume sanitize_json_column exists and mutates column to text/NULL
+        try:
+            sanitize_json_column(df, "params")
+        except Exception:
+            logger.exception("sanitize_json_column(params) failed; falling back to sanitize_df_for_sql later.")
     else:
         df["params"] = None
 
     if "notes" in df.columns:
-        sanitize_json_column(df, "notes")
+        try:
+            sanitize_json_column(df, "notes")
+        except Exception:
+            logger.exception("sanitize_json_column(notes) failed; falling back to sanitize_df_for_sql later.")
     else:
         df["notes"] = None
 
+    # Log a sample
     try:
         sample_notes = df[["symbol", "trade_date", "notes"]].head(10).to_dict(orient="records")
         logger.info("Sample 'notes' values (post-sanitize): %s", sample_notes)
@@ -379,45 +388,63 @@ def upsert_signals(engine_obj, df_signals, dry_run=False):
         pass
 
     temp_table = "tmp_strategy_signals_upsert"
+
+    # 1) Detect offenders
+    bad = find_offending_cells(df) if 'find_offending_cells' in globals() else []
+    if bad:
+        logger.warning("Found offending non-primitive cells before to_sql. Sample: %s", bad[:10])
+    else:
+        logger.info("No offending non-primitive cells found (pre-sanitize).")
+
+    # 2) Sanitize into a new DataFrame (do not mutate original unexpectedly)
+    df_sanitized = sanitize_df_for_sql(df.copy()) if 'sanitize_df_for_sql' in globals() else df.copy()
+
+    # 3) Validate sanitized result
+    if not isinstance(df_sanitized, pd.DataFrame):
+        logger.error("sanitize_df_for_sql returned unexpected type: %s", type(df_sanitized))
+        raise TypeError("sanitize_df_for_sql must return a pandas.DataFrame")
+
+    # 4) Write sanitized data to temp table (single write)
+    safe_to_sql(df_sanitized, temp_table, engine_obj, if_exists="replace", index=False, chunksize=5000)
+
+    # 5) Merge temp into final table using ON DUPLICATE KEY UPDATE (MySQL)
+    insert_sql = f"""
+        INSERT INTO strategy_signals
+        (trade_date, strategy, version, params, symbol, signal_type, signal_score,
+            entry_model, qty, entry_price, stop_price, target_price,
+            expected_hold_days, notes, created_at)
+        SELECT trade_date, strategy, version, params, symbol, signal_type, signal_score,
+            entry_model, qty, entry_price, stop_price, target_price,
+            expected_hold_days, notes, NOW()
+        FROM {temp_table}
+        ON DUPLICATE KEY UPDATE
+            signal_type = VALUES(signal_type),
+            signal_score = VALUES(signal_score),
+            entry_model = VALUES(entry_model),
+            qty = VALUES(qty),
+            entry_price = COALESCE(VALUES(entry_price), strategy_signals.entry_price),
+            stop_price  = COALESCE(VALUES(stop_price),  strategy_signals.stop_price),
+            target_price = COALESCE(VALUES(target_price), strategy_signals.target_price),
+            expected_hold_days = COALESCE(VALUES(expected_hold_days), strategy_signals.expected_hold_days),
+            params = VALUES(params),
+            notes = VALUES(notes),
+            created_at = NOW();
+    """
+
+    # 6) Execute merge and cleanup
     try:
         with engine_obj.begin() as conn:
-            df.to_sql(temp_table, conn, index=False, if_exists="replace")
-
-            insert_sql = f"""
-                INSERT INTO strategy_signals
-                (trade_date, strategy, version, params, symbol, signal_type, signal_score,
-                    entry_model, qty, entry_price, stop_price, target_price,
-                        expected_hold_days, notes, created_at)
-                SELECT trade_date, strategy, version, params, symbol, signal_type, signal_score,
-                entry_model, qty, entry_price, stop_price, target_price,
-                expected_hold_days, notes, NOW()
-                FROM {temp_table}
-                ON DUPLICATE KEY UPDATE
-                signal_type = VALUES(signal_type),
-                signal_score = VALUES(signal_score),
-                entry_model = VALUES(entry_model),
-                qty = VALUES(qty),
-                -- Safe preservation: keep existing DB value if incoming value is NULL
-                entry_price = COALESCE(VALUES(entry_price), strategy_signals.entry_price),
-                stop_price  = COALESCE(VALUES(stop_price),  strategy_signals.stop_price),
-                target_price = COALESCE(VALUES(target_price), strategy_signals.target_price),
-                expected_hold_days = COALESCE(VALUES(expected_hold_days), strategy_signals.expected_hold_days),
-                params = VALUES(params),
-                notes = VALUES(notes),
-                created_at = NOW();
-                """
             conn.execute(text(insert_sql))
             conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
-
-        logger.info("Signals upsert committed (%d rows).", len(df))
+        logger.info("Signals upsert committed (%d rows).", len(df_sanitized))
     except Exception as e:
         logger.exception("Signals upsert failed: %s", e)
         # attempt cleanup
         try:
-            with engine_obj.connect() as cleanup_conn:
+            with engine_obj.begin() as cleanup_conn:
                 cleanup_conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
         except Exception:
-            pass
+            logger.exception("Failed to cleanup temp table after error.")
         raise
 
 def record_run(engine_obj, run_name, run_params, run_summary=None, dry_run=False):
