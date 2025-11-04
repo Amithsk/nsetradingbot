@@ -3,11 +3,18 @@ import json
 import logging
 import argparse
 import urllib.parse
+from pathlib import Path
 from datetime import date, datetime, timedelta
 import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError,IntegrityError
+# --- Make sure project root is in sys.path so we can import from Code/*
+current_file = Path(__file__).resolve()
+project_root = current_file.parents[2]  # go up from Code/db to project root (nsetradingbot)
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 from Code.utils.nseintradaytrading_utils import enrich_signals_with_stops_targets
 
 
