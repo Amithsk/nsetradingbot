@@ -350,12 +350,13 @@ def download_bhavcopy_master(session_obj: requests.Session) -> Path | None:
 
 
 def nse_is_open() -> bool:
-    """Check if today is a trading day."""
+    """Check if yesterday/weekend is a trading day."""
     today = datetime.datetime.now()
+    yesterday = today.date() - timedelta(days=1)
     if today.weekday() in (5, 6):
         print("Weekend, market closed")
         return False
-    if nseholiday(today.date()):
+    if nseholiday(yesterday):
         print("Holiday, market closed")
         return False
     return True
