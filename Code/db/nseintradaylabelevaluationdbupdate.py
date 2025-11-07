@@ -45,11 +45,24 @@ if str(project_root) not in sys.path:
 
 # Import evaluation logic and DB IO modules (ensure they're on PYTHONPATH)
 from Code.utils.nseintradaytradeevallogic import decide_outcome
-from Code.utils.nseintradaytradeevallogicdb import fetch_signals_for_date,fetch_bhavcopy_on_dates,upsert_eval_rows,get_unprocessed_trade_dates 
+from Code.utils.nseintradaytradeevallogicdb import (
+    fetch_signals_for_date,
+    fetch_bhavcopy_on_dates,
+    upsert_eval_rows,
+    upsert_eval_rows_conn,
+    get_unprocessed_trade_dates
+)
+
+# ----------------- CONFIG  -----------------
+# Default behaviour for transaction-preview (rollback) if no CLI flag is provided.
+
+TRANSACTION_PREVIEW_DEFAULT = False # Set to True here if you prefer to have rollback preview ON by default when launching from your IDE.
+# -----------------------------------------------------------------
 
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("NSEDBLabelIntradayEvaluation")
+
 
 def connect_db(db_cfg: dict = None):
     """
@@ -203,9 +216,11 @@ def evaluate_signals_for_date(engine, trade_date: date, eval_run_tag: str,
     return df_out
 
 
-def _process_dates_and_persist(engine, trade_dates: List[date], eval_run_tag: str, defaults: Optional[dict] = None):
+def _process_dates_and_persist(engine, trade_dates: List[date], eval_run_tag: str, defaults: Optional[dict] = None,
+                               transaction_preview: bool = False):
     """
     For each trade_date: evaluate and persist via db_io.upsert_eval_rows.
+    If transaction_preview=True, uses upsert_eval_rows_conn inside a single transaction and ROLLBACKs at the end.
     Returns summary dict.
     """
     total = 0
@@ -214,24 +229,58 @@ def _process_dates_and_persist(engine, trade_dates: List[date], eval_run_tag: st
     neutral = 0
     ambiguous = 0
     processed_dates = []
-    for dt in trade_dates:
-        logger.info("Evaluating %s", dt)
+
+    if transaction_preview:
+        logger.warning("Running in TRANSACTION PREVIEW mode — all writes will be rolled back at the end.")
+        conn = engine.connect()
+        trans = conn.begin()
         try:
-            df_eval = evaluate_signals_for_date(engine, dt, eval_run_tag, defaults)
-            if df_eval is None or df_eval.empty:
-                logger.info("No eval rows for %s", dt)
-            else:
-                # Persist
-                upsert_eval_rows(engine, df_eval)
-                total += len(df_eval)
-                wins += (df_eval['label_outcome'] == 'win').sum()
-                losses += (df_eval['label_outcome'] == 'loss').sum()
-                neutral += (df_eval['label_outcome'] == 'neutral').sum()
-                ambiguous += df_eval['ambiguous_flag'].sum()
-                processed_dates.append(dt)
-                logger.info("Persisted %d eval rows for %s", len(df_eval), dt)
-        except Exception as ex:
-            logger.exception("Error processing %s: %s", dt, ex)
+            for dt in trade_dates:
+                logger.info("Evaluating %s (preview)", dt)
+                try:
+                    df_eval = evaluate_signals_for_date(engine, dt, eval_run_tag, defaults)
+                    if df_eval is None or df_eval.empty:
+                        logger.info("No eval rows for %s", dt)
+                        continue
+                    # Persist using provided connection (no commit here)
+                    upsert_eval_rows_conn(conn, df_eval)
+                    total += len(df_eval)
+                    wins += (df_eval['label_outcome'] == 'win').sum()
+                    losses += (df_eval['label_outcome'] == 'loss').sum()
+                    neutral += (df_eval['label_outcome'] == 'neutral').sum()
+                    ambiguous += df_eval['ambiguous_flag'].sum()
+                    processed_dates.append(dt)
+                    logger.info("WROTE %d rows for %s (in tx preview)", len(df_eval), dt)
+                except Exception as ex:
+                    logger.exception("Error processing %s in preview mode: %s", dt, ex)
+                    # rollback and rethrow - caller will see exception
+                    trans.rollback()
+                    raise
+            # end for - rollback intentionally
+            trans.rollback()
+            logger.info("Transaction preview run: all changes rolled back successfully.")
+        finally:
+            conn.close()
+    else:
+        # Normal commit behavior
+        for dt in trade_dates:
+            logger.info("Evaluating %s", dt)
+            try:
+                df_eval = evaluate_signals_for_date(engine, dt, eval_run_tag, defaults)
+                if df_eval is None or df_eval.empty:
+                    logger.info("No eval rows for %s", dt)
+                else:
+                    # Persist with normal behavior (engine-managed transaction)
+                    upsert_eval_rows(engine, df_eval)
+                    total += len(df_eval)
+                    wins += (df_eval['label_outcome'] == 'win').sum()
+                    losses += (df_eval['label_outcome'] == 'loss').sum()
+                    neutral += (df_eval['label_outcome'] == 'neutral').sum()
+                    ambiguous += df_eval['ambiguous_flag'].sum()
+                    processed_dates.append(dt)
+                    logger.info("Persisted %d eval rows for %s", len(df_eval), dt)
+            except Exception as ex:
+                logger.exception("Error processing %s: %s", dt, ex)
 
     summary = {
         'processed_dates': processed_dates,
@@ -254,6 +303,8 @@ def main():
     parser.add_argument("--last-n", type=int, default=0, help="Backfill last N trade dates (based on intraday_bhavcopy). If >0, uses last-N instead of incremental.")
     parser.add_argument("--overlap", type=int, default=0, help="Include previous N trade dates as overlap (safety) for incremental runs.")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    # CLI flag to enable transaction preview (rollback) mode
+    parser.add_argument("--rollback", action="store_true", help="Run in transaction-preview mode: write into DB but ROLLBACK at the end (preview).")
     args = parser.parse_args()
 
     if args.debug:
@@ -261,11 +312,17 @@ def main():
 
     # create engine: prefer passed DB URI, else rely on your app's config mechanism
     if args.db_uri:
-        
-        engine = connect_db(args.db_uri)
+        # In your original script connect_db expects a dict; if you pass a full URI string, adjust here.
+        # If your connect_db expects a dict, replace this with appropriate call.
+        try:
+            # try to treat args.db_uri as a full URI string first
+            engine = create_engine(args.db_uri, pool_pre_ping=True, pool_recycle=3600, echo=False)
+            logger.info("SQLAlchemy engine created from --db-uri parameter.")
+        except Exception:
+            # fallback to connect_db for dict-like config
+            engine = connect_db(args.db_uri)
     else:
         # Use default environment/config from your project; replace below with your loader if available
-        # e.g., from config import DEFAULT_DB_URI
         DEFAULT_DB_URI = "mysql+pymysql://user:pass@host:3306/dbname"
         engine = connect_db(DEFAULT_DB_URI)
         logger.info("No --db-uri provided; using default from script (replace with your config loader).")
@@ -314,9 +371,14 @@ def main():
     # Optionally prepare defaults for decide_outcome - leave None to use eval_logic defaults
     defaults = None
 
+    # Decide whether to run transaction preview:
+    # precedence: CLI flag > script constant
+    transaction_preview_flag = args.rollback or TRANSACTION_PREVIEW_DEFAULT
+
     start_time = datetime.utcnow()
-    logger.info("Starting evaluation run tag=%s at %s, processing %d dates", eval_run_tag, start_time.isoformat(), len(trade_dates))
-    summary = _process_dates_and_persist(engine, trade_dates, eval_run_tag, defaults)
+    logger.info("Starting evaluation run tag=%s at %s, processing %d dates (transaction_preview=%s)",
+                eval_run_tag, start_time.isoformat(), len(trade_dates), transaction_preview_flag)
+    summary = _process_dates_and_persist(engine, trade_dates, eval_run_tag, defaults, transaction_preview=transaction_preview_flag)
     end_time = datetime.utcnow()
     logger.info("Finished evaluation run at %s", end_time.isoformat())
     logger.info("Summary: processed_dates=%s total_rows=%d wins=%d losses=%d neutral=%d ambiguous=%d",
