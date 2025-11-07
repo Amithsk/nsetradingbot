@@ -852,8 +852,13 @@ if __name__ == "__main__":
                 # Run backfill (if any missing dates) before the main date
                 logger.info("IDE mode: running backfill-first (if needed) and then pipeline for %s", default_date)
                 backfill_missing_signals(engine, behavior_cfg=behavior_cfg)
-                run_signal_generation_for_date(default_date, engine_obj=engine, behavior_cfg=behavior_cfg)
-
+                last_signal_date = get_latest_signal_date(engine)
+                if last_signal_date is None or pd.to_datetime(last_signal_date).date() < pd.to_datetime(default_date).date():
+                    logger.info("Running pipeline for default_date %s (not covered by backfill)", default_date)
+                    run_signal_generation_for_date(default_date, engine_obj=engine, behavior_cfg=behavior_cfg)
+                else:
+                    logger.info("Default date %s already covered by backfill (latest signal date: %s) — skipping", default_date, last_signal_date)
+                
     except Exception:
         logger.exception("Top-level pipeline failure")
         raise
