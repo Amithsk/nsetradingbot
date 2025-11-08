@@ -1,9 +1,15 @@
+"""
+nseintraday_db_utils.py
 
+Utility to detect intraday_bhavcopy column names (common variants).
+Robust: tries SQLAlchemy inspector, falls back to information_schema.
+"""
 import sqlalchemy as sa
-import pandas as pd
+import logging
 from typing import Dict
 
-# canonical keys we expect in code:
+logger = logging.getLogger("nseintraday_db_utils")
+
 CANONICAL = {
     "symbol": ["symbol", "security", "sym"],
     "trade_date": ["trade_date", "tradeDate", "trade_day", "file_date", "as_of_date"],
@@ -22,16 +28,24 @@ CANONICAL = {
     "lo_52_wk": ["lo_52_wk", "52wk_lo", "lo_52wk"]
 }
 
+
 def detect_intraday_columns(engine: sa.engine.Engine) -> Dict[str, str]:
     """Return mapping canonical_key -> actual_column_name in intraday_bhavcopy.
-    Raises RuntimeError if required core OHLC/date columns can't be found.
+    Uses inspector when possible, otherwise falls back to information_schema.
+    Raises RuntimeError if essential OHLC/date columns not found.
     """
-    inspector = sa.inspect(engine)
     try:
+        inspector = sa.inspect(engine)
         cols_info = inspector.get_columns('intraday_bhavcopy')
         actual_cols = {c['name'].lower(): c['name'] for c in cols_info}
-    except Exception:
-        # fallback to information_schema query
+    except Exception as e:
+        # inspector failed (auth/permission) — fallback to information_schema
+        try:
+            safe_url = engine.url.render_as_string(hide_password=True)
+        except Exception:
+            safe_url = "<engine-url-unavailable>"
+        logger.debug("Inspector failed for engine %s: %s. Falling back to information_schema.", safe_url, e)
+
         q = sa.text("""
             SELECT COLUMN_NAME FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'intraday_bhavcopy'
@@ -46,7 +60,7 @@ def detect_intraday_columns(engine: sa.engine.Engine) -> Dict[str, str]:
             if c.lower() in actual_cols:
                 found[canon] = actual_cols[c.lower()]
                 break
-    # Verify essentials
+
     essentials = ["symbol", "trade_date", "open", "high", "low", "close"]
     missing = [e for e in essentials if e not in found]
     if missing:
