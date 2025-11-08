@@ -25,6 +25,29 @@ logger = logging.getLogger("nseintradaytradeevallogicdb")
 # engine-object based cache
 _colmap_cache_by_engine = {}
 
+logger = logging.getLogger("nseintradaytradeevallogicdb")
+
+def _is_writable_column(col: sa.Column) -> bool:
+    """
+    Conservative test whether it's reasonable to include this column in ON DUPLICATE KEY UPDATE.
+    Exclude primary key, autoincrement, and server_default columns (like created_at).
+    """
+    try:
+        if getattr(col, "primary_key", False):
+            return False
+        if getattr(col, "autoincrement", False):
+            return False
+        # server_default indicates DB will fill the column (e.g. CURRENT_TIMESTAMP)
+        if getattr(col, "server_default", None) is not None:
+            return False
+        # If column has a SQL-level default expression, avoid updating it
+        if getattr(col, "default", None) is not None:
+            # conservative: do not update columns with defaults
+            return False
+    except Exception:
+        return False
+    return True
+
 
 def _get_colmap_for_engine(engine: sa.engine.Engine) -> dict:
     key = f"eng_{id(engine)}"
@@ -92,7 +115,7 @@ def fetch_bhavcopy_on_dates(engine: sa.engine.Engine, symbols_dates_df: pd.DataF
 def upsert_eval_rows(engine: sa.engine.Engine, df_rows: pd.DataFrame):
     """
     Upsert evaluation result rows into signal_evaluation_results using ON DUPLICATE KEY UPDATE.
-    Expects unique key (signal_id, eval_run_tag) on the table.
+    Only include columns in the UPDATE mapping that are present in the insert payload AND are writable.
     """
     if df_rows is None or df_rows.empty:
         logger.info("upsert_eval_rows: nothing to upsert.")
@@ -100,28 +123,77 @@ def upsert_eval_rows(engine: sa.engine.Engine, df_rows: pd.DataFrame):
 
     metadata = sa.MetaData()
     tbl = sa.Table('signal_evaluation_results', metadata, autoload_with=engine)
-    insert_stmt = sa.dialects.mysql.insert(tbl).values(df_rows.to_dict(orient='records'))
-    update_cols = {c.name: insert_stmt.inserted[c.name] for c in tbl.columns if c.name not in ('eval_id',)}
+
+    # Convert DataFrame -> records (list of dicts)
+    records = df_rows.to_dict(orient='records')
+    if not records:
+        logger.info("upsert_eval_rows: no records after conversion.")
+        return
+
+    # Determine columns present in the INSERT payload (keys of records[0])
+    insert_columns = set(records[0].keys())
+
+    insert_stmt = sa.dialects.mysql.insert(tbl).values(records)
+
+    # Choose writable table columns that are also present in insert_columns
+    writable_tbl_cols = [c for c in tbl.columns if _is_writable_column(c) and c.name in insert_columns]
+
+    update_cols = {c.name: insert_stmt.inserted[c.name] for c in writable_tbl_cols}
+
+    if not update_cols:
+        # Nothing safe to update - fall back to a plain insert (may raise on duplicates)
+        logger.warning("upsert_eval_rows: no writable columns intersecting insert payload. Performing plain INSERT (duplicates will error).")
+        try:
+            with engine.begin() as conn:
+                conn.execute(insert_stmt)
+            logger.info("Inserted %d rows (no update).", len(records))
+        except Exception as exc:
+            logger.exception("Plain INSERT failed during upsert_eval_rows: %s", exc)
+            raise
+        return
+
     on_dup = insert_stmt.on_duplicate_key_update(**update_cols)
-    with engine.begin() as conn:
-        conn.execute(on_dup)
-    logger.info("Upserted %d rows for eval_run_tag=%s", len(df_rows), df_rows['eval_run_tag'].iloc[0])
+    try:
+        with engine.begin() as conn:
+            conn.execute(on_dup)
+        logger.info("Upserted %d rows (with %d update cols) for eval_run_tag=%s", len(records), len(update_cols), df_rows.get('eval_run_tag', [None])[0])
+    except Exception as exc:
+        logger.exception("upsert_eval_rows failed. sample record keys: %s. Error: %s", list(records[0].keys()), exc)
+        raise
+
+
 
 
 def upsert_eval_rows_conn(conn: sa.engine.Connection, df_rows: pd.DataFrame):
     """
-    Upsert evaluation rows using an existing SQLAlchemy Connection.
-    Caller manages transaction.
+    Upsert using existing connection (no begin/commit here).
     """
     if df_rows is None or df_rows.empty:
         return
+
     metadata = sa.MetaData()
     tbl = sa.Table('signal_evaluation_results', metadata, autoload_with=conn.engine)
-    insert_stmt = sa.dialects.mysql.insert(tbl).values(df_rows.to_dict(orient='records'))
-    update_cols = {c.name: insert_stmt.inserted[c.name] for c in tbl.columns if c.name not in ('eval_id',)}
-    on_dup = insert_stmt.on_duplicate_key_update(**update_cols)
-    conn.execute(on_dup)
+    records = df_rows.to_dict(orient='records')
+    if not records:
+        return
 
+    insert_columns = set(records[0].keys())
+    insert_stmt = sa.dialects.mysql.insert(tbl).values(records)
+
+    writable_tbl_cols = [c for c in tbl.columns if _is_writable_column(c) and c.name in insert_columns]
+    update_cols = {c.name: insert_stmt.inserted[c.name] for c in writable_tbl_cols}
+
+    if not update_cols:
+        logger.warning("upsert_eval_rows_conn: no writable columns in payload; performing plain INSERT (may fail on duplicates).")
+        conn.execute(insert_stmt)
+        return
+
+    on_dup = insert_stmt.on_duplicate_key_update(**update_cols)
+    try:
+        conn.execute(on_dup)
+    except Exception as exc:
+        logger.exception("upsert_eval_rows_conn failed. sample record keys: %s. Error: %s", list(records[0].keys()), exc)
+        raise
 
 def get_unprocessed_trade_dates(engine: sa.engine.Engine, eval_run_tag: str) -> List[date]:
     """
