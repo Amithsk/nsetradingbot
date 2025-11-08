@@ -37,7 +37,7 @@ from Code.utils.nseintradaytradeevallogicdb import (
 from Code.utils.nseintraday_db_utils import detect_intraday_columns
 
 # ----------------- CONFIG -----------------
-TRANSACTION_PREVIEW_DEFAULT = True
+TRANSACTION_PREVIEW_DEFAULT = True # True = all writes rolled back at end, False = persist writes
 DEFAULT_EVAL_RUN_TAG = "intraday_v1_default"
 
 DEFAULT_CONFIG = {
