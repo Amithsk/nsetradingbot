@@ -2,30 +2,30 @@
 """
 nseintradaylabelevaluationdbupdate.py
 
-Orchestrator 
- - Uses detect_intraday_columns() so intraday_bhavcopy column-name variants are handled.
- - Uses expanding bindparams for IN-lists where needed.
- - Uses logging (no prints).
+Orchestrator script for intraday label evaluation.
+- Uses detect_intraday_columns() (robust) from Code.utils.nseintraday_db_utils
+- Uses DB helper functions from Code.utils.nseintradaytradeevallogicdb
+- Uses decide_outcome from Code.utils.nseintradaytradeevallogic
 """
 import argparse
 import os
 import urllib.parse
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import List, Optional
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 import pandas as pd
 import sys
 from pathlib import Path
-from functools import lru_cache
 
 # --- Make sure project root is in sys.path so we can import from Code/*
 current_file = Path(__file__).resolve()
-project_root = current_file.parents[2]  # adjust if your folder depth differs
+project_root = current_file.parents[2]
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# Import evaluation logic and DB IO modules
+# Imports
 from Code.utils.nseintradaytradeevallogic import decide_outcome
 from Code.utils.nseintradaytradeevallogicdb import (
     fetch_signals_for_date,
@@ -36,11 +36,10 @@ from Code.utils.nseintradaytradeevallogicdb import (
 )
 from Code.utils.nseintraday_db_utils import detect_intraday_columns
 
-# ----------------- CONFIG you can edit in VS Code -----------------
-TRANSACTION_PREVIEW_DEFAULT = True  # If True, all DB writes are ROLLED BACK at the end (preview mode)
+# ----------------- CONFIG -----------------
+TRANSACTION_PREVIEW_DEFAULT = True
 DEFAULT_EVAL_RUN_TAG = "intraday_v1_default"
 
-# DEFAULT_CONFIG used for IDE (no-args) mode — edit for safe IDE testing
 DEFAULT_CONFIG = {
     "db": {
         "host": "localhost",
@@ -51,9 +50,7 @@ DEFAULT_CONFIG = {
     },
     "eval_run_tag": DEFAULT_EVAL_RUN_TAG,
     "transaction_preview": TRANSACTION_PREVIEW_DEFAULT,
-    # optional: last_n for a quick IDE backfill; set to 0 to use incremental unprocessed dates
     "last_n": 3,
-    # optional: overlap days for safety in IDE mode
     "overlap": 0
 }
 # -----------------------------------------------------------------
@@ -63,85 +60,78 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger("NSEDBLabelIntradayEvaluation")
 
 
-def connect_db(db_cfg: Optional[object] = None):
+def connect_db(db_cfg: Optional[dict] = None):
     """
     Create and return a SQLAlchemy engine.
-    Accepts:
-      - db_cfg as dict with keys user/password/host/port/db OR
-      - db_cfg as full SQLAlchemy URI string
-      - None -> use environment variables
+    Priority: MYSQL_PASSWORD env var (if set) -> db_cfg['password'] -> empty string.
     """
-    if isinstance(db_cfg, str) and (db_cfg.startswith("mysql://") or db_cfg.startswith("mysql+pymysql://") or db_cfg.startswith("postgresql://")):
-        DATABASE_URL = db_cfg
-        engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600, echo=False)
-        logger.info("SQLAlchemy engine created from provided URI.")
-        return engine
-
-    env_password = os.getenv('MYSQL_PASSWORD')
-    if db_cfg and isinstance(db_cfg, dict):
-        user = db_cfg.get("user", "root")
-        password = db_cfg.get("password", "") if env_password is None else env_password
-        host = db_cfg.get("host", "localhost")
-        port = db_cfg.get("port", 3306)
-        dbname = db_cfg.get("db", "intradaytrading")
+    env_password = os.getenv("MYSQL_PASSWORD")
+    if env_password is not None:
+        password = env_password
     else:
-        user = os.getenv("MYSQL_USER", "root")
-        password = env_password if env_password is not None else os.getenv("MYSQL_PASSWORD", "")
-        host = os.getenv("MYSQL_HOST", "localhost")
-        port = int(os.getenv("MYSQL_PORT", "3306"))
-        dbname = os.getenv("MYSQL_DB", "intradaytrading")
+        password = db_cfg.get("password") if db_cfg and "password" in db_cfg else ""
 
-    encoded_pw = urllib.parse.quote_plus(password if password is not None else "")
+    password = "" if password is None else str(password)
+    encoded_pw = urllib.parse.quote_plus(password)
+
+    user = db_cfg.get("user", "root") if db_cfg else os.getenv("MYSQL_USER", "root")
+    host = db_cfg.get("host", "localhost") if db_cfg else os.getenv("MYSQL_HOST", "localhost")
+    port = db_cfg.get("port", 3306) if db_cfg else int(os.getenv("MYSQL_PORT", "3306"))
+    dbname = db_cfg.get("db", "intradaytrading") if db_cfg else os.getenv("MYSQL_DB", "intradaytrading")
+
     DATABASE_URL = f"mysql+pymysql://{user}:{encoded_pw}@{host}:{port}/{dbname}"
+
     engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600, echo=False)
-    logger.info("SQLAlchemy engine created for DB: %s", dbname)
+
+    # Fail fast - quick connectivity test
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except OperationalError as oe:
+        # log helpful message, hide password in URL
+        try:
+            safe_url = engine.url.render_as_string(hide_password=True)
+        except Exception:
+            safe_url = f"{user}@{host}:{port}/{dbname}"
+        logger.error(
+            "DB connectivity failed for engine %s. Verify MYSQL_PASSWORD env/config, host and port. Error: %s",
+            safe_url, oe
+        )
+        raise
+
+    try:
+        safe_url = engine.url.render_as_string(hide_password=True)
+    except Exception:
+        safe_url = f"{user}@{host}:{port}/{dbname}"
+    logger.info("SQLAlchemy engine created for DB: %s", safe_url)
     return engine
 
 
-# ---------------------- detection cache helpers ----------------------
-@lru_cache(maxsize=8)
-def _cached_detect_intraday_columns(db_url: str) -> dict:
-    """
-    Cache detect_intraday_columns results per DB URL string.
-    We create a temp engine for detection and dispose it.
-    """
-    # create a temporary engine for detection
-    tmp_eng = create_engine(db_url, pool_pre_ping=True, pool_recycle=3600, echo=False)
-    try:
-        colmap = detect_intraday_columns(tmp_eng)
-    finally:
-        try:
-            tmp_eng.dispose()
-        except Exception:
-            pass
-    return colmap
+# ---------------------- helper utilities ----------------------
+_colmap_cache_by_engine = {}
 
 
 def _get_colmap_for_engine(engine):
     """
-    Return cached detect_intraday_columns mapping for the given engine.
+    Engine-object keyed cache for detected intraday columns.
+    Ensures we never recreate engines from strings.
     """
-    try:
-        db_url = engine.url.render_as_string(hide_password=True)
-    except Exception:
-        db_url = repr(engine)
-    return _cached_detect_intraday_columns(db_url)
+    key = f"eng_{id(engine)}"
+    if key in _colmap_cache_by_engine:
+        return _colmap_cache_by_engine[key]
+    colmap = detect_intraday_columns(engine)
+    _colmap_cache_by_engine[key] = colmap
+    return colmap
 
 
-# ---------------------- DB helper functions ----------------------
+# ---------------------- DB/date helpers ----------------------
 def _recent_trade_dates(engine, n: int) -> List[date]:
-    """
-    Return last n distinct trade_date values present in intraday_bhavcopy (descending -> ascending).
-    Uses detected date column name.
-    """
     if n <= 0:
         return []
     colmap = _get_colmap_for_engine(engine)
     date_col = colmap.get('trade_date')
     if not date_col:
         raise RuntimeError("Could not detect trade_date column in intraday_bhavcopy (for _recent_trade_dates).")
-
-    # Use param binding for LIMIT :n (works with SQLAlchemy)
     sql = text(f"""
         SELECT DISTINCT {date_col} AS trade_date
         FROM intraday_bhavcopy
@@ -160,15 +150,10 @@ def _recent_trade_dates(engine, n: int) -> List[date]:
 
 
 def _trade_dates_from_range(engine, start_dt: date, end_dt: date) -> List[date]:
-    """
-    Return trade dates in intraday_bhavcopy between start_dt and end_dt inclusive.
-    Uses detected date column name.
-    """
     colmap = _get_colmap_for_engine(engine)
     date_col = colmap.get('trade_date')
     if not date_col:
         raise RuntimeError("Could not detect trade_date column in intraday_bhavcopy (for range query).")
-
     sql = text(f"""
         SELECT DISTINCT {date_col} AS trade_date
         FROM intraday_bhavcopy
@@ -189,10 +174,6 @@ def _trade_dates_from_range(engine, start_dt: date, end_dt: date) -> List[date]:
 # ---------------------- evaluation logic ----------------------
 def evaluate_signals_for_date(engine, trade_date: date, eval_run_tag: str,
                               defaults: Optional[dict] = None) -> pd.DataFrame:
-    """
-    Evaluate all entry_model='open' signals for a trade_date and return DataFrame ready for upsert.
-    This function performs NO DB writes; only reads via db_io and uses eval_logic.decide_outcome.
-    """
     logger.info("Fetching signals for %s", trade_date)
     df_signals = fetch_signals_for_date(engine, trade_date)
     if df_signals.empty:
@@ -228,7 +209,6 @@ def evaluate_signals_for_date(engine, trade_date: date, eval_run_tag: str,
 
     rows = []
     for _, r in df_merged.iterrows():
-        # missing bhav row
         if pd.isna(r.get('open')):
             rows.append({
                 'signal_id': int(r['signal_id']),
@@ -280,11 +260,6 @@ def evaluate_signals_for_date(engine, trade_date: date, eval_run_tag: str,
 
 def _process_dates_and_persist(engine, trade_dates: List[date], eval_run_tag: str, defaults: Optional[dict] = None,
                                transaction_preview: bool = False):
-    """
-    For each trade_date: evaluate and persist via db_io.upsert_eval_rows.
-    If transaction_preview=True, uses upsert_eval_rows_conn inside a single transaction and ROLLBACKs at the end.
-    Returns summary dict.
-    """
     total = wins = losses = neutral = ambiguous = 0
     processed_dates: List[date] = []
 
@@ -363,17 +338,12 @@ def parse_args_wrapper():
 
 
 def _fetch_previous_n_dates_before(engine, before_date: date, n: int) -> List[date]:
-    """
-    Helper that returns previous N trade dates strictly before 'before_date'.
-    Uses detected date column.
-    """
     if n <= 0:
         return []
     colmap = _get_colmap_for_engine(engine)
     date_col = colmap.get('trade_date')
     if not date_col:
         raise RuntimeError("Could not detect trade_date column in intraday_bhavcopy (for prev dates).")
-
     sql = text(f"""
         SELECT DISTINCT {date_col} AS trade_date
         FROM intraday_bhavcopy
@@ -394,15 +364,11 @@ def _fetch_previous_n_dates_before(engine, before_date: date, n: int) -> List[da
 
 def main():
     import sys
-    # CLI mode if args present, else IDE mode uses DEFAULT_CONFIG
     if len(sys.argv) > 1:
         args = parse_args_wrapper()
         if args.db_uri:
-            try:
-                engine = create_engine(args.db_uri, pool_pre_ping=True, pool_recycle=3600, echo=False)
-                logger.info("SQLAlchemy engine created from --db-uri parameter.")
-            except Exception:
-                engine = connect_db(args.db_uri)
+            engine = create_engine(args.db_uri, pool_pre_ping=True, pool_recycle=3600, echo=False)
+            logger.info("SQLAlchemy engine created from --db-uri parameter.")
         else:
             engine = connect_db(None)
 
@@ -441,7 +407,6 @@ def main():
         logger.info("Summary: %s", summary)
 
     else:
-        # IDE mode: use DEFAULT_CONFIG
         logger.info("No CLI args detected — running in IDE mode using DEFAULT_CONFIG")
         engine = connect_db(DEFAULT_CONFIG.get("db"))
         eval_run_tag = os.getenv("EVAL_RUN_TAG") or DEFAULT_CONFIG.get("eval_run_tag") or DEFAULT_EVAL_RUN_TAG
