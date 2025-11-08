@@ -20,13 +20,13 @@ def fetch_signals_for_date(engine: sa.engine.Engine, trade_date: date) -> pd.Dat
 
 def fetch_bhavcopy_on_dates(engine: sa.engine.Engine, symbols_dates_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Fetch intraday_bhavcopy OHLC rows for the given (symbol, signal_date) pairs.
+    Fetch intraday_bhavcopy OHLC rows for the given (symbol, trade_date) pairs.
     This version auto-detects column names for OHLC/trade_date and aliases them to:
       symbol, trade_date, open, high, low, close
 
-    symbols_dates_df must have columns ['symbol', 'signal_date'].
+    symbols_dates_df must have columns ['symbol', 'trade_date'].
     """
-    pairs = symbols_dates_df[['symbol', 'signal_date']].drop_duplicates()
+    pairs = symbols_dates_df[['symbol', 'trade_date']].drop_duplicates()
     if pairs.empty:
         return pd.DataFrame()
 
