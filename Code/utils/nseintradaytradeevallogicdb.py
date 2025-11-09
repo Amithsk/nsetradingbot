@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 import sys
 import math
+import numpy as np
 
 # Ensure project root on path so relative imports work
 current_file = Path(__file__).resolve()
@@ -263,3 +264,68 @@ def upsert_eval_rows_conn(conn: sa.engine.Connection, df_rows: pd.DataFrame):
     except Exception as exc:
         logger.exception("upsert_eval_rows_conn failed. sample record keys: %s. Error: %s", list(records[0].keys()), exc)
         raise
+
+
+def get_unprocessed_trade_dates(engine: sa.engine.Engine, eval_run_tag: str) -> List[date]:
+    """
+    Return sorted list of trade_date values present in intraday_bhavcopy but not yet recorded
+    in signal_evaluation_results for the given eval_run_tag.
+
+    - Uses detect_intraday_columns(engine) to find the actual trade_date column name.
+    - Returns list[datetime.date] sorted ascending.
+    - Robust to SQLAlchemy 'mappings' vs tuple rows.
+    """
+    if not eval_run_tag:
+        raise ValueError("eval_run_tag must be provided")
+
+    # detect actual column names
+    try:
+        colmap = detect_intraday_columns(engine)
+    except Exception as exc:
+        logger.exception("Failed to detect intraday_bhavcopy columns: %s", exc)
+        raise
+
+    date_col = colmap.get("trade_date")
+    if not date_col:
+        raise RuntimeError("Could not detect trade_date column in intraday_bhavcopy")
+
+    # Use LEFT JOIN to find dates in intraday_bhavcopy not present for this eval_run_tag
+    sql = sa.text(f"""
+        SELECT DISTINCT t.{date_col} AS trade_date
+        FROM intraday_bhavcopy t
+        LEFT JOIN (
+            SELECT DISTINCT trade_date FROM signal_evaluation_results WHERE eval_run_tag = :tag
+        ) s ON t.{date_col} = s.trade_date
+        WHERE s.trade_date IS NULL
+        ORDER BY t.{date_col}
+    """)
+
+    dates = []
+    with engine.connect() as conn:
+        result = conn.execute(sql, {"tag": eval_run_tag})
+        try:
+            rows = result.mappings().all()  # preferred; returns list of dict-like
+            for r in rows:
+                # handle if value is already a date or a datetime-like
+                dtval = r.get("trade_date")
+                if dtval is None:
+                    continue
+                # normalize to python date
+                dt = pd.to_datetime(dtval).date()
+                dates.append(dt)
+        except Exception:
+            # fallback for older SQLAlchemy row objects
+            rows = result.fetchall()
+            for r in rows:
+                if not r:
+                    continue
+                dtval = r[0]
+                if dtval is None:
+                    continue
+                dt = pd.to_datetime(dtval).date()
+                dates.append(dt)
+
+    # remove duplicates and sort ascending
+    unique_sorted = sorted(set(dates))
+    logger.info("Found %d unprocessed trade_date(s) for tag=%s", len(unique_sorted), eval_run_tag)
+    return unique_sorted
