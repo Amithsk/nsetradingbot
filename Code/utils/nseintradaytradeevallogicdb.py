@@ -11,6 +11,7 @@ from datetime import date
 import logging
 from pathlib import Path
 import sys
+import math
 
 # Ensure project root on path so relative imports work
 current_file = Path(__file__).resolve()
@@ -37,16 +38,80 @@ def _is_writable_column(col: sa.Column) -> bool:
             return False
         if getattr(col, "autoincrement", False):
             return False
-        # server_default indicates DB will fill the column (e.g. CURRENT_TIMESTAMP)
         if getattr(col, "server_default", None) is not None:
             return False
-        # If column has a SQL-level default expression, avoid updating it
         if getattr(col, "default", None) is not None:
-            # conservative: do not update columns with defaults
+            # conservative: don't auto-update columns with defaults
             return False
     except Exception:
         return False
     return True
+def _sanitize_value(v):
+    """
+    Convert problematic scalar values to safe Python types:
+      - pandas/Numpy NaN, NaT -> None
+      - numpy scalar -> python scalar (item())
+      - +/-inf -> None
+      - pandas Timestamp/date -> ISO string (or python date if you prefer)
+    """
+    # pandas missing
+    try:
+        if v is None:
+            return None
+        # pandas NA (pd.NA)
+        if v is pd.NA:
+            return None
+    except Exception:
+        pass
+
+    # numpy scalar types (np.float64, np.int64, np.bool_, etc.)
+    if isinstance(v, np.generic):
+        try:
+            v = v.item()
+        except Exception:
+            # fallback to str
+            v = float(v) if isinstance(v, (np.floating,)) else v
+
+    # pandas Timestamp / datetime-like
+    if isinstance(v, (pd.Timestamp, pd.DatetimeTZDtype)) or hasattr(v, "to_pydatetime"):
+        try:
+            # return ISO date/time string or datetime object - MySQL driver handles Python datetime
+            return pd.to_datetime(v).to_pydatetime()
+        except Exception:
+            pass
+
+    # float NaN or inf
+    if isinstance(v, float):
+        if math.isnan(v) or not math.isfinite(v):
+            return None
+        # normal float -> keep
+        return v
+
+    # numeric NaN checks for other types
+    try:
+        if isinstance(v, (int, str, bool)):
+            return v
+        # catch objects that represent numeric NaN via pandas
+        if pd.isna(v):
+            return None
+    except Exception:
+        pass
+
+    # fallback: return value as-is
+    return 
+
+def _sanitize_records(records: list) -> list:
+    """
+    Walk list-of-dicts (records) and sanitize each value via _sanitize_value.
+    Returns new list-of-dicts suitable for SQL binding.
+    """
+    out = []
+    for rec in records:
+        new_rec = {}
+        for k, v in rec.items():
+            new_rec[k] = _sanitize_value(v)
+        out.append(new_rec)
+    return out
 
 
 def _get_colmap_for_engine(engine: sa.engine.Engine) -> dict:
@@ -115,7 +180,7 @@ def fetch_bhavcopy_on_dates(engine: sa.engine.Engine, symbols_dates_df: pd.DataF
 def upsert_eval_rows(engine: sa.engine.Engine, df_rows: pd.DataFrame):
     """
     Upsert evaluation result rows into signal_evaluation_results using ON DUPLICATE KEY UPDATE.
-    Only include columns in the UPDATE mapping that are present in the insert payload AND are writable.
+    Sanitizes NaN/NaT/inf values before executing.
     """
     if df_rows is None or df_rows.empty:
         logger.info("upsert_eval_rows: nothing to upsert.")
@@ -124,24 +189,25 @@ def upsert_eval_rows(engine: sa.engine.Engine, df_rows: pd.DataFrame):
     metadata = sa.MetaData()
     tbl = sa.Table('signal_evaluation_results', metadata, autoload_with=engine)
 
-    # Convert DataFrame -> records (list of dicts)
+    # convert df -> records and sanitize
     records = df_rows.to_dict(orient='records')
     if not records:
         logger.info("upsert_eval_rows: no records after conversion.")
         return
 
-    # Determine columns present in the INSERT payload (keys of records[0])
+    records = _sanitize_records(records)
+
+    # determine insert payload columns from first record
     insert_columns = set(records[0].keys())
 
     insert_stmt = sa.dialects.mysql.insert(tbl).values(records)
 
-    # Choose writable table columns that are also present in insert_columns
+    # pick table columns that are writable and present in payload
     writable_tbl_cols = [c for c in tbl.columns if _is_writable_column(c) and c.name in insert_columns]
-
     update_cols = {c.name: insert_stmt.inserted[c.name] for c in writable_tbl_cols}
 
     if not update_cols:
-        # Nothing safe to update - fall back to a plain insert (may raise on duplicates)
+        # nothing safe to update - do plain insert (duplicates will raise) but we log this
         logger.warning("upsert_eval_rows: no writable columns intersecting insert payload. Performing plain INSERT (duplicates will error).")
         try:
             with engine.begin() as conn:
@@ -156,27 +222,30 @@ def upsert_eval_rows(engine: sa.engine.Engine, df_rows: pd.DataFrame):
     try:
         with engine.begin() as conn:
             conn.execute(on_dup)
-        logger.info("Upserted %d rows (with %d update cols) for eval_run_tag=%s", len(records), len(update_cols), df_rows.get('eval_run_tag', [None])[0])
+        logger.info("Upserted %d rows (with %d update cols) for eval_run_tag=%s",
+                    len(records), len(update_cols), df_rows.get('eval_run_tag', [None])[0])
     except Exception as exc:
         logger.exception("upsert_eval_rows failed. sample record keys: %s. Error: %s", list(records[0].keys()), exc)
         raise
 
 
 
-
 def upsert_eval_rows_conn(conn: sa.engine.Connection, df_rows: pd.DataFrame):
     """
-    Upsert using existing connection (no begin/commit here).
+    Upsert evaluation rows using an existing SQLAlchemy Connection (caller controls tx).
+    Sanitizes NaN/NaT/inf values before executing.
     """
     if df_rows is None or df_rows.empty:
         return
 
     metadata = sa.MetaData()
     tbl = sa.Table('signal_evaluation_results', metadata, autoload_with=conn.engine)
+
     records = df_rows.to_dict(orient='records')
     if not records:
         return
 
+    records = _sanitize_records(records)
     insert_columns = set(records[0].keys())
     insert_stmt = sa.dialects.mysql.insert(tbl).values(records)
 
@@ -194,32 +263,3 @@ def upsert_eval_rows_conn(conn: sa.engine.Connection, df_rows: pd.DataFrame):
     except Exception as exc:
         logger.exception("upsert_eval_rows_conn failed. sample record keys: %s. Error: %s", list(records[0].keys()), exc)
         raise
-
-def get_unprocessed_trade_dates(engine: sa.engine.Engine, eval_run_tag: str) -> List[date]:
-    """
-    Return sorted list of trade_date present in intraday_bhavcopy but not yet processed
-    for eval_run_tag in signal_evaluation_results.
-    """
-    colmap = _get_colmap_for_engine(engine)
-    date_col = colmap.get('trade_date')
-    if not date_col:
-        raise RuntimeError("Could not detect trade_date column in intraday_bhavcopy (for get_unprocessed_trade_dates).")
-
-    sql = sa.text(f"""
-        SELECT DISTINCT t.{date_col} AS trade_date
-        FROM intraday_bhavcopy t
-        LEFT JOIN (
-            SELECT DISTINCT trade_date FROM signal_evaluation_results WHERE eval_run_tag = :tag
-        ) s ON t.{date_col} = s.trade_date
-        WHERE s.trade_date IS NULL
-        ORDER BY t.{date_col}
-    """)
-    with engine.connect() as conn:
-        result = conn.execute(sql, {"tag": eval_run_tag})
-        try:
-            rows = result.mappings().all()
-            dates = [pd.to_datetime(r['trade_date']).date() for r in rows]
-        except Exception:
-            rows = result.fetchall()
-            dates = [pd.to_datetime(r[0]).date() for r in rows]
-    return dates
