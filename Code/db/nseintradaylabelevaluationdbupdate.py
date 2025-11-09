@@ -32,8 +32,9 @@ from Code.utils.nseintradaytradeevallogicdb import (
     fetch_bhavcopy_on_dates,
     upsert_eval_rows,
     upsert_eval_rows_conn,
-    get_unprocessed_trade_dates,
+    get_unprocessed_trade_dates
 )
+
 from Code.utils.nseintraday_db_utils import detect_intraday_columns
 
 # ----------------- CONFIG -----------------
