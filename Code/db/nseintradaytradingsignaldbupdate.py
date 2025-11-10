@@ -759,7 +759,7 @@ def run_signal_generation_for_date(target_date_iso: str, engine_obj=None, behavi
     df_vol = generate_volatility_breakout_signals_for_date(engine_obj, target_date_iso)
 
     df_all_signals = pd.concat([df for df in (df_mom, df_gap, df_vol) if not df.empty], ignore_index=True, sort=False) if any([not df.empty for df in (df_mom, df_gap, df_vol)]) else pd.DataFrame()
-    df_all_signals = enrich_signals_with_stops_targets(engine, df_all_signals,
+    df_all_signals = enrich_signals_with_stops_targets(engine_obj, df_all_signals,
                                                    atr_lookback=14, atr_stop_mult=1.5, atr_target_mult=3.0)
     
     logger.info("Total signals generated for %s: %d", target_date_iso, len(df_all_signals))
@@ -852,8 +852,13 @@ if __name__ == "__main__":
                 # Run backfill (if any missing dates) before the main date
                 logger.info("IDE mode: running backfill-first (if needed) and then pipeline for %s", default_date)
                 backfill_missing_signals(engine, behavior_cfg=behavior_cfg)
-                run_signal_generation_for_date(default_date, engine_obj=engine, behavior_cfg=behavior_cfg)
-
+                last_signal_date = get_latest_signal_date(engine)
+                if last_signal_date is None or pd.to_datetime(last_signal_date).date() < pd.to_datetime(default_date).date():
+                    logger.info("Running pipeline for default_date %s (not covered by backfill)", default_date)
+                    run_signal_generation_for_date(default_date, engine_obj=engine, behavior_cfg=behavior_cfg)
+                else:
+                    logger.info("Default date %s already covered by backfill (latest signal date: %s) — skipping", default_date, last_signal_date)
+                
     except Exception:
         logger.exception("Top-level pipeline failure")
         raise
