@@ -17,6 +17,7 @@ from datetime import timedelta
 import pandas as pd
 import numpy as np
 from sqlalchemy import text
+import sqlalchemy as sa
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -105,206 +106,306 @@ def compute_atr_for_symbols(engine, symbols, ref_date, atr_lookback=14, min_peri
 
 def enrich_signals_with_stops_targets(engine, df_signals, ref_date=None,
                                       atr_lookback=14, atr_stop_mult=1.5, atr_target_mult=3.0,
-                                      gap_lookback_high_days=20):
+                                      gap_lookback_high_days=20,
+                                      pct_stop_fallback=0.005, pct_target_fallback=0.01):
     """
-    Given df_signals (the DataFrame that contains signals to be persisted), populate:
-      - entry_price (if None, will attempt to fill using bhavcopy open on entry_date)
-      - stop_price
-      - target_price
-    Works for strategies: 'momentum_topn' and 'gap_follow' (others left untouched).
-    Returns a new DataFrame (copy) with added columns and a 'price_enrichment_notes' JSON string column.
+    Enrich df_signals with entry_price (if possible), stop_price and target_price.
+
+    Behavior:
+      - Handles strategies 'momentum_topn' and 'gap_follow' (others left with notes).
+      - Prefetches ATR from strategy_features (feature_name = f"atr_{atr_lookback}").
+      - Prefetches bhav open/close/prev_close for trade_date and trade_date+1 for entry open resolution.
+      - Uses ATR-based multipliers when ATR available; otherwise uses percent-based fallback if entry_price or close exists.
+      - Does NOT overwrite existing non-null stop_price/target_price; sets *_imputed flags for filled fields.
+      - Returns a new DataFrame (copy) with enrichment columns and 'price_enrichment_notes' containing per-row details.
     """
+    import json
+    import numpy as np
+    import pandas as pd
+    from sqlalchemy import text
+    try:
+        logger  # prefer module-level logger if present
+    except Exception:
+        logger = None
+
     df = df_signals.copy()
     if df.empty:
         return df
 
-    # normalize column names and ensure trade_date is datetime
+    # Normalise and ensure datetime columns
+    if 'trade_date' not in df.columns:
+        raise ValueError("df_signals must contain 'trade_date' column")
     df['trade_date'] = pd.to_datetime(df['trade_date']).dt.normalize()
+
+    # Default ref_date is max trade_date if not supplied
     if ref_date is None:
-        # ref_date is the current processing date; use max trade_date by default
         ref_date = df['trade_date'].max()
 
-    # determine entry_date per row: next_open -> trade_date + 1, else trade_date
+    # compute entry_date per-row (next_open -> trade_date + 1)
     def compute_entry_date(row):
         em = str(row.get('entry_model') or '').lower()
-        if em == 'next_open' or em == '' or em == 'next_open':
+        if em == 'next_open' or em == '':
             return (row['trade_date'] + pd.Timedelta(days=1)).normalize()
         else:
             return row['trade_date']
     df['entry_date'] = df.apply(compute_entry_date, axis=1)
 
-    # we will compute ATR per symbol (reference date = trade_date)
-    symbols = df['symbol'].unique().tolist()
-    # For simplicity compute ATR once using ref_date = max(trade_date) across df,
-    # but ideally compute per-signal using its trade_date; here compute per-signal below.
-    enrichment_notes = []
-    # prepare a column for imputed flags
+    # Prepare imputed flags
     df['stop_price_imputed'] = False
     df['target_price_imputed'] = False
     df['entry_price_imputed'] = False
-    # Pre-fetch bhavcopy rows for all symbols for a window of interest:
-    # Need entry day open/close and history up to trade_date - 1 for ATR
-    max_trade_date = df['trade_date'].max()
-    lookback_days = atr_lookback + 10
-    bhav = fetch_bhavcopy_history(engine, symbols, end_date=max_trade_date, lookback_days=lookback_days)
-    # create convenience lookup per (symbol, date)
-    if not bhav.empty:
-        bhav.set_index(['symbol','trade_date'], inplace=False)
-    # Helper to get entry open
-    def get_entry_open(sym, entry_date):
-        if bhav.empty:
-            return np.nan
-        sub = bhav[(bhav['symbol'] == sym) & (bhav['trade_date'] == pd.to_datetime(entry_date).normalize())]
-        if not sub.empty:
-            return float(sub.iloc[0]['open'])
-        return np.nan
 
-    # Compute ATR per symbol per trade_date (we will compute per-row to be precise)
-    results = []
+    # Pre-fetch ATR and BHAV rows for all relevant symbols/dates
+    # Normalize symbol strings
+    df['symbol'] = df['symbol'].astype(str).str.strip().str.upper()
+    symbol_list = sorted(df['symbol'].unique().tolist())
+    trade_dates = sorted(df['trade_date'].dt.date.astype(str).unique().tolist())
+
+    # Build ATR lookup: key = (symbol, date) -> float(atr)
+    atr_map = {}
+    if symbol_list and trade_dates:
+        try:
+            atr_sql = text("""
+                SELECT symbol, trade_date, value
+                FROM strategy_features
+                WHERE feature_name = :feat
+                  AND symbol IN :symbols
+                  AND trade_date IN :dates
+            """).bindparams(
+                sa.bindparam("symbols", expanding=True),
+                sa.bindparam("dates", expanding=True)
+            )
+            df_atr = pd.read_sql(atr_sql, engine, params={"feat": f"atr_{atr_lookback}", "symbols": symbol_list, "dates": trade_dates})
+            if not df_atr.empty:
+                df_atr['symbol'] = df_atr['symbol'].astype(str).str.strip().str.upper()
+                df_atr['trade_date'] = pd.to_datetime(df_atr['trade_date']).dt.date
+                df_atr['value'] = pd.to_numeric(df_atr['value'], errors='coerce')
+                atr_map = {(r['symbol'], r['trade_date']): float(r['value']) for _, r in df_atr.iterrows() if pd.notna(r['value'])}
+        except Exception as e:
+            if logger:
+                logger.exception("Failed to prefetch ATR rows: %s", e)
+            else:
+                print("Failed to prefetch ATR rows:", e)
+            atr_map = {}
+
+    # Build bhav lookup for trade_date and trade_date + 1
+    lookup_dates = set(trade_dates)
+    # include trade_date+1 as potential entry_date
+    try:
+        lookup_dates.update([(pd.to_datetime(d).date() + pd.Timedelta(days=1)).isoformat() for d in trade_dates])
+    except Exception:
+        # if any conversion fails, keep it simple
+        pass
+    lookup_dates = sorted(list(lookup_dates))
+
+    bhav_open_map = {}
+    bhav_close_map = {}
+    bhav_prev_close_map = {}
+    if symbol_list and lookup_dates:
+        try:
+            bhav_sql = text("""
+                SELECT symbol, trade_date, open, close, prev_close
+                FROM intraday_bhavcopy
+                WHERE symbol IN :symbols
+                  AND trade_date IN :dates
+            """).bindparams(
+                sa.bindparam("symbols", expanding=True),
+                sa.bindparam("dates", expanding=True)
+            )
+            df_bhav = pd.read_sql(bhav_sql, engine, params={"symbols": symbol_list, "dates": lookup_dates})
+            if not df_bhav.empty:
+                df_bhav['symbol'] = df_bhav['symbol'].astype(str).str.strip().str.upper()
+                df_bhav['trade_date'] = pd.to_datetime(df_bhav['trade_date']).dt.date
+                for _, r in df_bhav.iterrows():
+                    key = (r['symbol'], r['trade_date'])
+                    open_v = r.get('open', None)
+                    close_v = r.get('close', None)
+                    prev_close_v = r.get('prev_close', None) if 'prev_close' in r else None
+                    bhav_open_map[key] = float(open_v) if pd.notna(open_v) else None
+                    bhav_close_map[key] = float(close_v) if pd.notna(close_v) else None
+                    bhav_prev_close_map[key] = float(prev_close_v) if prev_close_v is not None and pd.notna(prev_close_v) else None
+        except Exception as e:
+            if logger:
+                logger.exception("Failed to prefetch bhav rows for enricher: %s", e)
+            else:
+                print("Failed to prefetch bhav rows for enricher:", e)
+            # leave maps empty; function will fallback to percent bands where possible
+
+    # Iterate and compute per-row
+    enrichment_notes = []
     for idx, row in df.iterrows():
-        sym = row['symbol']
-        trade_date = row['trade_date']
-        entry_date = row['entry_date']
+        sym = str(row['symbol']).strip().upper()
+        trade_date = pd.to_datetime(row['trade_date']).date()
+        entry_date = pd.to_datetime(row['entry_date']).date() if not pd.isna(row['entry_date']) else trade_date
         strategy = str(row.get('strategy') or '').lower()
         score = row.get('signal_score', None)
         entry_price = row.get('entry_price', None)
         stop_price = row.get('stop_price', None)
         target_price = row.get('target_price', None)
-
-        # compute ATR referenced to trade_date: use history up to trade_date - 1
-        try:
-            atr_df = compute_atr_for_symbols(engine, [sym], ref_date=trade_date, atr_lookback=atr_lookback)
-            atr_val = None
-            if not atr_df.empty and sym in atr_df.index:
-                atr_val = float(atr_df.loc[sym]['atr'])
-            else:
-                atr_val = np.nan
-        except Exception as e:
-            logger.exception("Failed to compute ATR for %s on %s: %s", sym, trade_date, e)
-            atr_val = np.nan
-
-        # Resolve entry_price if missing: use bhavcopy open on entry_date (if available)
-        if pd.isna(entry_price) or entry_price is None:
-            entry_open = get_entry_open(sym, entry_date)
-            if pd.notna(entry_open):
-                entry_price = float(entry_open)
-                df.at[idx, 'entry_price_imputed'] = True
-            else:
-                # leave None / NaN
-                entry_price = None
-
-        # Now compute stops/targets by strategy
         note = {}
-        if strategy == 'momentum_topn':
-            # Option: use ATR-based stop/target around entry_price
-            if entry_price is None:
-                note['momentum'] = 'no_entry_price'
-            note['atr'] = atr_val if not pd.isna(atr_val) else None
-            if pd.notna(atr_val) and entry_price is not None:
-                # LONG vs SHORT depends on sign of signal_score
-                s_score = float(score) if score is not None else None
-                if s_score is None:
-                    # fallback assume LONG (conservative: no)
-                    side = 'LONG'
+
+        # grab ATR from prefetch map
+        atr_val = atr_map.get((sym, trade_date), np.nan)
+        note['atr'] = float(atr_val) if not pd.isna(atr_val) else None
+
+        # Resolve entry_price if missing: prefer bhav open at entry_date -> fallback to trade_date close
+        if pd.isna(entry_price) or entry_price is None:
+            open_v = bhav_open_map.get((sym, entry_date))
+            if open_v is not None:
+                entry_price = float(open_v)
+                df.at[idx, 'entry_price_imputed'] = True
+                note['entry_price_from'] = 'entry_open'
+            else:
+                close_v = bhav_close_map.get((sym, trade_date))
+                if close_v is not None:
+                    entry_price = float(close_v)
+                    df.at[idx, 'entry_price_imputed'] = True
+                    note['entry_price_from'] = 'trade_close_fallback'
                 else:
-                    side = 'LONG' if s_score >= 0 else 'SHORT'
+                    entry_price = None
+                    note['entry_price_from'] = None
+
+        # Strategy-specific computations
+        if strategy == 'momentum_topn':
+            # Determine side from signal_score (default LONG)
+            try:
+                s_score = float(score) if score is not None else None
+                side = 'LONG' if (s_score is None or s_score >= 0) else 'SHORT'
+            except Exception:
+                side = 'LONG'
+            note['computed_side'] = side
+
+            # ATR-based
+            if (not pd.isna(atr_val)) and (entry_price is not None):
                 if side == 'LONG':
                     computed_stop = entry_price - (atr_stop_mult * atr_val)
                     computed_target = entry_price + (atr_target_mult * atr_val)
                 else:
                     computed_stop = entry_price + (atr_stop_mult * atr_val)
                     computed_target = entry_price - (atr_target_mult * atr_val)
-                # Only write stop/target if not present; or overwrite if present is NaN
-                if pd.isna(stop_price) or stop_price is None:
+                # Only set if missing
+                if pd.isna(stop_price) or stop_price is None or float(stop_price) == 0.0:
                     stop_price = float(np.round(computed_stop, 4))
                     df.at[idx, 'stop_price_imputed'] = True
-                if pd.isna(target_price) or target_price is None:
+                    note['stop_from'] = 'atr'
+                if pd.isna(target_price) or target_price is None or float(target_price) == 0.0:
                     target_price = float(np.round(computed_target, 4))
                     df.at[idx, 'target_price_imputed'] = True
-                note['computed_side'] = side
-                note['computed_stop'] = stop_price
-                note['computed_target'] = target_price
+                    note['target_from'] = 'atr'
             else:
-                note['momentum'] = 'atr_missing_or_entry_missing'
+                # Percent fallback if entry_price exists
+                if entry_price is not None:
+                    if side == 'LONG':
+                        computed_stop = entry_price * (1.0 - pct_stop_fallback)
+                        computed_target = entry_price * (1.0 + pct_target_fallback)
+                    else:
+                        computed_stop = entry_price * (1.0 + pct_stop_fallback)
+                        computed_target = entry_price * (1.0 - pct_target_fallback)
+                    if pd.isna(stop_price) or stop_price is None or float(stop_price) == 0.0:
+                        stop_price = float(np.round(computed_stop, 4))
+                        df.at[idx, 'stop_price_imputed'] = True
+                        note['stop_from'] = 'percent_fallback'
+                    if pd.isna(target_price) or target_price is None or float(target_price) == 0.0:
+                        target_price = float(np.round(computed_target, 4))
+                        df.at[idx, 'target_price_imputed'] = True
+                        note['target_from'] = 'percent_fallback'
+                else:
+                    note['momentum'] = 'atr_and_entry_missing'
 
         elif strategy == 'gap_follow':
-            # For gap follow we expect df to have prev_close in bhavcopy; entry_price likely is open
-            # We'll compute stop relative to prev_close and target using atr
-            # fetch prev_close from bhav for trade_date
-            prev_close_val = None
-            ph = bhav[(bhav['symbol'] == sym) & (bhav['trade_date'] == pd.to_datetime(trade_date).normalize())]
-            # NOTE: since fetch_bhavcopy_history uses prev_close as prior day's close,
-            # ph row here corresponds to trade_date; ph['prev_close'] should be previous day's close.
-            if not ph.empty:
-                prev_close_val = ph.iloc[-1].get('prev_close', None)
-            note['atr'] = atr_val if not pd.isna(atr_val) else None
-            note['prev_close'] = float(prev_close_val) if prev_close_val is not None else None
-            # We expect entry_price to be open (if not already set)
-            if entry_price is None:
-                entry_open = get_entry_open(sym, entry_date)
-                if pd.notna(entry_open):
-                    entry_price = float(entry_open)
-                    df.at[idx, 'entry_price_imputed'] = True
-            # Decide side from gap_pct if present in notes/params; else infer from signal_score
+            # Determine side: try to parse gap_pct from notes JSON if present, otherwise use signal_score
             side = None
-            if 'gap_pct' in (row.get('notes') or ''):
-                # best-effort parse JSON in notes
-                try:
-                    import json as _json
-                    notes_j = _json.loads(row.get('notes') or "{}")
-                    gap_pct = float(notes_j.get('gap_pct')) if notes_j.get('gap_pct') else None
-                    if gap_pct is not None:
-                        side = 'LONG' if gap_pct > 0 else 'SHORT'
-                except Exception:
-                    side = None
+            notes_raw = row.get('notes') or ''
+            try:
+                parsed = json.loads(notes_raw) if isinstance(notes_raw, str) and notes_raw.strip().startswith('{') else {}
+                gap_pct = parsed.get('gap_pct')
+                if gap_pct is not None:
+                    side = 'LONG' if float(gap_pct) > 0 else 'SHORT'
+            except Exception:
+                # ignore parse errors
+                side = None
             if side is None:
                 try:
-                    sc = float(row.get('signal_score')) if row.get('signal_score') is not None else None
+                    sc = float(score) if score is not None else None
                     side = 'LONG' if (sc is None or sc >= 0) else 'SHORT'
                 except Exception:
                     side = 'LONG'
-            # compute stop: put stop below prev_close for LONG, above prev_close for SHORT (if prev_close available)
-            if pd.notna(atr_val) and entry_price is not None:
+            note['computed_side'] = side
+            # prefer prev_close-based stop if prev_close exists
+            prev_close = bhav_prev_close_map.get((sym, trade_date))
+            # ATR-based route
+            if (not pd.isna(atr_val)) and (entry_price is not None):
                 if side == 'LONG':
-                    # prefer prev_close-based stop if available
-                    if prev_close_val is not None:
-                        computed_stop = float(prev_close_val) - (atr_stop_mult * atr_val)
+                    if prev_close is not None:
+                        computed_stop = float(prev_close) - (atr_stop_mult * atr_val)
                     else:
                         computed_stop = entry_price - (atr_stop_mult * atr_val)
                     computed_target = entry_price + (atr_target_mult * atr_val)
                 else:
-                    if prev_close_val is not None:
-                        computed_stop = float(prev_close_val) + (atr_stop_mult * atr_val)
+                    if prev_close is not None:
+                        computed_stop = float(prev_close) + (atr_stop_mult * atr_val)
                     else:
                         computed_stop = entry_price + (atr_stop_mult * atr_val)
                     computed_target = entry_price - (atr_target_mult * atr_val)
-
-                if pd.isna(stop_price) or stop_price is None:
+                if pd.isna(stop_price) or stop_price is None or float(stop_price) == 0.0:
                     stop_price = float(np.round(computed_stop, 4))
                     df.at[idx, 'stop_price_imputed'] = True
-                if pd.isna(target_price) or target_price is None:
+                    note['stop_from'] = 'atr'
+                if pd.isna(target_price) or target_price is None or float(target_price) == 0.0:
                     target_price = float(np.round(computed_target, 4))
                     df.at[idx, 'target_price_imputed'] = True
-                note['computed_side'] = side
-                note['computed_stop'] = stop_price
-                note['computed_target'] = target_price
+                    note['target_from'] = 'atr'
             else:
-                note['gap_follow'] = 'atr_missing_or_entry_missing'
-
+                # percent fallback if entry_price exists
+                if entry_price is not None:
+                    if side == 'LONG':
+                        computed_stop = entry_price * (1.0 - pct_stop_fallback)
+                        computed_target = entry_price * (1.0 + pct_target_fallback)
+                    else:
+                        computed_stop = entry_price * (1.0 + pct_stop_fallback)
+                        computed_target = entry_price * (1.0 - pct_target_fallback)
+                    if pd.isna(stop_price) or stop_price is None or float(stop_price) == 0.0:
+                        stop_price = float(np.round(computed_stop, 4))
+                        df.at[idx, 'stop_price_imputed'] = True
+                        note['stop_from'] = 'percent_fallback'
+                    if pd.isna(target_price) or target_price is None or float(target_price) == 0.0:
+                        target_price = float(np.round(computed_target, 4))
+                        df.at[idx, 'target_price_imputed'] = True
+                        note['target_from'] = 'percent_fallback'
+                else:
+                    note['gap_follow'] = 'atr_and_entry_missing'
         else:
             note['info'] = 'strategy_not_handled_by_enricher'
 
-        # write computed values back into df copy
-        df.at[idx, 'entry_price'] = entry_price if entry_price is not None else df.at[idx, 'entry_price'] if 'entry_price' in df.columns else None
-        df.at[idx, 'stop_price'] = stop_price if stop_price is not None else df.at[idx, 'stop_price'] if 'stop_price' in df.columns else None
-        df.at[idx, 'target_price'] = target_price if target_price is not None else df.at[idx, 'target_price'] if 'target_price' in df.columns else None
-        enrichment_notes.append({'index': idx, 'notes': note})
+        # Write computed (or preserved) values back into df copy (only replace when value computed / imputed)
+        if stop_price is not None:
+            df.at[idx, 'stop_price'] = stop_price
+        if target_price is not None:
+            df.at[idx, 'target_price'] = target_price
+        if entry_price is not None:
+            df.at[idx, 'entry_price'] = entry_price
 
-    # add JSON notes column
+        # collect note
+        enrichment_notes.append({'index': int(idx), 'symbol': sym, 'notes': note})
+
+    # Add JSON notes column
     try:
-        import json
         df['price_enrichment_notes'] = df.index.map(lambda i: next((n['notes'] for n in enrichment_notes if n['index'] == i), {}))
     except Exception:
         df['price_enrichment_notes'] = None
+
+    # Logging summary
+    try:
+        total = len(enrichment_notes)
+        atr_used = sum(1 for n in enrichment_notes if n['notes'].get('atr') is not None)
+        percent_used = sum(1 for n in enrichment_notes if n['notes'].get('stop_from') == 'percent_fallback' or n['notes'].get('target_from') == 'percent_fallback')
+        entry_imputed = int(df['entry_price_imputed'].sum()) if 'entry_price_imputed' in df.columns else 0
+        msg = f"Enrichment summary - total={total}, atr_available={atr_used}, percent_fallback_used={percent_used}, entry_imputed={entry_imputed}"
+        if logger:
+            logger.info(msg)
+        else:
+            print(msg)
+    except Exception:
+        pass
 
     return df
