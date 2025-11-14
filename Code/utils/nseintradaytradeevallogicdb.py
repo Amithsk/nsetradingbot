@@ -128,10 +128,11 @@ def fetch_signals_for_date(engine: sa.engine.Engine, trade_date: date) -> pd.Dat
     """
     Fetch strategy_signals for a single trade_date where entry_model='open'.
     Returns a pandas DataFrame.
+    NOTE: include signal_type so decide_outcome can determine LONG/SHORT.
     """
     sql = sa.text("""
         SELECT id as signal_id, symbol, trade_date, strategy, entry_model,
-               entry_price, stop_price, target_price
+               entry_price, stop_price, target_price,signal_type
         FROM strategy_signals
         WHERE entry_model = 'open' AND trade_date = :d
     """)
