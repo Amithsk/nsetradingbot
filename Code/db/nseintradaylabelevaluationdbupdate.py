@@ -104,7 +104,7 @@ def connect_db(db_cfg: Optional[dict] = None):
         safe_url = engine.url.render_as_string(hide_password=True)
     except Exception:
         safe_url = f"{user}@{host}:{port}/{dbname}"
-    logger.info("SQLAlchemy engine created for DB: %s", safe_url)
+    logger.info("SQLAlchemy engine created for DB")
     return engine
 
 
