@@ -88,6 +88,14 @@ def git_commit_changes(file_path: Path):
     """
     trade_date = datetime.datetime.now().strftime("%d-%b-%Y")
     commit_message = f"Bhavcopy update {file_path.name} on {trade_date}"
+    debug_record = {
+        "action": "git_commit_changes",
+        "file": str(file_path),
+        "commit_message": commit_message,
+        "ts": datetime.datetime.now().isoformat(),
+        "result": None,
+        "error": None,
+    }
     try:
         # Pull latest changes before pushing (to avoid rejection)
         subprocess.run(["git", "pull", "--rebase"], check=True)
@@ -105,8 +113,16 @@ def git_commit_changes(file_path: Path):
 
         #Push changes
         subprocess.run(["git", "push"], check=True)
+        debug_record["result"] = "committed_and_pushed"
+        _save_debug(debug_record)
         print("Changes committed and pushed to git.")
     except subprocess.CalledProcessError as error:
+        debug_record["result"] = "git_failed"
+        debug_record["error"] = str(error)
+        try:
+            _save_debug(debug_record)
+        except Exception:
+            pass
         print("Git command failed:", error)
 
 def establish_browser_session() -> requests.Session | None:
@@ -205,7 +221,7 @@ def _save_file(session_obj: requests.Session, file_name: str, file_url: str, out
         return None
 
 def download_bhavcopy_yesterday(session_obj: requests.Session,yesterday) -> Path | None:
-    """Download today's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
+    """Download yesterday's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
    
     file_name = f"PR{yesterday.strftime('%d%m%y')}.zip"
 
@@ -304,6 +320,55 @@ def download_bhavcopy_daybefore(session_obj: requests.Session,day_before) -> Pat
     print("Trying yesterday file via API:", file_url)
     return _save_file(session_obj, file_name, file_url)
 
+def download_bhavcopy_today(session_obj: requests.Session,today) -> Path | None:
+    """Download today's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
+
+    file_name = f"PR{today.strftime('%d%m%y')}.zip"
+
+    # Warm cookies
+    try:
+        session_obj.get(HOME_URL, headers=HEADERS_DICT, timeout=10)
+    except Exception:
+        pass
+
+    # Call API
+    try:
+        resp = session_obj.get(DAILY_API_URL, headers=HEADERS_DICT, timeout=20)
+    except Exception as e:
+        print("Failed to call DAILY_API_URL:", e)
+        _save_debug({"error": str(e)})
+        return None
+
+    if resp.status_code != 200:
+        print(f"DAILY_API_URL returned HTTP {resp.status_code}")
+        _save_debug({
+            "status": resp.status_code,
+            "headers": dict(resp.headers),
+            "body": resp.text[:500]
+        })
+        return None
+
+    # Parse JSON safely
+    data = parse_api_response(resp)
+    if not data:
+        return None
+
+    reports = collect_all_reports(data)
+
+    # Find today's file
+    report_entry = next((r for r in reports if r.get("fileActlName") == file_name), None)
+    if not report_entry:
+        date_str = today.strftime("%d-%b-%Y")
+        report_entry = next((r for r in reports if r.get("tradingDate") == date_str), None)
+
+    if not report_entry:
+        print(f"No entry for {file_name} found in DAILY_API_URL response")
+        return None
+
+    # Download
+    file_url = report_entry["filePath"] + report_entry["fileActlName"]
+    print("Trying todays file via API:", file_url)
+    return _save_file(session_obj, file_name, file_url)
 
 
 def _save_debug(data_obj):
@@ -327,6 +392,7 @@ def download_bhavcopy_master(session_obj: requests.Session) -> Path | None:
     yesterday = adjust_for_weekend(today - timedelta(days=1))
     day_before = adjust_for_weekend(today - timedelta(days=2))
 
+     
     
  
 
