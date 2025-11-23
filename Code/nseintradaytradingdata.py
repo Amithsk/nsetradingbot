@@ -448,21 +448,74 @@ def nse_is_open() -> bool:
     return True
 
 
-if __name__ == "__main__":
-    # Random startup delay (0–60 sec) to avoid looking like a bot
+
+def run_download_flow(mode: str = "today") -> Path | None:
+    """
+    Wrapper to call the existing download logic with explicit mode.
+
+    - mode="today":     attempt today's bhavcopy only
+    - mode="yesterday": attempt yesterday's bhavcopy only
+    - mode="auto":      existing behavior (today -> yesterday -> day-before)
+
+    NOTE:
+    - This wrapper REUSES the existing core logic.
+    - This wrapper DOES perform git commit (as per decision: keep all commit logic inside downloader).
+    """
+    mode = (mode or "today").lower()
+
+    # Create a fresh session (existing logic — no change)
+    session_obj = establish_browser_session()
+    if not session_obj:
+        print("[run_download_flow] ERROR: Could not establish NSE session.")
+        return None
+
+    print(f"[run_download_flow] mode={mode}")
+
+    # Call master with the selected mode
+    file_path = download_bhavcopy_master(session_obj, mode=mode)
+
+    # If download failed
+    if not file_path:
+        print(f"[run_download_flow] No file downloaded for mode={mode}")
+        return None
+
+    # SUCCESS → Commit file to Git
+    print(f"[run_download_flow] Download successful: {file_path}")
+    git_commit_changes(file_path)
+
+    return file_path
+# --- END: wrapper additions ---
+
+
+def run_from_cli():
+    """
+    Preserve existing CLI behaviour but routed through this wrapper.
+    Keeps the random startup delay, nse_is_open check and commit step as before.
+    """
+    # existing behaviour preserved: random startup delay, nse_is_open(), establish session, etc.
     startup_delay = random.randint(0, 60)
     print(f"Startup delay: {startup_delay} seconds")
     time.sleep(startup_delay)
 
     if not nse_is_open():
         print("NSE closed; skipping.")
-    else:
-        session_obj = establish_browser_session()
-        if session_obj:
-            file_path = download_bhavcopy_master(session_obj)
-            if file_path:
-                print("Download complete:", file_path)
-                git_commit_changes(file_path)
+        return
 
-            else:
-                print("Bhavcopy not available yet. Check debug folder.")
+    # We rely on the existing code's session logic — keep it unchanged.
+    session_obj = establish_browser_session()
+    if session_obj:
+        # Use original 'auto' master behaviour for CLI runs to preserve compatibility
+        file_path = download_bhavcopy_master(session_obj)
+        if file_path:
+            print("Download complete:", file_path)
+            # keep existing workflow — caller (CLI path) continues to commit as before
+            git_commit_changes(file_path)
+        else:
+            print("Bhavcopy not available yet. Check debug folder.")
+    else:
+        print("Failed to establish browser session; exiting.")
+
+
+# Replace old __main__ behaviour with a call to run_from_cli()
+if __name__ == "__main__":
+    run_from_cli()
