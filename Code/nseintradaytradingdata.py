@@ -381,24 +381,45 @@ def _save_debug(data_obj):
     print(f"Debug JSON saved: {path_debug}")
 
 
-def download_bhavcopy_master(session_obj: requests.Session) -> Path | None:
+def download_bhavcopy_master(session_obj: requests.Session, mode: str = "auto") -> Path | None:
     """
-    Master function:
-    - Always run in the morning (7–8 AM IST).
-    - Try to get yesterday’s bhavcopy (PRddmmyy.zip).    - If not available, fallback to day-before-yesterday.
+    Master function with mode support:
+      - mode="today":     attempt today's bhavcopy only
+      - mode="yesterday": attempt yesterday's bhavcopy only
+      - mode="auto":      existing behavior (today -> yesterday -> day-before)
     """
-    
     today = datetime.datetime.now()
     yesterday = adjust_for_weekend(today - timedelta(days=1))
     day_before = adjust_for_weekend(today - timedelta(days=2))
 
-     
-    
- 
+    mode = (mode or "auto").lower()
 
+    # -----------------------------------------
+    # MODE: TODAY ONLY
+    # -----------------------------------------
+    if mode == "today":
+        print(f"[MASTER] mode=today -> trying only today {today.strftime('%d-%b-%Y')}")
+        return download_bhavcopy_today(session_obj, today)
+
+    # -----------------------------------------
+    # MODE: YESTERDAY ONLY
+    # -----------------------------------------
+    if mode == "yesterday":
+        print(f"[MASTER] mode=yesterday -> trying only yesterday {yesterday.strftime('%d-%b-%Y')}")
+        return download_bhavcopy_yesterday(session_obj, yesterday)
+
+    # -----------------------------------------
+    # MODE: AUTO  (default CLI behavior)
+    # Existing logic preserved exactly
+    # -----------------------------------------
     print(f"Today: {today.strftime('%d-%b-%Y')}, trying for {yesterday.strftime('%d-%b-%Y')} first")
 
-    # Try yesterday’s file
+    # Try today's file
+    file_path = download_bhavcopy_today(session_obj, today)
+    if file_path:
+        return file_path
+
+    # Try yesterday's file
     file_path = download_bhavcopy_yesterday(session_obj, yesterday)
     if file_path:
         return file_path
@@ -412,7 +433,6 @@ def download_bhavcopy_master(session_obj: requests.Session) -> Path | None:
     print("No bhavcopy available for yesterday or day-before-yesterday")
     return None
 
-    
 
 
 def nse_is_open() -> bool:
