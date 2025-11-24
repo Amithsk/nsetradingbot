@@ -383,27 +383,29 @@ def download_bhavcopy_daybefore(session_obj: requests.Session,day_before) -> Pat
     print("Trying yesterday file via API:", file_url)
     return _save_file(session_obj, file_name, file_url)
 
-def download_bhavcopy_today(session_obj: requests.Session,today) -> Path | None:
+def download_bhavcopy_today(session_obj: requests.Session, today) -> Path | None:
     """Download today's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
+    # Holiday check
     if nseholiday(today):
         msg = "Holiday, market closed"
         print(msg)
         try:
-            _save_debug({
-            "event": "holiday_check",
-            "date": today.isoformat(),
-            "message": msg,
-            "ts": datetime.datetime.now().isoformat()
-        })
+            _save_status({
+                "target_date": today.strftime("%Y-%m-%d"),
+                "state": "holiday",
+                "downloaded": None,
+                "source": "download_bhavcopy_today",
+                "note": "NSE Holiday"
+            })
+            
         except Exception:
-           # don't raise — debugging should not stop the download flow
-           pass
+            # don't raise — debugging should not stop the download flow
+            pass
         return None
-       
 
     file_name = f"PR{today.strftime('%d%m%y')}.zip"
 
-    # Warm cookies
+    # Warm cookies (best-effort)
     try:
         session_obj.get(HOME_URL, headers=HEADERS_DICT, timeout=10)
     except Exception:
@@ -414,21 +416,45 @@ def download_bhavcopy_today(session_obj: requests.Session,today) -> Path | None:
         resp = session_obj.get(DAILY_API_URL, headers=HEADERS_DICT, timeout=20)
     except Exception as e:
         print("Failed to call DAILY_API_URL:", e)
-        _save_debug({"error": str(e)})
+        try:
+            _save_status({
+                "target_date": today.strftime("%Y-%m-%d"),
+                "state": "failed",
+                "downloaded": None,
+                "source": "download_bhavcopy_today",
+                "error": f"API call failed: {e}"
+            })
+        except Exception:
+            pass
         return None
 
     if resp.status_code != 200:
         print(f"DAILY_API_URL returned HTTP {resp.status_code}")
-        _save_debug({
-            "status": resp.status_code,
-            "headers": dict(resp.headers),
-            "body": resp.text[:500]
-        })
+        try:
+              _save_status({
+                "target_date": today.strftime("%Y-%m-%d"),
+                "state": "failed",
+                "downloaded": None,
+                "source": "download_bhavcopy_today",
+                "error": f"HTTP {resp.status_code}"
+            })
+        except Exception:
+            pass
         return None
 
     # Parse JSON safely
     data = parse_api_response(resp)
     if not data:
+        try:
+           _save_status({
+                "target_date": today.strftime("%Y-%m-%d"),
+                "state": "failed",
+                "downloaded": None,
+                "source": "download_bhavcopy_today",
+                "error": "parse_api_response returned no data"
+            })
+        except Exception:
+            pass
         return None
 
     reports = collect_all_reports(data)
@@ -441,12 +467,55 @@ def download_bhavcopy_today(session_obj: requests.Session,today) -> Path | None:
 
     if not report_entry:
         print(f"No entry for {file_name} found in DAILY_API_URL response")
+        try:
+            _save_status({
+                "target_date": today.strftime("%Y-%m-%d"),
+                "state": "pending",
+                "downloaded": None,
+                "source": "download_bhavcopy_today",
+                "note": "today file not available"
+            })
+
+        except Exception:
+            pass
         return None
 
     # Download
     file_url = report_entry["filePath"] + report_entry["fileActlName"]
-    print("Trying todays file via API:", file_url)
-    return _save_file(session_obj, file_name, file_url)
+    print("Trying today's file via API:", file_url)
+
+    file_path = _save_file(session_obj, file_name, file_url)
+    if not file_path:
+        # _save_file handled its own debug logs; write status as failed
+        try:
+            _save_status({
+                "target_date": today.strftime("%Y-%m-%d"),
+                "state": "failed",
+                "downloaded": None,
+                "source": "download_bhavcopy_today",
+                "error": "file_save_failed"
+            })
+        except Exception:
+            pass
+        return None
+
+    # Success: _save_file returned a Path. Now update status and debug accordingly.
+    try:
+        # obtain debug filename if you created one for this run; otherwise omit
+        _save_status({
+            "target_date": today.strftime("%Y-%m-%d"),
+            "state": "success",
+            "downloaded": file_name,
+            "downloaded_at": datetime.datetime.now().isoformat(),
+            "source": "download_bhavcopy_today"
+        })
+        
+    except Exception:
+        # never allow debug/status writes to break the happy path
+        pass
+
+    return file_path
+
 
 def download_bhavcopy_master(session_obj: requests.Session, mode: str = "auto") -> Path | None:
     """
