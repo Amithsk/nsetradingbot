@@ -222,6 +222,20 @@ def _save_file(session_obj: requests.Session, file_name: str, file_url: str, out
 
 def download_bhavcopy_yesterday(session_obj: requests.Session,yesterday) -> Path | None:
     """Download yesterday's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
+    if nseholiday(yesterday):
+        msg = "Holiday, market closed"
+        print(msg)
+        try:
+            _save_debug({
+            "event": "holiday_check",
+            "date": yesterday.isoformat(),
+            "message": msg,
+            "ts": datetime.datetime.now().isoformat()
+        })
+        except Exception:
+           # don't raise — debugging should not stop the download flow
+           pass
+        return None
    
     file_name = f"PR{yesterday.strftime('%d%m%y')}.zip"
 
