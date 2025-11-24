@@ -509,6 +509,13 @@ def download_bhavcopy_today(session_obj: requests.Session, today) -> Path | None
             "downloaded_at": datetime.datetime.now().isoformat(),
             "source": "download_bhavcopy_today"
         })
+        _save_debug({
+            "event": "download_success_yesterday",
+            "file": str(file_path),
+            "zip_name": file_name,
+            "file_url": file_url,
+            "ts": datetime.datetime.now().isoformat()
+        })
         
     except Exception:
         # never allow debug/status writes to break the happy path
