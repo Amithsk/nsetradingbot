@@ -49,6 +49,54 @@ def adjust_for_weekend(date: datetime.datetime) -> datetime.datetime:
         return date - timedelta(days=2)
     return date
 
+#---------------------Debug  update function starts here-----------------------   
+def _save_debug(data_obj):
+    """Save debug JSON to file."""
+    DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+    DEBUG_DIR.mkdir(exist_ok=True)
+    prefix = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    path_debug = DEBUG_DIR / f"daily_reports_debug_{prefix}.json"
+    path_debug.write_text(json.dumps(data_obj, indent=2), encoding="utf-8")
+    print(f"Debug JSON saved: {path_debug}")
+#---------------------Debug  update function ends here-----------------------   
+
+
+#---------------------Status update function starts here-----------------------
+def _save_status(status_obj: dict):
+    """
+    Writes the authoritative status.json inside DEBUG_DIR.
+    This file is always overwritten (hybrid model).
+    Poller/orchestrator will read this file directly from the repo.
+
+    status_obj structure example:
+    {
+        "target_date": "2025-11-22",
+        "state": "success" | "pending" | "failed" | "holiday",
+        "downloaded": "PR221125.zip" | None,
+        "downloaded_at": "2025-11-22T19:03:12+05:30",
+        "source": "download_bhavcopy_today",
+        "note": "...",
+        "debug_file": "daily_reports_debug_20251122_190312.json",
+        "run_id": "20251122_190312"
+    }
+    """
+    try:
+        STATUS_FILE = DEBUG_DIR / "status.json"
+        STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+        # Add timestamp to the status object
+        status_obj["ts"] = datetime.datetime.now().isoformat()
+
+        # Atomic write: write to temp → rename
+        tmp = STATUS_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(status_obj, indent=2), encoding="utf-8")
+        tmp.replace(STATUS_FILE)
+
+        print(f"Status JSON updated at: {STATUS_FILE}")
+
+    except Exception as e:
+        print("ERROR writing status.json:", e)
+#---------------------Status update function ends here-----------------------
 
 def collect_all_reports(data: dict) -> list[dict]:
     """Merge CurrentDay, PreviousDay, FutureDay arrays from API JSON."""
@@ -61,7 +109,7 @@ def collect_all_reports(data: dict) -> list[dict]:
 def parse_api_response(resp) -> dict | None:
     """Parse NSE API response. Requests will auto-handle gzip/br if brotli installed."""
     try:
-        data = resp.json()   # ✅ let requests handle decompression + parsing
+        data = resp.json()   # let requests handle decompression + parsing
 
         _save_debug({
             "status": resp.status_code,
@@ -399,17 +447,6 @@ def download_bhavcopy_today(session_obj: requests.Session,today) -> Path | None:
     file_url = report_entry["filePath"] + report_entry["fileActlName"]
     print("Trying todays file via API:", file_url)
     return _save_file(session_obj, file_name, file_url)
-
-
-def _save_debug(data_obj):
-    """Save debug JSON to file."""
-    DEBUG_DIR.mkdir(parents=True, exist_ok=True)
-    DEBUG_DIR.mkdir(exist_ok=True)
-    prefix = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    path_debug = DEBUG_DIR / f"daily_reports_debug_{prefix}.json"
-    path_debug.write_text(json.dumps(data_obj, indent=2), encoding="utf-8")
-    print(f"Debug JSON saved: {path_debug}")
-
 
 def download_bhavcopy_master(session_obj: requests.Session, mode: str = "auto") -> Path | None:
     """
