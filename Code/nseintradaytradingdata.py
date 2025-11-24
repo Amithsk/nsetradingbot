@@ -272,7 +272,7 @@ def download_bhavcopy_yesterday(session_obj: requests.Session,yesterday) -> Path
 
 def download_bhavcopy_daybefore(session_obj: requests.Session,day_before) -> Path | None:
     """Download yesterday's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
-
+    
     file_name = f"PR{day_before.strftime('%d%m%y')}.zip"
 
     # Warm cookies
@@ -322,6 +322,21 @@ def download_bhavcopy_daybefore(session_obj: requests.Session,day_before) -> Pat
 
 def download_bhavcopy_today(session_obj: requests.Session,today) -> Path | None:
     """Download today's bhavcopy (PRddmmyy.zip) using NSE Daily Reports API."""
+    if nseholiday(today):
+        msg = "Holiday, market closed"
+        print(msg)
+        try:
+            _save_debug({
+            "event": "holiday_check",
+            "date": today.isoformat(),
+            "message": msg,
+            "ts": datetime.datetime.now().isoformat()
+        })
+        except Exception:
+           # don't raise — debugging should not stop the download flow
+           pass
+        return None
+       
 
     file_name = f"PR{today.strftime('%d%m%y')}.zip"
 
