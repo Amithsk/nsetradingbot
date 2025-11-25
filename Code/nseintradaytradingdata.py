@@ -132,39 +132,218 @@ def parse_api_response(resp) -> dict | None:
 
 def git_commit_changes(file_path: Path):
     """
-    Commit and push changes to git.
-    Assumes repo is already initialized and remote is configured.
+    Commit & push artifact and ensure final status.json in repo contains the artifact commit SHA.
+
+    Workflow 
+      1) Write status.json with state="downloaded" (local).
+      2) git add artifact + status.json (+ recent debug files), git commit & git push -> commit A
+      3) read commit A SHA
+      4) update status.json with state="committed" and commit_sha = commit A SHA (local)
+      5) git add status.json, git commit & git push -> commit B
+
+    Returns:
+      - commit_a_sha on success (string) or None on failure.
     """
-    trade_date = datetime.datetime.now().strftime("%d-%b-%Y")
-    commit_message = f"Bhavcopy update {file_path.name} on {trade_date}"
     debug_record = {
         "action": "git_commit_changes",
-        "file": str(file_path),
-        "commit_message": commit_message,
+        "file": str(file_path) if file_path is not None else None,
         "ts": datetime.datetime.now().isoformat(),
         "result": None,
         "error": None,
+        "commit_a_sha": None,
+        "commit_b_sha": None,
     }
+
     try:
-        # Pull latest changes before pushing (to avoid rejection)
-        subprocess.run(["git", "pull", "--rebase"], check=True)
+        file_path = Path(file_path) if file_path is not None else None
 
-        #Stage changes
-        subprocess.run(["git", "add", "."], check=True)
+        # 0) Ensure output/status/debug globals exist
+        # Build list of paths to add for commit A
+        to_add = []
 
-        #Check if there are any  staged changes
-        result = subprocess.run(["git", "diff", "--cached","--quiet"])
-        if result.returncode == 0:
-            print("No changes to commit.")
-            return
-        #Commit 
-        subprocess.run(["git", "commit", "-m", commit_message], check=True)
+        # Add artifact file if present
+        if file_path and file_path.exists():
+            to_add.append(str(file_path))
 
-        #Push changes
+        # Add OUTPUT_DIR if present (safer to explicitly add the artifact, but keep for completeness)
+        try:
+            if 'OUTPUT_DIR' in globals() and OUTPUT_DIR.exists():
+                to_add.append(str(OUTPUT_DIR))
+        except Exception:
+            pass
+
+        # Ensure we have a canonical STATUS_FILE inside DEBUG_DIR
+        try:
+            if 'STATUS_FILE' in globals():
+                status_path = STATUS_FILE
+            else:
+                # fallback to DEBUG_DIR/status.json
+                status_path = DEBUG_DIR / "status.json"
+        except Exception:
+            status_path = DEBUG_DIR / "status.json"
+
+        # Before staging, write a downloaded state so the committed status file contains the download metadata
+        try:
+            # Try to derive target_date from filename; if not possible, set None
+            target_date = None
+            if file_path and file_path.name.startswith("PR") and file_path.name.endswith(".zip"):
+                try:
+                    fname = file_path.name
+                    dd = fname[2:4]; mm = fname[4:6]; yy = fname[6:8]
+                    year = int("20" + yy)
+                    target_date = datetime.date(year, int(mm), int(dd)).isoformat()
+                except Exception:
+                    target_date = None
+
+            _save_status({
+                "target_date": target_date,
+                "state": "downloaded",
+                "downloaded": file_path.name if file_path else None,
+                "downloaded_at": datetime.datetime.now().isoformat(),
+                "source": "git_commit_changes",
+                "note": "artifact downloaded locally; about to commit"
+            })
+        except Exception:
+            # status write failure should not block git ops
+            pass
+
+        # Add status file to staged list if it exists (will be created by _save_status above)
+        try:
+            if status_path.exists():
+                to_add.append(str(status_path))
+        except Exception:
+            pass
+
+        # Include a few recent debug jsons to aid debugging (optional)
+        try:
+            if 'DEBUG_DIR' in globals() and DEBUG_DIR.exists():
+                recent_debugs = sorted(DEBUG_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:3]
+                for df in recent_debugs:
+                    to_add.append(str(df))
+        except Exception:
+            pass
+
+        # If nothing to commit, write debug and status and return
+        if not to_add:
+            debug_record["result"] = "no_changes_to_commit"
+            _save_debug(debug_record)
+            try:
+                _save_status({
+                    "target_date": None,
+                    "state": "no_changes_to_commit",
+                    "downloaded": file_path.name if file_path else None,
+                    "source": "git_commit_changes",
+                    "note": "nothing to stage"
+                })
+            except Exception:
+                pass
+            print("No files to commit.")
+            return None
+
+        # 1) Stage files for commit A
+        for p in to_add:
+            subprocess.run(["git", "add", p], check=True)
+
+        # Double-check there are staged changes
+        diff_proc = subprocess.run(["git", "diff", "--cached", "--quiet"])
+        if diff_proc.returncode == 0:
+            # nothing staged -> treat as no-op
+            debug_record["result"] = "no_changes_to_commit"
+            _save_debug(debug_record)
+            try:
+                _save_status({
+                    "target_date": target_date,
+                    "state": "no_changes_to_commit",
+                    "downloaded": file_path.name if file_path else None,
+                    "source": "git_commit_changes",
+                    "note": "nothing staged after add"
+                })
+            except Exception:
+                pass
+            print("No staged changes to commit.")
+            return None
+
+        # Commit A
+        trade_date = datetime.datetime.now().strftime("%d-%b-%Y")
+        commit_msg_a = f"Bhavcopy artifact {file_path.name if file_path else ''} - downloaded on {trade_date}"
+        subprocess.run(["git", "commit", "-m", commit_msg_a], check=True)
+
+        # Push commit A
         subprocess.run(["git", "push"], check=True)
-        debug_record["result"] = "committed_and_pushed"
+
+        # Get commit A SHA
+        try:
+            sha_proc = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
+            commit_a_sha = sha_proc.stdout.strip()
+        except Exception:
+            commit_a_sha = None
+
+        debug_record["result"] = "committed_and_pushed_artifact"
+        debug_record["commit_a_sha"] = commit_a_sha
         _save_debug(debug_record)
-        print("Changes committed and pushed to git.")
+        print("Committed & pushed artifact. commit A SHA:", commit_a_sha)
+
+        # 2) Update status.json to mark committed and include the artifact commit SHA
+        try:
+            status_payload = {
+                "target_date": target_date,
+                "state": "committed",
+                "downloaded": file_path.name if file_path else None,
+                "downloaded_at": None,
+                "source": "git_commit_changes",
+                "commit_sha": commit_a_sha,
+                "note": "artifact commit pushed"
+            }
+            _save_status(status_payload)
+        except Exception:
+            pass
+
+        # Stage the updated status.json (only)
+        try:
+            if status_path.exists():
+                subprocess.run(["git", "add", str(status_path)], check=True)
+        except Exception:
+            pass
+
+        # Commit B (status update)
+        commit_msg_b = f"Update status.json for PR {file_path.name if file_path else ''} commit {commit_a_sha}"
+        try:
+            subprocess.run(["git", "commit", "-m", commit_msg_b], check=True)
+            subprocess.run(["git", "push"], check=True)
+
+            # Commit B SHA (optional)
+            try:
+                sha_proc_b = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
+                commit_b_sha = sha_proc_b.stdout.strip()
+            except Exception:
+                commit_b_sha = None
+
+            # Record final debug/status
+            debug_record["result"] = "committed_status_update"
+            debug_record["commit_b_sha"] = commit_b_sha
+            _save_debug(debug_record)
+
+            print("Committed & pushed status update. commit B SHA:", commit_b_sha)
+        except subprocess.CalledProcessError as e:
+            # commit/push of status update failed - record and continue
+            debug_record["result"] = "status_commit_failed"
+            debug_record["error"] = str(e)
+            _save_debug(debug_record)
+            try:
+                _save_status({
+                    "target_date": target_date,
+                    "state": "failed",
+                    "downloaded": file_path.name if file_path else None,
+                    "source": "git_commit_changes",
+                    "error": f"status commit failed: {e}"
+                })
+            except Exception:
+                pass
+            return commit_a_sha  # artifact commit succeeded; return its SHA
+
+        # Return the artifact commit SHA (primary interest)
+        return commit_a_sha
+
     except subprocess.CalledProcessError as error:
         debug_record["result"] = "git_failed"
         debug_record["error"] = str(error)
@@ -173,6 +352,38 @@ def git_commit_changes(file_path: Path):
         except Exception:
             pass
         print("Git command failed:", error)
+        try:
+            _save_status({
+                "target_date": None,
+                "state": "failed",
+                "downloaded": file_path.name if file_path else None,
+                "source": "git_commit_changes",
+                "error": str(error)
+            })
+        except Exception:
+            pass
+        return None
+
+    except Exception as e:
+        debug_record["result"] = "git_failed"
+        debug_record["error"] = str(e)
+        try:
+            _save_debug(debug_record)
+        except Exception:
+            pass
+        print("Unexpected error during git commit/push:", e)
+        try:
+            _save_status({
+                "target_date": None,
+                "state": "failed",
+                "downloaded": file_path.name if file_path else None,
+                "source": "git_commit_changes",
+                "error": str(e)
+            })
+        except Exception:
+            pass
+        return None
+
 
 def establish_browser_session() -> requests.Session | None:
     """Open homepage + reports page to set cookies (simulate user)."""
