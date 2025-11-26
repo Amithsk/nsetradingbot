@@ -14,7 +14,7 @@ param(
     [string]$RepoDir    = "D:\nsetradingbot",
     [string]$PythonExe  = "D:\nsetradingbot\botenv\Scripts\python.exe",
     [string]$StatusFile = "D:\nsetradingbot\debug\status.json",
-    [string]$LogDir     = "D:\nsebot\logs"
+    [string]$LogDir     = "D:\nsetradingbot\logs"
 )
 
 # --- helper to log lines both to console and file ---
