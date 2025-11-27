@@ -48,41 +48,64 @@ try {
         Log "git pull succeeded."
     }
 
-    # 2) Read status.json
+        # 2) Read status.json (robust with retries + logging of raw content)
     if (!(Test-Path $StatusFile)) {
         Log "Status file not found: $StatusFile -- exiting."
         exit 3
     }
 
-    try {
-        $statusJson = Get-Content $StatusFile -Raw | ConvertFrom-Json
-    } catch {
-        Log "ERROR: Failed to parse status.json: $_"
+    $statusJson = $null
+    $rawContent = ""
+    $maxRetries = 5
+
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        try {
+            $rawContent = Get-Content $StatusFile -Raw -ErrorAction Stop
+            # Log raw content (trim to reasonable length)
+            $rawPreview = $rawContent
+            if ($rawPreview.Length -gt 2000) { $rawPreview = $rawPreview.Substring(0,2000) + "...(truncated)" }
+            Log "DEBUG: Raw status.json content (attempt $attempt): `n$rawPreview"
+            if ($rawContent.Trim().Length -gt 0) {
+                try {
+                    $statusJson = $rawContent | ConvertFrom-Json -ErrorAction Stop
+                    Log "DEBUG: status.json parsed successfully on attempt $attempt."
+                    break
+                } catch {
+                    Log "WARN: ConvertFrom-Json failed on attempt $attempt: $_"
+                }
+            } else {
+                Log "WARN: status.json empty on attempt $attempt."
+            }
+        } catch {
+            Log "WARN: Failed to read status.json on attempt $attempt: $_"
+        }
+        Start-Sleep -Seconds (Get-Random -Minimum 1 -Maximum 2)
+    }
+
+    if ($statusJson -eq $null) {
+        Log "ERROR: Unable to load valid status.json after $maxRetries attempts. Last raw content:"
+        $rawPreview = $rawContent
+        if ($rawPreview.Length -gt 4000) { $rawPreview = $rawPreview.Substring(0,4000) + "...(truncated)" }
+        Log $rawPreview
         exit 4
     }
 
-    $state = ($statusJson.state) -as [string]
-    $target_date = ($statusJson.target_date) -as [string]
-    if (-not $target_date) {
-        Log "status.json missing target_date — exiting."
+    # Safely extract fields
+    $state = $null
+    $target_date = $null
+    if ($statusJson.PSObject.Properties.Match('state')) { $state = ($statusJson.state) -as [string] }
+    if ($statusJson.PSObject.Properties.Match('target_date')) { $target_date = ($statusJson.target_date) -as [string] }
+
+    if (-not $target_date -or $target_date.Trim().Length -eq 0) {
+        Log "status.json missing or empty target_date — see content below:"
+        $rawPreview = $rawContent
+        if ($rawPreview.Length -gt 4000) { $rawPreview = $rawPreview.Substring(0,4000) + "...(truncated)" }
+        Log $rawPreview
         exit 5
     }
 
-    $today = (Get-Date).ToString("yyyy-MM-dd")
-    Log "Status read: state=$state target_date=$target_date today=$today"
-
-    $successStates = @("committed","success","downloaded")
-    if ($successStates -contains ($state.ToLower())) {
-        if ($target_date -eq $today) {
-            Log "Status indicates today's data present (state=$state). Proceeding to DB flows."
-        } else {
-            Log "Status indicates success but target_date ($target_date) != today ($today). Exiting."
-            exit 0
-        }
-    } else {
-        Log "Status not ready for ingestion (state=$state). Exiting."
-        exit 0
-    }
+    # Log the extracted values we will use
+    Log "Status read (extracted): state=$($state -or '<NULL>') target_date=$target_date"
 
     # 3) DB scripts to run (in order)
     $scripts = @(
