@@ -201,7 +201,8 @@ try {
     # 8) Run DB scripts in order. Fail fast.
     $tradeScript  = Join-Path $RepoDir 'Code\db\nseintradaytradedbupdate.py'
     $signalScript = Join-Path $RepoDir 'Code\db\nseintradaytradingsignaldbupdate.py'
-    $evalScript   = Join-Path $RepoDir 'Code\db\nnseintradaylabelevaluationdbupdate.py'
+    $evalScript   = Join-Path $RepoDir 'Code\db\nseintradaylabelevaluationdbupdate.py'
+ 
 
     # sanity check scripts exist
     foreach ($p in @($tradeScript, $signalScript, $evalScript)) {
