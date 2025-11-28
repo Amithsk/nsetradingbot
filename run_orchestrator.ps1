@@ -125,9 +125,10 @@ try {
     $target_date = $null
     $downloaded = $null
 
-    if ($statusJson.PSObject.Properties.Match('state'))  { $state = ($statusJson.state) -as [string] }
-    if ($statusJson.PSObject.Properties.Match('target_date')) { $target_date = ($statusJson.target_date) -as [string] }
-    if ($statusJson.PSObject.Properties.Match('downloaded')) { $downloaded = ($statusJson.downloaded) -as [string] }
+    if ($statusJson.PSObject.Properties.Match('state'))      { $state      = [string]$statusJson.state }
+    if ($statusJson.PSObject.Properties.Match('target_date')){ $target_date= [string]$statusJson.target_date }
+    if ($statusJson.PSObject.Properties.Match('downloaded')) { $downloaded = [string]$statusJson.downloaded }
+
 
     if (-not $target_date -or $target_date.Trim().Length -eq 0) {
         Log 'status.json missing or empty target_date - see content below:'
