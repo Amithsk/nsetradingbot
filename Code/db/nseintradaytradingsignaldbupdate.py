@@ -18,6 +18,7 @@ if str(project_root) not in sys.path:
 
 from Code.utils.nseintradaytrading_utils import enrich_signals_with_stops_targets
 from Code.utils.nseintradaytradingdb_utils import find_offending_cells, sanitize_df_for_sql, safe_to_sql, merge_temp_to_target
+from Code.utils.nseintraday_estimate_expected_hold_days import estimate_expected_hold_days
 
 
 
@@ -34,7 +35,7 @@ DEFAULT_CONFIG = {
     },
     "behavior": {
         "preview_only": False,  # If True: compute features/signals but skip DB upserts (no CSVs are written)
-        "dry_run": False         # If True: DB writes are executed inside transactions that are rolled back
+        "dry_run": True         # If True: DB writes are executed inside transactions that are rolled back
     },
     "output": {
         # Kept for future debugging — not written by default
@@ -554,20 +555,61 @@ def generate_momentum_signals_for_date(engine_obj, target_date, lookback=MOMENTU
     # pick top N by absolute magnitude, then preserve sign for side
     top_idx = df_mom['value'].abs().nlargest(top_n).index
     df_sorted = df_mom.loc[top_idx].copy()
-    # optional: sort with largest positive first or by magnitude descending:
     df_sorted = df_sorted.reindex(df_sorted['value'].abs().sort_values(ascending=False).index)
 
     rows = []
     params = {"lookback_days": lookback, "top_n": top_n, "selection": "abs_magnitude"}
+
     for _, r in df_sorted.iterrows():
+        symbol = r["symbol"]
         score = float(r["value"])
         side = "LONG" if score >= 0 else "SHORT"
-        rows.append({
+
+        # --- compute ATR for symbol/date (best-effort) ---
+        atr_val = None
+        try:
+            atr_feat = f"atr_{ATR_LOOKBACK_DAYS}"
+            q_atr = text(
+                "SELECT value FROM strategy_features "
+                "WHERE symbol = :sym AND feature_name = :feat AND trade_date = :d "
+                "ORDER BY trade_date DESC LIMIT 1"
+            )
+            df_atr = pd.read_sql(q_atr, engine_obj, params={"sym": symbol, "feat": atr_feat, "d": target_date})
+            if not df_atr.empty and pd.notna(df_atr.loc[0, "value"]):
+                atr_val = float(df_atr.loc[0, "value"])
+        except Exception:
+            atr_val = None
+
+        # --- compute expected hold days using helper (safe call) ---
+        try:
+            est_days, _ = estimate_expected_hold_days(
+                engine=engine_obj,
+                symbol=symbol,
+                strategy="momentum_topn",
+                score=score,
+                atr_value=atr_val,
+                lookback_days=252,
+                pct_stop=0.005,
+                pct_target=0.01,
+                max_search_days=30,
+                min_samples=8,
+                atr_target_mult=ATR_TARGET_MULTIPLIER,
+                avg_daily_move_factor=1.0,
+                fallback_default=expected_hold_days,
+                min_days=1,
+                max_days=30,
+                use_cache=True
+            )
+        except Exception:
+            est_days = expected_hold_days
+
+        # --- build row dict (no executable code inside dict) ---
+        row = {
             "trade_date": target_date,
             "strategy": "momentum_topn",
             "version": "v1",
             "params": json.dumps(params),
-            "symbol": r["symbol"],
+            "symbol": symbol,
             "signal_type": side,
             "signal_score": score,
             "entry_model": "next_open",
@@ -575,12 +617,13 @@ def generate_momentum_signals_for_date(engine_obj, target_date, lookback=MOMENTU
             "entry_price": None,
             "stop_price": None,
             "target_price": None,
-            "expected_hold_days": expected_hold_days,
+            "expected_hold_days": int(est_days),
             "notes": None
-        })
+        }
+        rows.append(row)
+
     logger.info("Generated %d momentum signals for %s", len(rows), target_date)
     return pd.DataFrame(rows)
-
 
 
 def generate_gap_follow_signals_for_date(engine_obj, target_date, gap_threshold_percent=GAP_MINIMUM_PERCENT):
@@ -643,222 +686,77 @@ def generate_volatility_breakout_signals_for_date(engine_obj, target_date,
     df_breakouts = merged[merged["close"] > merged["prior_high"]].copy()
 
     rows = []
-    params = {"lookback_high_days": lookback_high_days, "atr_lookback_days": atr_lookback_days, "atr_stop_mult": atr_stop_multiplier, "atr_target_mult": atr_target_multiplier}
+    params = {
+        "lookback_high_days": lookback_high_days,
+        "atr_lookback_days": atr_lookback_days,
+        "atr_stop_mult": atr_stop_multiplier,
+        "atr_target_mult": atr_target_multiplier
+    }
+
     for _, r in df_breakouts.iterrows():
+        # skip if ATR missing or invalid
         if pd.isna(r.get("atr")):
             continue
-        stop_price = float(r["close"] - atr_stop_multiplier * r["atr"])
-        target_price = float(r["close"] + atr_target_multiplier * r["atr"])
-        score = float((r["close"] - r["prior_high"]) / r["prior_high"]) if r["prior_high"] != 0 else 0.0
-        rows.append({
+
+        symbol = r["symbol"]
+        try:
+            close_price = float(r["close"])
+        except Exception:
+            continue
+        try:
+            prior_high = float(r["prior_high"]) if r["prior_high"] is not None else 0.0
+        except Exception:
+            prior_high = 0.0
+        try:
+            atr_val = float(r["atr"]) if r.get("atr") is not None else None
+        except Exception:
+            atr_val = None
+
+        stop_price = close_price - atr_stop_multiplier * (atr_val if atr_val is not None else 0.0)
+        target_price = close_price + atr_target_multiplier * (atr_val if atr_val is not None else 0.0)
+        score = float((close_price - prior_high) / prior_high) if prior_high != 0 else 0.0
+
+        # --- compute expected hold days using helper (safe call) ---
+        try:
+            est_days, _ = estimate_expected_hold_days(
+                engine=engine_obj,
+                symbol=symbol,
+                strategy="volatility_breakout",
+                score=score,
+                atr_value=atr_val,
+                lookback_days=252,
+                pct_stop=0.005,
+                pct_target=0.01,
+                max_search_days=30,
+                min_samples=8,
+                atr_target_mult=atr_target_multiplier,
+                avg_daily_move_factor=1.0,
+                fallback_default=expected_hold_days,
+                min_days=1,
+                max_days=30,
+                use_cache=True
+            )
+        except Exception:
+            est_days = expected_hold_days
+
+        # --- build row dict (no executable code inside dict) ---
+        row = {
             "trade_date": target_date,
             "strategy": "volatility_breakout",
             "version": "v1",
             "params": json.dumps(params),
-            "symbol": r["symbol"],
+            "symbol": symbol,
             "signal_type": "LONG",
             "signal_score": score,
             "entry_model": "next_open",
             "qty": None,
             "entry_price": None,
-            "stop_price": round(stop_price, 6),
-            "target_price": round(target_price, 6),
-            "expected_hold_days": expected_hold_days,
+            "stop_price": round(float(stop_price), 6) if stop_price is not None else None,
+            "target_price": round(float(target_price), 6) if target_price is not None else None,
+            "expected_hold_days": int(est_days),
             "notes": None
-        })
+        }
+        rows.append(row)
+
     logger.info("Generated %d volatility breakout signals for %s", len(rows), target_date)
     return pd.DataFrame(rows)
-
-
-# -------------------------
-# Backfill helpers
-# -------------------------
-def get_latest_signal_date(engine_obj):
-    q = text("SELECT MAX(trade_date) AS last_date FROM strategy_signals")
-    df = pd.read_sql(q, engine_obj)
-    if df.empty or df["last_date"].isna().all():
-        return None
-    return pd.to_datetime(df["last_date"].iloc[0]).date().isoformat()
-
-
-def get_latest_bhavcopy_date(engine_obj):
-    q = text("SELECT MAX(trade_date) AS last_date FROM intraday_bhavcopy")
-    df = pd.read_sql(q, engine_obj)
-    if df.empty or df["last_date"].isna().all():
-        return None
-    return pd.to_datetime(df["last_date"].iloc[0]).date().isoformat()
-
-
-def backfill_missing_signals(engine_obj, start_date_iso=None, end_date_iso=None, behavior_cfg=None):
-    if start_date_iso and end_date_iso:
-        all_dates_df = pd.read_sql(
-            text("SELECT DISTINCT trade_date FROM intraday_bhavcopy WHERE trade_date BETWEEN :s AND :e ORDER BY trade_date"),
-            engine_obj,
-            params={"s": start_date_iso, "e": end_date_iso}
-        )
-        all_dates = all_dates_df["trade_date"].tolist()
-    else:
-        last_signal_date = get_latest_signal_date(engine_obj)
-        last_bhavcopy_date = get_latest_bhavcopy_date(engine_obj)
-        if last_bhavcopy_date is None:
-            logger.error("No bhavcopy data found. Nothing to backfill.")
-            return
-        if last_signal_date is None:
-            logger.info("No existing signals; backfilling all bhavcopy dates.")
-            all_dates = pd.read_sql("SELECT DISTINCT trade_date FROM intraday_bhavcopy ORDER BY trade_date", engine_obj)["trade_date"].tolist()
-        else:
-           all_dates_df = pd.read_sql(
-                text("SELECT DISTINCT trade_date FROM intraday_bhavcopy WHERE trade_date > :d ORDER BY trade_date"),
-                engine_obj,
-                params={"d": last_signal_date}
-                    )
-           all_dates = all_dates_df["trade_date"].tolist()
-
-    if not all_dates:
-        logger.info("No missing dates to process.")
-        return
-
-    all_dates_iso = [pd.to_datetime(d).date().isoformat() for d in all_dates]
-    logger.info("Backfilling %d dates from %s to %s", len(all_dates_iso), all_dates_iso[0], all_dates_iso[-1])
-    for date_iso in all_dates_iso:
-        try:
-            run_signal_generation_for_date(date_iso, engine_obj=engine_obj, behavior_cfg=behavior_cfg)
-        except Exception:
-            logger.exception("Failed while backfilling date %s", date_iso)
-
-
-# -------------------------
-# Pipeline orchestration
-# -------------------------
-def run_signal_generation_for_date(target_date_iso: str, engine_obj=None, behavior_cfg=None):
-    if engine_obj is None:
-        raise ValueError("engine_obj is required")
-    if behavior_cfg is None:
-        behavior_cfg = DEFAULT_CONFIG["behavior"]
-
-    preview_only = behavior_cfg.get("preview_only", False)
-    dry_run = behavior_cfg.get("dry_run", True)
-
-    logger.info("Starting pipeline for %s (preview_only=%s, dry_run=%s)", target_date_iso, preview_only, dry_run)
-
-    # 1) compute features
-    df_features = compute_daily_features_for_date(engine_obj, target_date_iso)
-
-    # If preview_only: do not upsert; end after generating data
-    if preview_only:
-        logger.info("Preview mode: skipping DB upserts. Computed features: %d", len(df_features))
-        # NOTE: CSV writing intentionally omitted as per your request; kept in config for future use
-        return
-
-    # 2) upsert features (honoring dry_run)
-    upsert_features(engine_obj, df_features, dry_run=dry_run)
-
-    # 3) generate signals
-    df_mom = generate_momentum_signals_for_date(engine_obj, target_date_iso)
-    df_gap = generate_gap_follow_signals_for_date(engine_obj, target_date_iso)
-    df_vol = generate_volatility_breakout_signals_for_date(engine_obj, target_date_iso)
-
-    df_all_signals = pd.concat([df for df in (df_mom, df_gap, df_vol) if not df.empty], ignore_index=True, sort=False) if any([not df.empty for df in (df_mom, df_gap, df_vol)]) else pd.DataFrame()
-    df_all_signals = enrich_signals_with_stops_targets(engine_obj, df_all_signals,
-                                                   atr_lookback=14, atr_stop_mult=1.5, atr_target_mult=3.0)
-    
-    logger.info("Total signals generated for %s: %d", target_date_iso, len(df_all_signals))
-
-    # 4) upsert signals (honoring dry_run)
-    upsert_signals(engine_obj, df_all_signals, dry_run=dry_run)
-
-    # 5) record run
-    summary = {
-        "num_signals": int(len(df_all_signals)) if not df_all_signals.empty else 0,
-        "counts_by_strategy": df_all_signals['strategy'].value_counts().to_dict() if not df_all_signals.empty else {}
-    }
-    run_name = f"signals_{target_date_iso}"
-    run_params = {
-        "momentum": {"lookback_days": MOMENTUM_LOOKBACK_DAYS, "top_n": MOMENTUM_TOP_N},
-        "gap": {"threshold_pct": GAP_MINIMUM_PERCENT},
-        "volatility_breakout": {"lookback_high_days": VOL_BREAK_LOOKBACK_HIGH_DAYS, "atr_lookback_days": ATR_LOOKBACK_DAYS}
-    }
-    record_run(engine_obj, run_name, run_params, run_summary=summary, dry_run=dry_run)
-    logger.info("Finished pipeline for %s: %s", target_date_iso, summary)
-
-
-# -------------------------
-# CLI entrypoint
-# -------------------------
-def parse_args():
-    p = argparse.ArgumentParser(description="Generate persisted signals (configured)")
-    p.add_argument("--config", help="JSON config file that overrides DEFAULT_CONFIG", required=False)
-    p.add_argument("--date", "-d", help="Target date (YYYY-MM-DD). Defaults to yesterday if omitted.", required=False)
-    p.add_argument("--backfill-only", action="store_true", help="Only run backfill (no single-date job).")
-    p.add_argument("--backfill-first", action="store_true", help="Run backfill first (default).")
-    p.add_argument("--start-date", help="Optional explicit start date for backfill range (YYYY-MM-DD).", required=False)
-    p.add_argument("--end-date", help="Optional explicit end date for backfill range (YYYY-MM-DD).", required=False)
-    return p.parse_args()
-
-
-if __name__ == "__main__":
-    """
-    Dual-mode entrypoint:
-
-    - IDE / VS Code run (no command-line args):
-        Uses DEFAULT_CONFIG and runs normal pipeline for yesterday (backfill-first behavior).
-    - CLI run (with args):
-        Uses parse_args() to control behavior (config file override, explicit date, backfill-only, ranges).
-    """
-    import sys
-
-    try:
-        # If command-line args are present (other than the script name) use CLI mode
-        if len(sys.argv) > 1:
-            args = parse_args()  # uses argparse defined earlier
-            # load config (file overrides DEFAULT_CONFIG)
-            cfg = load_config(args.config) if getattr(args, "config", None) else DEFAULT_CONFIG
-            engine = connect_db(cfg.get("db"))
-            behavior_cfg = cfg.get("behavior", DEFAULT_CONFIG["behavior"])
-
-            # Determine target date (explicit or default to yesterday)
-            target_date = args.date if getattr(args, "date", None) else (date.today() - timedelta(days=1)).isoformat()
-
-            # Backfill-only mode
-            if getattr(args, "backfill_only", False):
-                logger.info("CLI: running backfill-only from args")
-                backfill_missing_signals(engine, start_date_iso=args.start_date, end_date_iso=args.end_date, behavior_cfg=behavior_cfg)
-            else:
-                # Optional: run backfill first if requested
-                if getattr(args, "backfill_first", False):
-                    logger.info("CLI: running backfill first as requested")
-                    backfill_missing_signals(engine, start_date_iso=args.start_date, end_date_iso=args.end_date, behavior_cfg=behavior_cfg)
-
-                # Run pipeline for the target date
-                logger.info("CLI: running pipeline for date %s", target_date)
-                run_signal_generation_for_date(target_date, engine_obj=engine, behavior_cfg=behavior_cfg)
-
-        else:
-            # IDE / VS Code run (no CLI args). Use defaults to make iteration fast & easy.
-            logger.info("No CLI args detected — running in IDE mode using DEFAULT_CONFIG")
-
-            cfg = DEFAULT_CONFIG
-            engine = connect_db(cfg.get("db"))
-            behavior_cfg = cfg.get("behavior", DEFAULT_CONFIG["behavior"])
-
-            # Default behavior: backfill-first then run yesterday
-
-            default_date = trading_day(engine)
-            if behavior_cfg.get("preview_only", False):
-                # preview_only: just compute features/signals, skip DB upserts
-                logger.info("IDE mode: preview_only is True; computing features/signals without DB writes")
-                run_signal_generation_for_date(default_date, engine_obj=engine, behavior_cfg=behavior_cfg)
-            else:
-                # Run backfill (if any missing dates) before the main date
-                logger.info("IDE mode: running backfill-first (if needed) and then pipeline for %s", default_date)
-                backfill_missing_signals(engine, behavior_cfg=behavior_cfg)
-                last_signal_date = get_latest_signal_date(engine)
-                if last_signal_date is None or pd.to_datetime(last_signal_date).date() < pd.to_datetime(default_date).date():
-                    logger.info("Running pipeline for default_date %s (not covered by backfill)", default_date)
-                    run_signal_generation_for_date(default_date, engine_obj=engine, behavior_cfg=behavior_cfg)
-                else:
-                    logger.info("Default date %s already covered by backfill (latest signal date: %s) — skipping", default_date, last_signal_date)
-                
-    except Exception:
-        logger.exception("Top-level pipeline failure")
-        raise
