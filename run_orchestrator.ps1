@@ -199,6 +199,14 @@ try {
 
     Log ('Using python executable: ' + $pythonExeResolved)
 
+    $markerDir = Join-Path $RepoDir 'Output\Intraday'
+    $markerFile = Join-Path $markerDir ".ingested_$target_date"
+
+    if (Test-Path $markerFile) {
+        Log "Marker present ($markerFile) - ingestion already completed previously. Exiting."
+    exit 0
+    }
+
     # 8) Run DB scripts in order. Fail fast.
     $tradeScript  = Join-Path $RepoDir 'Code\db\nseintradaytradedbupdate.py'
     $signalScript = Join-Path $RepoDir 'Code\db\nseintradaytradingsignaldbupdate.py'
@@ -235,6 +243,14 @@ try {
     }
 
     Log 'All DB flows completed successfully.'
+    # create marker so subsequent scheduled runs skip work
+    try {
+        New-Item -Path $markerFile -ItemType File -Force | Out-Null
+        Log ("Created ingest marker: " + $markerFile)
+    } catch {
+        $err = $_ | Out-String
+        Log ("WARN: Failed to create marker file: " + $err)
+    }
     exit 0
 
 } catch {
