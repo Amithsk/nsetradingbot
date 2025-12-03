@@ -27,6 +27,8 @@ import json
 
 
 
+
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -415,6 +417,25 @@ def enrich_signals_with_stops_targets(engine, df_signals, ref_date=None,
 
     return df
 
+def _read_sql_in_batches(engine, base_query_template, date_params, symbols, batch_size=800):
+    """
+    Helper to execute a parametrized query in batches to avoid huge IN(...) clauses
+    base_query_template must contain a "{placeholders}" token where the IN-list goes.
+    date_params: list of positional params that go before the symbol list (e.g. [start_date, end_date])
+    symbols: list of symbol strings
+    """
+    import pandas as pd
+
+    parts = []
+    for i in range(0, len(symbols), batch_size):
+        batch = symbols[i:i + batch_size]
+        placeholders = ", ".join(["%s"] * len(batch))
+        q = base_query_template.format(placeholders=placeholders)
+        params = tuple(date_params + batch)
+        parts.append(pd.read_sql(q, engine, params=params))
+    if parts:
+        return pd.concat(parts, ignore_index=True, sort=False)
+    return pd.DataFrame()
 
 
 
@@ -422,27 +443,26 @@ def enrich_signals_with_stops_targets(engine, df_signals, ref_date=None,
 # ---------------------------------------------------------------
 # 1) compute_liquidity_metrics
 # ---------------------------------------------------------------
-def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
 
-    
+
+def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20, batch_size=800):
     """
-    Computes liquidity metrics for the input list of symbols on the given trade_date.
+    MySQL-safe, batch-capable computation of liquidity metrics.
 
-    Returns a DataFrame with:
-        symbol, trade_date,
-        net_trdval, net_trdqty, trades,
-        avg_20d_vol,
-        turnover_rank_pct, turnover_norm,
-        vol_norm,
-        fno_flag (optional placeholder),
-        notes (dict)
+    Returns DataFrame with columns:
+      symbol, trade_date, net_trdval, net_trdqty, trades, close,
+      avg_20d_vol, turnover_rank_pct, turnover_norm, vol_norm, fno_flag, notes
     """
-
     
-
     # Safety: empty symbol list
     if not symbols:
-        return pd.DataFrame()
+        return pd.DataFrame(
+            columns=[
+                "symbol", "trade_date", "net_trdval", "net_trdqty", "trades", "close",
+                "avg_20d_vol", "turnover_rank_pct", "turnover_norm", "vol_norm",
+                "fno_flag", "notes"
+            ]
+        )
 
     # Detect canonical column names in intraday_bhavcopy
     colmap = detect_intraday_columns(engine)
@@ -452,19 +472,16 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
     netqty_col = colmap["net_trdqty"]
     trades_col = colmap["trades"]
 
-    # Convert date
+    # Normalize trade_date to date
     if isinstance(trade_date, str):
         trade_date_dt = datetime.strptime(trade_date, "%Y-%m-%d").date()
     else:
         trade_date_dt = trade_date
 
-    # ============================================================
-    # 1) FETCH TODAY'S BHAVCOPY DATA — MySQL-safe (%s placeholders)
-    # ============================================================
-
-    placeholders = ", ".join(["%s"] * len(symbols))
-
-    query_today = f"""
+    # ---------------------------
+    # 1) Query today's bhavcopy (batched)
+    # ---------------------------
+    base_query_today = f"""
         SELECT {sym_col} AS symbol,
                {date_col} AS trade_date,
                {netval_col} AS net_trdval,
@@ -473,14 +490,19 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
                close
         FROM intraday_bhavcopy
         WHERE {date_col} = %s
-          AND {sym_col} IN ({placeholders})
+          AND {sym_col} IN ({{placeholders}})
     """
 
-    params_today = [trade_date_dt] + symbols
+    # Use batch helper to avoid huge IN lists
+    df_today = _read_sql_in_batches(
+        engine,
+        base_query_today,
+        date_params=[trade_date_dt],
+        symbols=symbols,
+        batch_size=batch_size
+    )
 
-    df_today = pd.read_sql(query_today, engine, params=params_today)
-
-    # If no rows → prepare empty output
+    # If empty, return a dataframe with placeholders for all requested symbols
     if df_today.empty:
         out = pd.DataFrame({"symbol": symbols})
         out["trade_date"] = trade_date_dt
@@ -496,35 +518,36 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
         out["notes"] = None
         return out
 
-    # ============================================================
-    # 2) FETCH 20-DAY AVG VOLUME (expanded window 40 calendar days)
-    # ============================================================
-
-    start_date = trade_date_dt - timedelta(days=40)
-    placeholders = ", ".join(["%s"] * len(symbols))
-
-    query_vol = f"""
+    # ---------------------------
+    # 2) Query 20-day avg volume (batched)
+    # ---------------------------
+    start_date = trade_date_dt - timedelta(days=lookback_days * 2)  # expanded window to capture 20 trading days
+    base_query_vol = f"""
         SELECT {sym_col} AS symbol,
                AVG({netqty_col}) AS avg_20d_vol
         FROM intraday_bhavcopy
         WHERE {date_col} BETWEEN %s AND %s
-          AND {sym_col} IN ({placeholders})
+          AND {sym_col} IN ({{placeholders}})
         GROUP BY {sym_col}
     """
 
-    params_vol = [start_date, trade_date_dt] + symbols
+    df_vol = _read_sql_in_batches(
+        engine,
+        base_query_vol,
+        date_params=[start_date, trade_date_dt],
+        symbols=symbols,
+        batch_size=batch_size
+    )
 
-    df_vol = pd.read_sql(query_vol, engine, params=params_vol)
-
-    # Merge today's bhavcopy and 20d volume
+    # Merge today's bhavcopy and avg volume
     df = df_today.merge(df_vol, on="symbol", how="left")
 
-    # Fill missing avg_20d_vol with today's trdqty
+    # Fill missing avg_20d_vol with today's qty
     df["avg_20d_vol"] = df["avg_20d_vol"].fillna(df["net_trdqty"])
 
-    # ============================================================
-    # 3) NORMALIZATION
-    # ============================================================
+    # ---------------------------
+    # 3) Normalization & ranks
+    # ---------------------------
 
     # Percentile rank for turnover
     if df["net_trdval"].notna().sum() > 0:
@@ -546,14 +569,17 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
     else:
         df["vol_norm"] = np.nan
 
-    # ============================================================
-    # 4) PLACEHOLDER F&O FLAG + notes
-    # ============================================================
-
+    # Placeholder for F&O membership and notes
     df["fno_flag"] = False
     df["notes"] = None
 
-    return df
+    # Ensure output columns order for consumers
+    out_cols = [
+        "symbol", "trade_date", "net_trdval", "net_trdqty", "trades", "close",
+        "avg_20d_vol", "turnover_rank_pct", "turnover_norm", "vol_norm",
+        "fno_flag", "notes"
+    ]
+    return df[out_cols].reset_index(drop=True)
 
 
 
