@@ -16,9 +16,10 @@ project_root = current_file.parents[2]  # go up from Code/db to project root (ns
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from Code.utils.nseintradaytrading_utils import enrich_signals_with_stops_targets
+from Code.utils.nseintradaytrading_utils import enrich_signals_with_stops_targets,compute_liquidity_metrics,apply_liquidity_filters
 from Code.utils.nseintradaytradingdb_utils import find_offending_cells, sanitize_df_for_sql, safe_to_sql, merge_temp_to_target
 from Code.utils.nseintraday_estimate_expected_hold_days import estimate_expected_hold_days
+
 
 
 
@@ -41,7 +42,17 @@ DEFAULT_CONFIG = {
         # Kept for future debugging — not written by default
         "features_csv": "features_preview.csv",
         "signals_csv": "signals_preview.csv"
-    }
+    },
+    "liquidity_rules": {
+        "hard_min_net_trdval": 50_000_000,   # 5 Crore
+        "hard_min_net_trdqty": 100_000,
+        "hard_min_trades": 1500,
+        "min_price": 25,
+        "ranking_weights": {"mom": 0.6, "turnover": 0.3, "vol": 0.1},
+        "fno_boost": 1.15,
+        "mode": "enforce"        #  enforce mode → drop failures / tag_only mode → keep all
+}
+    
 }
 
 # -------------------------
@@ -854,7 +865,63 @@ def run_signal_generation_for_date(target_date_iso: str, engine_obj=None, behavi
     df_all_signals = enrich_signals_with_stops_targets(engine_obj, df_all_signals,
                                                    atr_lookback=14, atr_stop_mult=1.5, atr_target_mult=3.0)
     
-    logger.info("Total signals generated for %s: %d", target_date_iso, len(df_all_signals))
+    # ...existing code...
+    df_all_signals = enrich_signals_with_stops_targets(engine_obj, df_all_signals,
+                                                   atr_lookback=14, atr_stop_mult=1.5, atr_target_mult=3.0)
+
+    # ----------------------------------------
+    # Apply Liquidity Filtering + Scoring
+    # ----------------------------------------
+    # prefer liquidity rules from behavior_cfg if provided, else fall back to DEFAULT_CONFIG
+    liquidity_rules = DEFAULT_CONFIG.get("liquidity_rules", {})
+    if isinstance(behavior_cfg, dict) and "liquidity_rules" in behavior_cfg:
+        liquidity_rules = behavior_cfg.get("liquidity_rules", liquidity_rules)
+
+    if df_all_signals is None or df_all_signals.empty:
+        logger.info("No signals generated for %s after enrichment; skipping liquidity filters and upsert.", target_date_iso)
+    else:
+        # ensure 'symbol' exists
+        if "symbol" not in df_all_signals.columns:
+            logger.warning("No 'symbol' column present in signals; skipping liquidity filtering.")
+        else:
+            unique_symbols = df_all_signals["symbol"].unique().tolist()
+
+            # Step 1: compute raw liquidity metrics
+            liquidity_df = compute_liquidity_metrics(
+                engine_obj,
+                unique_symbols,
+                target_date_iso,
+                lookback_days=20
+            )
+
+            # Step 2: apply scoring + hard rules
+            df_all_signals = apply_liquidity_filters(
+                df_all_signals,
+                liquidity_df,
+                liquidity_rules,
+                mode=liquidity_rules.get("mode", "tag_only")
+            )
+
+            # Step 3: push liquidity info into params JSON (store as JSON-text)
+            def _ensure_params_obj(p):
+                if isinstance(p, dict):
+                    return p
+                if isinstance(p, str):
+                    try:
+                        return json.loads(p)
+                    except Exception:
+                        return {}
+                return {}
+
+            if "params" in df_all_signals.columns:
+                df_all_signals["params"] = df_all_signals.apply(
+                    lambda row: json.dumps({**_ensure_params_obj(row.get("params")), "liquidity": row.get("liquidity_info")}),
+                    axis=1
+                )
+            else:
+                df_all_signals["params"] = df_all_signals["liquidity_info"].apply(lambda x: json.dumps({"liquidity": x}))
+
+    logger.info("Total signals generated for %s: %d", target_date_iso, 0 if df_all_signals is None else len(df_all_signals))
 
     # 4) upsert signals (honoring dry_run)
     upsert_signals(engine_obj, df_all_signals, dry_run=dry_run)
@@ -897,7 +964,7 @@ if __name__ == "__main__":
     - CLI run (with args):
         Uses parse_args() to control behavior (config file override, explicit date, backfill-only, ranges).
     """
-    import sys
+
 
     try:
         # If command-line args are present (other than the script name) use CLI mode
