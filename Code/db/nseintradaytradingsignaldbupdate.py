@@ -36,7 +36,7 @@ DEFAULT_CONFIG = {
     },
     "behavior": {
         "preview_only": False,  # If True: compute features/signals but skip DB upserts (no CSVs are written)
-        "dry_run": False         # If True: DB writes are executed inside transactions that are rolled back
+        "dry_run": True         # If True: DB writes are executed inside transactions that are rolled back
     },
     "output": {
         # Kept for future debugging — not written by default
