@@ -23,6 +23,8 @@ import numpy as np
 from sqlalchemy import text
 import sqlalchemy as sa
 from Code.utils.nseintraday_db_utils import detect_intraday_columns
+import json
+
 
 
 logger = logging.getLogger(__name__)
@@ -125,10 +127,7 @@ def enrich_signals_with_stops_targets(engine, df_signals, ref_date=None,
       - Does NOT overwrite existing non-null stop_price/target_price; sets *_imputed flags for filled fields.
       - Returns a new DataFrame (copy) with enrichment columns and 'price_enrichment_notes' containing per-row details.
     """
-    import json
-    import numpy as np
-    import pandas as pd
-    from sqlalchemy import text
+    
     try:
         logger  # prefer module-level logger if present
     except Exception:
@@ -424,6 +423,8 @@ def enrich_signals_with_stops_targets(engine, df_signals, ref_date=None,
 # 1) compute_liquidity_metrics
 # ---------------------------------------------------------------
 def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
+
+    
     """
     Computes liquidity metrics for the input list of symbols on the given trade_date.
 
@@ -437,6 +438,9 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
         notes (dict)
     """
 
+    
+
+    # Safety: empty symbol list
     if not symbols:
         return pd.DataFrame()
 
@@ -448,15 +452,18 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
     netqty_col = colmap["net_trdqty"]
     trades_col = colmap["trades"]
 
-    # Convert date to datetime
+    # Convert date
     if isinstance(trade_date, str):
         trade_date_dt = datetime.strptime(trade_date, "%Y-%m-%d").date()
     else:
         trade_date_dt = trade_date
 
-    # ------------------------------
-    # Fetch bhavcopy for trade_date
-    # ------------------------------
+    # ============================================================
+    # 1) FETCH TODAY'S BHAVCOPY DATA — MySQL-safe (%s placeholders)
+    # ============================================================
+
+    placeholders = ", ".join(["%s"] * len(symbols))
+
     query_today = f"""
         SELECT {sym_col} AS symbol,
                {date_col} AS trade_date,
@@ -465,14 +472,16 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
                {trades_col} AS trades,
                close
         FROM intraday_bhavcopy
-        WHERE {date_col} = :d
-          AND {sym_col} IN :symbols
+        WHERE {date_col} = %s
+          AND {sym_col} IN ({placeholders})
     """
 
-    df_today = pd.read_sql(query_today, engine, params={"d": trade_date_dt, "symbols": tuple(symbols)})
+    params_today = [trade_date_dt] + symbols
 
+    df_today = pd.read_sql(query_today, engine, params=params_today)
+
+    # If no rows → prepare empty output
     if df_today.empty:
-        # return empty metrics for all symbols
         out = pd.DataFrame({"symbol": symbols})
         out["trade_date"] = trade_date_dt
         out["net_trdval"] = np.nan
@@ -487,33 +496,35 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
         out["notes"] = None
         return out
 
-    # ------------------------------
-    # Fetch 20-day avg volume
-    # ------------------------------
-    start_date = trade_date_dt - timedelta(days=40)   # fetch larger window to get 20 trading days
+    # ============================================================
+    # 2) FETCH 20-DAY AVG VOLUME (expanded window 40 calendar days)
+    # ============================================================
+
+    start_date = trade_date_dt - timedelta(days=40)
+    placeholders = ", ".join(["%s"] * len(symbols))
+
     query_vol = f"""
         SELECT {sym_col} AS symbol,
                AVG({netqty_col}) AS avg_20d_vol
         FROM intraday_bhavcopy
-        WHERE {date_col} BETWEEN :s AND :e
-          AND {sym_col} IN :symbols
+        WHERE {date_col} BETWEEN %s AND %s
+          AND {sym_col} IN ({placeholders})
         GROUP BY {sym_col}
     """
 
-    df_vol = pd.read_sql(
-        query_vol,
-        engine,
-        params={"s": start_date, "e": trade_date_dt, "symbols": tuple(symbols)}
-    )
+    params_vol = [start_date, trade_date_dt] + symbols
 
-    # Merge today's data with avg volume
+    df_vol = pd.read_sql(query_vol, engine, params=params_vol)
+
+    # Merge today's bhavcopy and 20d volume
     df = df_today.merge(df_vol, on="symbol", how="left")
 
-    # ------------------------------------
-    # Normalization and percentiles
-    # ------------------------------------
-    # If there are any missing volumes, fill with today's qty
+    # Fill missing avg_20d_vol with today's trdqty
     df["avg_20d_vol"] = df["avg_20d_vol"].fillna(df["net_trdqty"])
+
+    # ============================================================
+    # 3) NORMALIZATION
+    # ============================================================
 
     # Percentile rank for turnover
     if df["net_trdval"].notna().sum() > 0:
@@ -535,13 +546,15 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20):
     else:
         df["vol_norm"] = np.nan
 
-    # Placeholder for F&O membership
-    df["fno_flag"] = False
+    # ============================================================
+    # 4) PLACEHOLDER F&O FLAG + notes
+    # ============================================================
 
-    # Notes field (keeps raw info if needed)
+    df["fno_flag"] = False
     df["notes"] = None
 
     return df
+
 
 
 # ---------------------------------------------------------------
@@ -570,7 +583,7 @@ def apply_liquidity_filters(df_signals, liquidity_df, rules, mode="tag_only"):
     # ------------------------------------
     # Hard-exclude rules
     #------------------------------------
-    df["liquidity_pass"] = True
+    df["liquidity_pass"] = False
 
     # Only apply rules if liquidity data is present
     df.loc[df["net_trdval"].isna(), "liquidity_pass"] = False
@@ -637,7 +650,8 @@ def apply_liquidity_filters(df_signals, liquidity_df, rules, mode="tag_only"):
     )
 
     # ------------------------------------
-    # Enforce mode → drop failures
+    # enforce mode → drop failures
+    # tag_only mode → keep all
     # ------------------------------------
     if mode == "enforce":
         df = df[df["liquidity_pass"] == True].copy()
