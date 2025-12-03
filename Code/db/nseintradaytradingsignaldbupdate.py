@@ -44,13 +44,23 @@ DEFAULT_CONFIG = {
         "signals_csv": "signals_preview.csv"
     },
     "liquidity_rules": {
-        "hard_min_net_trdval": 50_000_000,   # 5 Crore
-        "hard_min_net_trdqty": 100_000,
-        "hard_min_trades": 1500,
-        "min_price": 25,
+        # Hard constraints (based on your data reality)
+        "hard_min_net_trdval": 2_000_000,   # ₹20 lakhs
+        "hard_min_net_trdqty": 20_000,
+        "hard_min_trades": 100,
+        "min_price": 20,
+
+        # Dynamic filter
+        "dynamic_percentile_keep": 0.30,    # keep top 30% by turnover
+    
+         # Ranking weights
         "ranking_weights": {"mom": 0.6, "turnover": 0.3, "vol": 0.1},
-        "fno_boost": 1.15,
-        "mode": "enforce"        #  enforce mode → drop failures / tag_only mode → keep all
+
+        # Optional boost for FnO (leave as False for now)
+        "fno_boost": 1.10,
+
+        # Keep this during tuning
+        "mode": "tag_only" #  enforce mode → drop failures / tag_only mode → keep all
 }
     
 }
@@ -864,10 +874,6 @@ def run_signal_generation_for_date(target_date_iso: str, engine_obj=None, behavi
     df_all_signals = pd.concat([df for df in (df_mom, df_gap, df_vol) if not df.empty], ignore_index=True, sort=False) if any([not df.empty for df in (df_mom, df_gap, df_vol)]) else pd.DataFrame()
     df_all_signals = enrich_signals_with_stops_targets(engine_obj, df_all_signals,
                                                    atr_lookback=14, atr_stop_mult=1.5, atr_target_mult=3.0)
-    
-    # ...existing code...
-    df_all_signals = enrich_signals_with_stops_targets(engine_obj, df_all_signals,
-                                                   atr_lookback=14, atr_stop_mult=1.5, atr_target_mult=3.0)
 
     # ----------------------------------------
     # Apply Liquidity Filtering + Scoring
@@ -923,6 +929,7 @@ def run_signal_generation_for_date(target_date_iso: str, engine_obj=None, behavi
 
     logger.info("Total signals generated for %s: %d", target_date_iso, 0 if df_all_signals is None else len(df_all_signals))
 
+    
     # 4) upsert signals (honoring dry_run)
     upsert_signals(engine_obj, df_all_signals, dry_run=dry_run)
 
