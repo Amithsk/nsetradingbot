@@ -1,3 +1,7 @@
+#Title: NSE Intraday Trading Utilities - Signal Price Enrichment and Liquidity Metrics
+#signal_price_enrichment 
+#liquidity_metrics->Add liquidity metrics computation and filtering functions to the signal generation
+
 """
 signal_price_enrichment.py
 
@@ -13,11 +17,17 @@ Assumptions / conventions:
 """
 
 import logging
-from datetime import timedelta
+from datetime import timedelta,datetime
 import pandas as pd
 import numpy as np
 from sqlalchemy import text
 import sqlalchemy as sa
+from Code.utils.nseintraday_db_utils import detect_intraday_columns
+import json
+
+
+
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -119,10 +129,7 @@ def enrich_signals_with_stops_targets(engine, df_signals, ref_date=None,
       - Does NOT overwrite existing non-null stop_price/target_price; sets *_imputed flags for filled fields.
       - Returns a new DataFrame (copy) with enrichment columns and 'price_enrichment_notes' containing per-row details.
     """
-    import json
-    import numpy as np
-    import pandas as pd
-    from sqlalchemy import text
+    
     try:
         logger  # prefer module-level logger if present
     except Exception:
@@ -407,5 +414,272 @@ def enrich_signals_with_stops_targets(engine, df_signals, ref_date=None,
             print(msg)
     except Exception:
         pass
+
+    return df
+
+def _read_sql_in_batches(engine, base_query_template, date_params, symbols, batch_size=800):
+    """
+    Helper to execute a parametrized query in batches to avoid huge IN(...) clauses
+    base_query_template must contain a "{placeholders}" token where the IN-list goes.
+    date_params: list of positional params that go before the symbol list (e.g. [start_date, end_date])
+    symbols: list of symbol strings
+    """
+    import pandas as pd
+
+    parts = []
+    for i in range(0, len(symbols), batch_size):
+        batch = symbols[i:i + batch_size]
+        placeholders = ", ".join(["%s"] * len(batch))
+        q = base_query_template.format(placeholders=placeholders)
+        params = tuple(date_params + batch)
+        parts.append(pd.read_sql(q, engine, params=params))
+    if parts:
+        return pd.concat(parts, ignore_index=True, sort=False)
+    return pd.DataFrame()
+
+
+
+
+# ---------------------------------------------------------------
+# 1) compute_liquidity_metrics
+# ---------------------------------------------------------------
+
+
+def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20, batch_size=800):
+    """
+    MySQL-safe, batch-capable computation of liquidity metrics.
+
+    Returns DataFrame with columns:
+      symbol, trade_date, net_trdval, net_trdqty, trades, close,
+      avg_20d_vol, turnover_rank_pct, turnover_norm, vol_norm, fno_flag, notes
+    """
+    
+    # Safety: empty symbol list
+    if not symbols:
+        return pd.DataFrame(
+            columns=[
+                "symbol", "trade_date", "net_trdval", "net_trdqty", "trades", "close",
+                "avg_20d_vol", "turnover_rank_pct", "turnover_norm", "vol_norm",
+                "fno_flag", "notes"
+            ]
+        )
+
+    # Detect canonical column names in intraday_bhavcopy
+    colmap = detect_intraday_columns(engine)
+    sym_col = colmap["symbol"]
+    date_col = colmap["trade_date"]
+    netval_col = colmap["net_trdval"]
+    netqty_col = colmap["net_trdqty"]
+    trades_col = colmap["trades"]
+
+    # Normalize trade_date to date
+    if isinstance(trade_date, str):
+        trade_date_dt = datetime.strptime(trade_date, "%Y-%m-%d").date()
+    else:
+        trade_date_dt = trade_date
+
+    # ---------------------------
+    # 1) Query today's bhavcopy (batched)
+    # ---------------------------
+    base_query_today = f"""
+        SELECT {sym_col} AS symbol,
+               {date_col} AS trade_date,
+               {netval_col} AS net_trdval,
+               {netqty_col} AS net_trdqty,
+               {trades_col} AS trades,
+               close
+        FROM intraday_bhavcopy
+        WHERE {date_col} = %s
+          AND {sym_col} IN ({{placeholders}})
+    """
+
+    # Use batch helper to avoid huge IN lists
+    df_today = _read_sql_in_batches(
+        engine,
+        base_query_today,
+        date_params=[trade_date_dt],
+        symbols=symbols,
+        batch_size=batch_size
+    )
+
+    # If empty, return a dataframe with placeholders for all requested symbols
+    if df_today.empty:
+        out = pd.DataFrame({"symbol": symbols})
+        out["trade_date"] = trade_date_dt
+        out["net_trdval"] = np.nan
+        out["net_trdqty"] = np.nan
+        out["trades"] = np.nan
+        out["close"] = np.nan
+        out["avg_20d_vol"] = np.nan
+        out["turnover_rank_pct"] = np.nan
+        out["turnover_norm"] = np.nan
+        out["vol_norm"] = np.nan
+        out["fno_flag"] = False
+        out["notes"] = None
+        return out
+
+    # ---------------------------
+    # 2) Query 20-day avg volume (batched)
+    # ---------------------------
+    start_date = trade_date_dt - timedelta(days=lookback_days * 2)  # expanded window to capture 20 trading days
+    base_query_vol = f"""
+        SELECT {sym_col} AS symbol,
+               AVG({netqty_col}) AS avg_20d_vol
+        FROM intraday_bhavcopy
+        WHERE {date_col} BETWEEN %s AND %s
+          AND {sym_col} IN ({{placeholders}})
+        GROUP BY {sym_col}
+    """
+
+    df_vol = _read_sql_in_batches(
+        engine,
+        base_query_vol,
+        date_params=[start_date, trade_date_dt],
+        symbols=symbols,
+        batch_size=batch_size
+    )
+
+    # Merge today's bhavcopy and avg volume
+    df = df_today.merge(df_vol, on="symbol", how="left")
+
+    # Fill missing avg_20d_vol with today's qty
+    df["avg_20d_vol"] = df["avg_20d_vol"].fillna(df["net_trdqty"])
+
+    # ---------------------------
+    # 3) Normalization & ranks
+    # ---------------------------
+
+    # Percentile rank for turnover
+    if df["net_trdval"].notna().sum() > 0:
+        df["turnover_rank_pct"] = df["net_trdval"].rank(pct=True)
+    else:
+        df["turnover_rank_pct"] = np.nan
+
+    # Turnover normalized (0–1)
+    max_turnover = df["net_trdval"].max()
+    if pd.notna(max_turnover) and max_turnover > 0:
+        df["turnover_norm"] = df["net_trdval"] / max_turnover
+    else:
+        df["turnover_norm"] = np.nan
+
+    # Volume normalized (0–1)
+    max_vol = df["avg_20d_vol"].max()
+    if pd.notna(max_vol) and max_vol > 0:
+        df["vol_norm"] = df["avg_20d_vol"] / max_vol
+    else:
+        df["vol_norm"] = np.nan
+
+    # Placeholder for F&O membership and notes
+    df["fno_flag"] = False
+    df["notes"] = None
+
+    # Ensure output columns order for consumers
+    out_cols = [
+        "symbol", "trade_date", "net_trdval", "net_trdqty", "trades", "close",
+        "avg_20d_vol", "turnover_rank_pct", "turnover_norm", "vol_norm",
+        "fno_flag", "notes"
+    ]
+    return df[out_cols].reset_index(drop=True)
+
+
+
+# ---------------------------------------------------------------
+# 2) apply_liquidity_filters
+# ---------------------------------------------------------------
+def apply_liquidity_filters(df_signals, liquidity_df, rules, mode="tag_only"):
+    """
+    Merges liquidity_df into df_signals and applies liquidity scoring + filtering.
+
+    Returns a DataFrame with:
+        liquidity_pass (bool),
+        mom_norm,
+        combined_score,
+        liquidity_info (dict)
+
+    mode = "tag_only" → keep all but annotate
+    mode = "enforce"  → drop failing signals
+    """
+
+    if df_signals.empty:
+        return df_signals
+
+    # Merge liquidity fields
+    df = df_signals.merge(liquidity_df, on="symbol", how="left", suffixes=("", "_liq"))
+
+    # ------------------------------------
+    # Hard-exclude rules
+    #------------------------------------
+    df["liquidity_pass"] = False
+
+    # Only apply rules if liquidity data is present
+    df.loc[df["net_trdval"].isna(), "liquidity_pass"] = False
+
+    if "hard_min_net_trdval" in rules:
+        df.loc[df["net_trdval"] < rules["hard_min_net_trdval"], "liquidity_pass"] = False
+
+    if "hard_min_net_trdqty" in rules:
+        df.loc[df["net_trdqty"] < rules["hard_min_net_trdqty"], "liquidity_pass"] = False
+
+    if "hard_min_trades" in rules:
+        df.loc[df["trades"] < rules["hard_min_trades"], "liquidity_pass"] = False
+
+    if "min_price" in rules:
+        df.loc[df["close"] < rules["min_price"], "liquidity_pass"] = False
+
+    # ------------------------------------
+    # Momentum normalization (abs momentum)
+    # ------------------------------------
+    if "momentum_score" in df.columns:
+        mom_abs = df["momentum_score"].abs()
+        max_mom = mom_abs.max()
+        if pd.notna(max_mom) and max_mom > 0:
+            df["mom_norm"] = mom_abs / max_mom
+        else:
+            df["mom_norm"] = 0
+    else:
+        df["mom_norm"] = 0
+
+    # ------------------------------------
+    # Combined score
+    # ------------------------------------
+    w_mom = rules["ranking_weights"]["mom"]
+    w_turn = rules["ranking_weights"]["turnover"]
+    w_vol = rules["ranking_weights"]["vol"]
+
+    df["combined_score"] = (
+        w_mom * df["mom_norm"].fillna(0) +
+        w_turn * df["turnover_norm"].fillna(0) +
+        w_vol * df["vol_norm"].fillna(0)
+    )
+
+    # FnO boost
+    if "fno_boost" in rules:
+        df.loc[df["fno_flag"] == True, "combined_score"] *= rules["fno_boost"]
+
+    # ------------------------------------
+    # Liquidity info object for params/extras JSON
+    # ------------------------------------
+    df["liquidity_info"] = df.apply(
+        lambda row: {
+            "net_trdval": row.get("net_trdval"),
+            "net_trdqty": row.get("net_trdqty"),
+            "trades": row.get("trades"),
+            "avg_20d_vol": row.get("avg_20d_vol"),
+            "turnover_rank_pct": row.get("turnover_rank_pct"),
+            "turnover_norm": row.get("turnover_norm"),
+            "vol_norm": row.get("vol_norm"),
+            "mom_norm": row.get("mom_norm"),
+            "combined_score": row.get("combined_score"),
+            "liquidity_pass": bool(row.get("liquidity_pass")),
+        },
+        axis=1
+    )
+
+    # ------------------------------------
+    # enforce mode → drop failures
+    # tag_only mode → keep all
+    # ------------------------------------
+    if mode == "enforce":
+        df = df[df["liquidity_pass"] == True].copy()
 
     return df
