@@ -655,13 +655,32 @@ def apply_liquidity_filters(df, rules, mode="tag_only"):
 
     df["pass_pct"] = df[rank_col].fillna(0.0) >= cutoff
 
-    # hard floors (safety)
-    df["pass_hard"] = (
-        (df.get("avg_20d_trdval", 0).fillna(0) >= hard_min_A20) &
-        (df.get("avg_20d_vol", 0).fillna(0) >= hard_min_vol20) &
-        (df.get("trades", 0).fillna(0) >= hard_min_trades) &
-        (df.get("close", 0).fillna(0) >= hard_min_price)
-    )
+  
+    # hard floors (safety checks)
+    if "avg_20d_trdval" in df.columns:
+        pass_A20 = df["avg_20d_trdval"].fillna(0) >= hard_min_A20
+    else:
+        pass_A20 = pd.Series([False] * len(df), index=df.index)
+
+    if "avg_20d_vol" in df.columns:
+        pass_vol = df["avg_20d_vol"].fillna(0) >= hard_min_vol20
+    else:
+        pass_vol = pd.Series([False] * len(df), index=df.index)
+
+    if "trades" in df.columns:
+        pass_trades = df["trades"].fillna(0) >= hard_min_trades
+    else:
+        pass_trades = pd.Series([False] * len(df), index=df.index)
+
+    if "close" in df.columns:
+        pass_price = df["close"].fillna(0) >= hard_min_price
+    else:
+        pass_price = pd.Series([False] * len(df), index=df.index)
+
+    # combine all hard-floor checks
+    df["pass_hard"] = pass_A20 & pass_vol & pass_trades & pass_price
+
+   
 
     # final pass flag
     df["liquidity_pass"] = df["pass_pct"] & df["pass_hard"]
