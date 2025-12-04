@@ -717,52 +717,102 @@ def apply_liquidity_filters(df, rules, mode="tag_only"):
 
 def compute_combined_score(df, weights=None, fno_boost=False):
     """
-    Compute combined_score = w_mom*mom_norm + w_turn*turn_norm + w_vol*vol_norm
-    weights: dict {"mom":0.6, "turnover":0.3, "vol":0.1}
-    fno_boost: bool or float: if True uses 1.10, if numeric uses that multiplier.
+    Compute a normalized combined score from momentum, turnover and volume.
+    Safe to run when liquidity columns are missing — uses sensible fallbacks.
 
-    Adds mom_norm, turn_norm, vol_norm, combined_score columns and returns df.
+    Inputs:
+      - df: DataFrame with (optionally) columns:
+            'signal_score' (momentum/strategy score), 'avg_20d_trdval', 'net_trdval',
+            'avg_20d_vol', 'fno_flag' (optional boolean/int)
+      - weights: dict like {"mom": 0.6, "turnover": 0.3, "vol": 0.1}
+      - fno_boost: False or numeric boost factor (>1.0). If numeric and fno_flag True, multiplies score.
+
+    Returns:
+      - DataFrame copy with 'combined_score' (float 0..inf, normalized on available data)
+        and 'liquidity_info' (dict) columns added.
     """
-    if df is None or df.empty:
-        return df
+    import numpy as np
+    import pandas as pd
 
     if weights is None:
         weights = {"mom": 0.6, "turnover": 0.3, "vol": 0.1}
 
-    w_mom = float(weights.get("mom", 0.6))
-    w_turn = float(weights.get("turnover", 0.3))
-    w_vol = float(weights.get("vol", 0.1))
+    # defensive copy
+    df = df.copy()
+    if df.empty:
+        return df
 
-    # ensure momentum exists
-    if "momentum" not in df.columns:
-        df["momentum"] = 0.0
+    # helper to safely get a numeric Series (or NaN Series if missing)
+    def _safe_series(name):
+        if name in df.columns:
+            return pd.to_numeric(df[name], errors="coerce")
+        else:
+            return pd.Series([np.nan] * len(df), index=df.index)
 
-    mom_abs = df["momentum"].abs().fillna(0.0)
-    max_mom = mom_abs.max() if mom_abs.max() > 0 else 1.0
-    df["mom_norm"] = mom_abs / max_mom
+    # momentum: use absolute signal_score (so both LONG/SHORT comparable)
+    mom_s = _safe_series("signal_score").abs().fillna(0.0)
 
-    turn_base = df.get("avg_20d_trdval").fillna(df.get("net_trdval").fillna(0.0))
-    max_turn = turn_base.max() if turn_base.max() > 0 else 1.0
-    df["turn_norm"] = turn_base / max_turn
+    # turnover base: prefer avg_20d_trdval, fallback to net_trdval (today)
+    a20_s = _safe_series("avg_20d_trdval")
+    net_today_s = _safe_series("net_trdval")
+    turn_base = a20_s.fillna(net_today_s.fillna(0.0)).fillna(0.0)
 
-    vol_base = df.get("avg_20d_vol").fillna(df.get("net_trdqty").fillna(0.0))
-    max_vol = vol_base.max() if vol_base.max() > 0 else 1.0
-    df["vol_norm"] = vol_base / max_vol
+    # volume baseline
+    vol_s = _safe_series("avg_20d_vol").fillna(0.0)
 
-    df["combined_score"] = (w_mom * df["mom_norm"]) + (w_turn * df["turn_norm"]) + (w_vol * df["vol_norm"])
+    # normalization helper (avoid div0)
+    def _norm(series):
+        mx = series.max(skipna=True)
+        if pd.isna(mx) or float(mx) == 0.0:
+            return series * 0.0
+        return series / float(mx)
 
-    # apply FnO boost
+    mom_norm = _norm(mom_s)
+    turn_norm = _norm(turn_base)
+    vol_norm = _norm(vol_s)
+
+    alpha = float(weights.get("mom", 0.6))
+    beta = float(weights.get("turnover", 0.3))
+    gamma = float(weights.get("vol", 0.1))
+
+    df["combined_score"] = alpha * mom_norm + beta * turn_norm + gamma * vol_norm
+
+    # apply FnO boost if requested and fno_flag present
     if fno_boost:
-        boost = 1.10 if (isinstance(fno_boost, bool) and fno_boost) else float(fno_boost)
-        mask = df.get("fno_flag", False) == True
-        df.loc[mask, "combined_score"] = df.loc[mask, "combined_score"] * boost
+        # if fno_boost is a boolean True, treat as 1.0 (no-op). If numeric >1.0, apply that factor.
+        try:
+            boost_factor = float(fno_boost) if not isinstance(fno_boost, bool) else None
+        except Exception:
+            boost_factor = None
 
-    df["combined_score"] = df["combined_score"].fillna(0.0)
+        if boost_factor and "fno_flag" in df.columns:
+            # fno_flag may be bool/int/str — coerce safely
+            fno_flag = _safe_series("fno_flag").fillna(0).astype(int).clip(0, 1)
+            df["combined_score"] = df["combined_score"] * (1.0 + fno_flag * (boost_factor - 1.0))
 
-    _logger.info("compute_combined_score: weights=(mom:%.2f turn:%.2f vol:%.2f) max_score=%.6f",
-                 w_mom, w_turn, w_vol, df["combined_score"].max() if not df["combined_score"].empty else 0.0)
+    # create a compact liquidity_info dict for audit/tracing (safe casts)
+    def _build_liq_info(row):
+        def _as_float(v):
+            try:
+                if v is None or (isinstance(v, float) and np.isnan(v)):
+                    return None
+                return float(v)
+            except Exception:
+                return None
 
-    return df.reset_index(drop=True)
+        return {
+            "avg_20d_trdval": _as_float(row.get("avg_20d_trdval")),
+            "net_trdval": _as_float(row.get("net_trdval")),
+            "avg_20d_vol": _as_float(row.get("avg_20d_vol")),
+            "turnover_vs_20d": _as_float(row.get("turnover_vs_20d")),
+            "liquidity_pass": bool(row.get("liquidity_pass")) if "liquidity_pass" in row else None,
+            "fno_flag": True if row.get("fno_flag") in (1, True, "1", "true", "True") else False
+        }
+
+    df["liquidity_info"] = df.apply(_build_liq_info, axis=1)
+
+    return df
+
 
 
 def suggest_dynamic_percentile(df, target_count, min_pct=0.05, max_pct=0.50):
