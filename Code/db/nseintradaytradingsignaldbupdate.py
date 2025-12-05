@@ -674,7 +674,7 @@ def generate_momentum_signals_for_date(engine_obj, target_date, lookback=MOMENTU
 
 
 def generate_gap_follow_signals_for_date(engine_obj, target_date, gap_threshold_percent=GAP_MINIMUM_PERCENT):
-    sql = text("SELECT symbol, prev_close, open FROM intraday_bhavcopy WHERE trade_date = :d")
+    sql = text("SELECT symbol, prev_close, open FROM intraday_bhavcopy WHERE trade_date = :d AND mkt_flag = 0 AND ind_sec = 'N'")
     df_open = pd.read_sql(sql, engine_obj, params={"d": target_date})
     if df_open.empty:
         logger.info("No bhavcopy rows for %s to detect gaps.", target_date)
@@ -711,18 +711,19 @@ def generate_volatility_breakout_signals_for_date(engine_obj, target_date,
                                                   atr_stop_multiplier=ATR_STOP_MULTIPLIER,
                                                   atr_target_multiplier=ATR_TARGET_MULTIPLIER,
                                                   expected_hold_days=VOL_BREAK_EXPECTED_HOLD_DAYS):
-    sql_close = text("SELECT symbol, close FROM intraday_bhavcopy WHERE trade_date = :d")
+    sql_close = text("SELECT symbol, close FROM intraday_bhavcopy WHERE trade_date = :d AND mkt_flag = 0 AND ind_sec = 'N'")
     df_close = pd.read_sql(sql_close, engine_obj, params={"d": target_date})
     if df_close.empty:
         logger.info("No close prices for %s", target_date)
         return pd.DataFrame()
 
     sql_prior_high = text(f"""
-       SELECT symbol, MAX(high) AS prior_high
-       FROM intraday_bhavcopy
-       WHERE trade_date BETWEEN DATE_SUB(:d, INTERVAL :lookback DAY) AND DATE_SUB(:d, INTERVAL 1 DAY)
-       GROUP BY symbol
-    """)
+    SELECT symbol, MAX(high) AS prior_high
+    FROM intraday_bhavcopy
+    WHERE trade_date BETWEEN DATE_SUB(:d, INTERVAL :lookback DAY) AND DATE_SUB(:d, INTERVAL 1 DAY)
+         AND mkt_flag = 0 AND ind_sec = 'N'
+    GROUP BY symbol
+        """)
     df_high = pd.read_sql(sql_prior_high, engine_obj, params={"d": target_date, "lookback": lookback_high_days})
 
     atr_feature_name = f"atr_{atr_lookback_days}"
