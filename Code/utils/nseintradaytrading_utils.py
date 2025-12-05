@@ -479,16 +479,14 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20, bat
     # 1) Query today's bhavcopy (batched)
     # ---------------------------
     base_query_today = f"""
-        SELECT {sym_col} AS symbol,
-               {date_col} AS trade_date,
-               {netval_col} AS net_trdval,
-               {netqty_col} AS net_trdqty,
-               {trades_col} AS trades,
-               close
-        FROM intraday_bhavcopy
-        WHERE {date_col} = %s
-          AND {sym_col} IN ({{placeholders}})
-    """
+    SELECT {sym_col} AS symbol, trade_date, net_trdval, net_trdqty, trades, close
+    FROM intraday_bhavcopy
+    WHERE {date_col} = %s
+      AND mkt_flag = 0 AND ind_sec = 'N'
+      AND {sym_col} IN ({{placeholders}})
+"""
+
+   
 
     # Use batch helper to avoid huge IN lists
     df_today = _read_sql_in_batches(
