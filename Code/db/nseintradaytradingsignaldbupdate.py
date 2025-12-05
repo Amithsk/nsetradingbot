@@ -41,7 +41,7 @@ DEFAULT_CONFIG = {
 
     "behavior": {
         "preview_only": False, # True to skip signal generation & DB writes,False to run end-to-end
-        "dry_run": True, # True to skip DB writes,False to persist changes to DB
+        "dry_run": False, # True to skip DB writes,False to persist changes to DB
 
         # -------------------------------
         # Dynamic Liquidity Rules LIVE HERE
