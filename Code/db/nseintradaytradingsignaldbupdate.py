@@ -40,8 +40,8 @@ DEFAULT_CONFIG = {
     },
 
     "behavior": {
-        "preview_only": False,
-        "dry_run": False,
+        "preview_only": False, # True to skip signal generation & DB writes,False to run end-to-end
+        "dry_run": True, # True to skip DB writes,False to persist changes to DB
 
         # -------------------------------
         # Dynamic Liquidity Rules LIVE HERE
@@ -297,15 +297,33 @@ def sanitize_json_column(df, col_name):
 # DB helpers (no filtering here — ingestion handles ETF/SME)
 # -------------------------
 def fetch_bhavcopy_range(engine_obj, start_date, end_date):
+    #This ensures features (momentum/ATR) are only calculated for mainboard stocks so strategy_features will contain the same universe as liquidity tables.
     sql = text("""
-        SELECT symbol, trade_date, prev_close, open, high, low, close, net_trdqty, net_trdval
+        SELECT symbol, trade_date, prev_close, open, high, low, close, net_trdqty, net_trdval, mkt_flag, ind_sec
         FROM intraday_bhavcopy
         WHERE trade_date BETWEEN :start_date AND :end_date
         ORDER BY symbol, trade_date
     """)
     df = pd.read_sql(sql, engine_obj, params={"start_date": start_date, "end_date": end_date})
-    if not df.empty:
-        df["trade_date"] = pd.to_datetime(df["trade_date"])
+    if df.empty:
+        return df
+
+    # ensure date dtype
+    df["trade_date"] = pd.to_datetime(df["trade_date"])
+
+    # ----------------------------
+    # FILTER: keep only main NSE listings
+    # mkt_flag == 0 and ind_sec == 'N' (defensive, allow numeric or string)
+    # ----------------------------
+    try:
+        df["_mkt_flag_str"] = df["mkt_flag"].astype(str).str.strip()
+        df["_ind_sec_str"] = df["ind_sec"].astype(str).str.strip()
+        df = df[(df["_mkt_flag_str"] == "0") & (df["_ind_sec_str"].str.upper() == "N")].copy()
+        df.drop(columns=["_mkt_flag_str", "_ind_sec_str"], inplace=True)
+    except Exception:
+        # if those columns don't exist or cast fails, keep original df (fail-open)
+        pass
+
     return df
 
 
@@ -895,6 +913,20 @@ def run_signal_generation_for_date(target_date_iso: str, engine_obj=None, behavi
 
         # 2) compute liquidity metrics (20d rolling + today)
         liq_df = compute_liquidity_metrics(engine_obj, symbols_list, target_date_iso)
+        # Quick inspect: sample liquidity DF (if available)
+        try:
+            logger.info("DEBUG: liq_df shape=%s", None if 'liq_df' not in locals() else getattr(liq_df, 'shape', None))
+            if 'liq_df' in locals() and liq_df is not None:
+                logger.info("DEBUG: liq_df sample: %s", liq_df.head(10).to_dict(orient="records"))
+        except Exception:
+            logger.exception("DEBUG: failed to log liq_df")
+        # Quick inspect merged signals
+        try:
+            logger.info("DEBUG: merged signals sample (liquidity cols): %s", df_all_signals[[
+        c for c in ["symbol","avg_20d_trdval","net_trdval","avg_20d_vol","trades","close","liquidity_pass","combined_score"] if c in df_all_signals.columns
+          ]].head(20).to_dict(orient="records"))
+        except Exception:
+            logger.exception("DEBUG: failed to log merged sample")
 
         # 3) compute percentile ranks
         liq_df = compute_liquidity_ranks(liq_df)
