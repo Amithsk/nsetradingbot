@@ -1,0 +1,5 @@
+model,date,total_bars,correct,incorrect,accuracy_pct,avg_error_mag
+LGBM,2025-12-05,73,32,41,43.84,41.6522
+Logistic,2025-12-05,73,41,32,56.16,46.999
+RF,2025-12-05,73,32,41,43.84,41.6522
+XGB,2025-12-05,73,41,32,56.16,46.999
