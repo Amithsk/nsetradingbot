@@ -1,6 +1,7 @@
 #Title: NSE Intraday Trading Utilities - Signal Price Enrichment and Liquidity Metrics
 #signal_price_enrichment 
 #liquidity_metrics->Add liquidity metrics computation and filtering functions to the signal generation
+#dymanic liquiduty->Added function for dynamic liquidity ranking and filtering
 
 """
 signal_price_enrichment.py
@@ -24,10 +25,6 @@ from sqlalchemy import text
 import sqlalchemy as sa
 from Code.utils.nseintraday_db_utils import detect_intraday_columns
 import json
-
-
-
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -482,16 +479,14 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20, bat
     # 1) Query today's bhavcopy (batched)
     # ---------------------------
     base_query_today = f"""
-        SELECT {sym_col} AS symbol,
-               {date_col} AS trade_date,
-               {netval_col} AS net_trdval,
-               {netqty_col} AS net_trdqty,
-               {trades_col} AS trades,
-               close
-        FROM intraday_bhavcopy
-        WHERE {date_col} = %s
-          AND {sym_col} IN ({{placeholders}})
-    """
+    SELECT {sym_col} AS symbol, trade_date, net_trdval, net_trdqty, trades, close
+    FROM intraday_bhavcopy
+    WHERE {date_col} = %s
+      AND mkt_flag = 0 AND ind_sec = 'N'
+      AND {sym_col} IN ({{placeholders}})
+"""
+
+   
 
     # Use batch helper to avoid huge IN lists
     df_today = _read_sql_in_batches(
@@ -582,104 +577,266 @@ def compute_liquidity_metrics(engine, symbols, trade_date, lookback_days=20, bat
     return df[out_cols].reset_index(drop=True)
 
 
+# ---------------------------
+# Dynamic Liquidity Engine 
+# ---------------------------
 
-# ---------------------------------------------------------------
-# 2) apply_liquidity_filters
-# ---------------------------------------------------------------
-def apply_liquidity_filters(df_signals, liquidity_df, rules, mode="tag_only"):
+_logger = logging.getLogger(__name__)
+
+def compute_liquidity_ranks(df):
     """
-    Merges liquidity_df into df_signals and applies liquidity scoring + filtering.
-
-    Returns a DataFrame with:
-        liquidity_pass (bool),
-        mom_norm,
-        combined_score,
-        liquidity_info (dict)
-
-    mode = "tag_only" → keep all but annotate
-    mode = "enforce"  → drop failing signals
+    Add percentile ranks:
+      - turnover_rank_pct_today : rank of net_trdval (0..1)
+      - A20_rank_pct : rank of avg_20d_trdval (0..1)
+    Returns modified df.
     """
+    if df is None or df.empty:
+        return df
 
-    if df_signals.empty:
-        return df_signals
-
-    # Merge liquidity fields
-    df = df_signals.merge(liquidity_df, on="symbol", how="left", suffixes=("", "_liq"))
-
-    # ------------------------------------
-    # Hard-exclude rules
-    #------------------------------------
-    df["liquidity_pass"] = False
-
-    # Only apply rules if liquidity data is present
-    df.loc[df["net_trdval"].isna(), "liquidity_pass"] = False
-
-    if "hard_min_net_trdval" in rules:
-        df.loc[df["net_trdval"] < rules["hard_min_net_trdval"], "liquidity_pass"] = False
-
-    if "hard_min_net_trdqty" in rules:
-        df.loc[df["net_trdqty"] < rules["hard_min_net_trdqty"], "liquidity_pass"] = False
-
-    if "hard_min_trades" in rules:
-        df.loc[df["trades"] < rules["hard_min_trades"], "liquidity_pass"] = False
-
-    if "min_price" in rules:
-        df.loc[df["close"] < rules["min_price"], "liquidity_pass"] = False
-
-    # ------------------------------------
-    # Momentum normalization (abs momentum)
-    # ------------------------------------
-    if "momentum_score" in df.columns:
-        mom_abs = df["momentum_score"].abs()
-        max_mom = mom_abs.max()
-        if pd.notna(max_mom) and max_mom > 0:
-            df["mom_norm"] = mom_abs / max_mom
-        else:
-            df["mom_norm"] = 0
+    # safe creation
+    if "net_trdval" not in df.columns:
+        df["turnover_rank_pct_today"] = np.nan
     else:
-        df["mom_norm"] = 0
+        # higher turnover -> higher rank (pct)
+        df["turnover_rank_pct_today"] = df["net_trdval"].rank(pct=True, method="average")
 
-    # ------------------------------------
-    # Combined score
-    # ------------------------------------
-    w_mom = rules["ranking_weights"]["mom"]
-    w_turn = rules["ranking_weights"]["turnover"]
-    w_vol = rules["ranking_weights"]["vol"]
-
-    df["combined_score"] = (
-        w_mom * df["mom_norm"].fillna(0) +
-        w_turn * df["turnover_norm"].fillna(0) +
-        w_vol * df["vol_norm"].fillna(0)
-    )
-
-    # FnO boost
-    if "fno_boost" in rules:
-        df.loc[df["fno_flag"] == True, "combined_score"] *= rules["fno_boost"]
-
-    # ------------------------------------
-    # Liquidity info object for params/extras JSON
-    # ------------------------------------
-    df["liquidity_info"] = df.apply(
-        lambda row: {
-            "net_trdval": row.get("net_trdval"),
-            "net_trdqty": row.get("net_trdqty"),
-            "trades": row.get("trades"),
-            "avg_20d_vol": row.get("avg_20d_vol"),
-            "turnover_rank_pct": row.get("turnover_rank_pct"),
-            "turnover_norm": row.get("turnover_norm"),
-            "vol_norm": row.get("vol_norm"),
-            "mom_norm": row.get("mom_norm"),
-            "combined_score": row.get("combined_score"),
-            "liquidity_pass": bool(row.get("liquidity_pass")),
-        },
-        axis=1
-    )
-
-    # ------------------------------------
-    # enforce mode → drop failures
-    # tag_only mode → keep all
-    # ------------------------------------
-    if mode == "enforce":
-        df = df[df["liquidity_pass"] == True].copy()
+    if "avg_20d_trdval" not in df.columns:
+        df["A20_rank_pct"] = np.nan
+    else:
+        df["A20_rank_pct"] = df["avg_20d_trdval"].rank(pct=True, method="average")
 
     return df
+
+
+def apply_liquidity_filters(df, rules, mode="tag_only"):
+    """
+    Hybrid percentile + hard-floor liquidity filter.
+
+    rules keys used:
+      - dynamic_percentile_keep (float 0..1)
+      - hard_min_A20 (int)
+      - hard_min_vol20 (int)
+      - hard_min_trades (int)
+      - hard_min_price (float)
+      - use_today_percentile (bool)
+
+    mode:
+      - "tag_only": annotate liquidity_pass but keep all rows
+      - "enforce": drop rows where liquidity_pass == False
+
+    Adds columns:
+      pass_pct, pass_hard, liquidity_pass, liquidity_info (dict)
+    Returns filtered/annotated df (copy if enforced).
+    """
+    if df is None:
+        return df
+
+    # defaults
+    pct_keep = float(rules.get("dynamic_percentile_keep", 0.30))
+    hard_min_A20 = int(rules.get("hard_min_A20", int(rules.get("hard_min_net_trdval", 200000))))
+    hard_min_vol20 = int(rules.get("hard_min_vol20", int(rules.get("hard_min_net_trdqty", 20000))))
+    hard_min_trades = int(rules.get("hard_min_trades", 50))
+    hard_min_price = float(rules.get("hard_min_price", float(rules.get("min_price", 20.0))))
+    use_today_pct = bool(rules.get("use_today_percentile", True))
+
+    # ensure ranks exist
+    rank_col = "turnover_rank_pct_today" if use_today_pct else "A20_rank_pct"
+    if rank_col not in df.columns:
+        df = compute_liquidity_ranks(df)
+
+    # compute cutoff: keep top pct_keep fraction
+    # since rank pct is 0..1 where larger is better, compute quantile of (1 - pct_keep)
+    try:
+        cutoff = df[rank_col].quantile(1.0 - pct_keep)
+    except Exception:
+        cutoff = 1.0 - pct_keep
+
+    df["pass_pct"] = df[rank_col].fillna(0.0) >= cutoff
+
+  
+    # hard floors (safety checks)
+    if "avg_20d_trdval" in df.columns:
+        pass_A20 = df["avg_20d_trdval"].fillna(0) >= hard_min_A20
+    else:
+        pass_A20 = pd.Series([False] * len(df), index=df.index)
+
+    if "avg_20d_vol" in df.columns:
+        pass_vol = df["avg_20d_vol"].fillna(0) >= hard_min_vol20
+    else:
+        pass_vol = pd.Series([False] * len(df), index=df.index)
+
+    if "trades" in df.columns:
+        pass_trades = df["trades"].fillna(0) >= hard_min_trades
+    else:
+        pass_trades = pd.Series([False] * len(df), index=df.index)
+
+    if "close" in df.columns:
+        pass_price = df["close"].fillna(0) >= hard_min_price
+    else:
+        pass_price = pd.Series([False] * len(df), index=df.index)
+
+    # combine all hard-floor checks
+    df["pass_hard"] = pass_A20 & pass_vol & pass_trades & pass_price
+
+   
+
+    # final pass flag
+    df["liquidity_pass"] = df["pass_pct"] & df["pass_hard"]
+
+    # ensure fno_flag exists
+    if "fno_flag" not in df.columns:
+        df["fno_flag"] = False
+
+    # small structured summary for auditing (lightweight)
+    def _liquidity_summary(r):
+        return {
+            "net_trdval": float(r.get("net_trdval") if pd.notna(r.get("net_trdval")) else 0.0),
+            "avg_20d_trdval": float(r.get("avg_20d_trdval") if pd.notna(r.get("avg_20d_trdval")) else 0.0),
+            "turnover_rank_pct_today": float(r.get("turnover_rank_pct_today") if pd.notna(r.get("turnover_rank_pct_today")) else 0.0),
+            "liquidity_momentum": float(r.get("liquidity_momentum") if pd.notna(r.get("liquidity_momentum")) else 1.0),
+            "liquidity_pass": bool(r.get("liquidity_pass"))
+        }
+
+    df["liquidity_info"] = df.apply(_liquidity_summary, axis=1)
+
+    # mode action
+    if mode == "enforce":
+        before = len(df)
+        df_filtered = df[df["liquidity_pass"] == True].copy()
+        after = len(df_filtered)
+        _logger.info("apply_liquidity_filters: enforce mode filtered %d -> %d", before, after)
+        return df_filtered.reset_index(drop=True)
+
+    # tag_only: just log and return annotated frame
+    _logger.info("apply_liquidity_filters: tag_only total=%d passed=%d pass_pct=%.2f%%",
+                 len(df), int(df["liquidity_pass"].sum()), float(0 if len(df)==0 else df["liquidity_pass"].mean()*100))
+    return df.reset_index(drop=True)
+
+
+def compute_combined_score(df, weights=None, fno_boost=False):
+    """
+    Compute a normalized combined score from momentum, turnover and volume.
+    Safe to run when liquidity columns are missing — uses sensible fallbacks.
+
+    Inputs:
+      - df: DataFrame with (optionally) columns:
+            'signal_score' (momentum/strategy score), 'avg_20d_trdval', 'net_trdval',
+            'avg_20d_vol', 'fno_flag' (optional boolean/int)
+      - weights: dict like {"mom": 0.6, "turnover": 0.3, "vol": 0.1}
+      - fno_boost: False or numeric boost factor (>1.0). If numeric and fno_flag True, multiplies score.
+
+    Returns:
+      - DataFrame copy with 'combined_score' (float 0..inf, normalized on available data)
+        and 'liquidity_info' (dict) columns added.
+    """
+    import numpy as np
+    import pandas as pd
+
+    if weights is None:
+        weights = {"mom": 0.6, "turnover": 0.3, "vol": 0.1}
+
+    # defensive copy
+    df = df.copy()
+    if df.empty:
+        return df
+
+    # helper to safely get a numeric Series (or NaN Series if missing)
+    def _safe_series(name):
+        if name in df.columns:
+            return pd.to_numeric(df[name], errors="coerce")
+        else:
+            return pd.Series([np.nan] * len(df), index=df.index)
+
+    # momentum: use absolute signal_score (so both LONG/SHORT comparable)
+    mom_s = _safe_series("signal_score").abs().fillna(0.0)
+
+    # turnover base: prefer avg_20d_trdval, fallback to net_trdval (today)
+    a20_s = _safe_series("avg_20d_trdval")
+    net_today_s = _safe_series("net_trdval")
+    turn_base = a20_s.fillna(net_today_s.fillna(0.0)).fillna(0.0)
+
+    # volume baseline
+    vol_s = _safe_series("avg_20d_vol").fillna(0.0)
+
+    # normalization helper (avoid div0)
+    def _norm(series):
+        mx = series.max(skipna=True)
+        if pd.isna(mx) or float(mx) == 0.0:
+            return series * 0.0
+        return series / float(mx)
+
+    mom_norm = _norm(mom_s)
+    turn_norm = _norm(turn_base)
+    vol_norm = _norm(vol_s)
+
+    alpha = float(weights.get("mom", 0.6))
+    beta = float(weights.get("turnover", 0.3))
+    gamma = float(weights.get("vol", 0.1))
+
+    df["combined_score"] = alpha * mom_norm + beta * turn_norm + gamma * vol_norm
+
+    # apply FnO boost if requested and fno_flag present
+    if fno_boost:
+        # if fno_boost is a boolean True, treat as 1.0 (no-op). If numeric >1.0, apply that factor.
+        try:
+            boost_factor = float(fno_boost) if not isinstance(fno_boost, bool) else None
+        except Exception:
+            boost_factor = None
+
+        if boost_factor and "fno_flag" in df.columns:
+            # fno_flag may be bool/int/str — coerce safely
+            fno_flag = _safe_series("fno_flag").fillna(0).astype(int).clip(0, 1)
+            df["combined_score"] = df["combined_score"] * (1.0 + fno_flag * (boost_factor - 1.0))
+
+    # create a compact liquidity_info dict for audit/tracing (safe casts)
+    def _build_liq_info(row):
+        def _as_float(v):
+            try:
+                if v is None or (isinstance(v, float) and np.isnan(v)):
+                    return None
+                return float(v)
+            except Exception:
+                return None
+
+        return {
+            "avg_20d_trdval": _as_float(row.get("avg_20d_trdval")),
+            "net_trdval": _as_float(row.get("net_trdval")),
+            "avg_20d_vol": _as_float(row.get("avg_20d_vol")),
+            "turnover_vs_20d": _as_float(row.get("turnover_vs_20d")),
+            "liquidity_pass": bool(row.get("liquidity_pass")) if "liquidity_pass" in row else None,
+            "fno_flag": True if row.get("fno_flag") in (1, True, "1", "true", "True") else False
+        }
+
+    df["liquidity_info"] = df.apply(_build_liq_info, axis=1)
+
+    return df
+
+
+
+def suggest_dynamic_percentile(df, target_count, min_pct=0.05, max_pct=0.50):
+    """
+    Given df (universe) and desired N target, return percentile p (0..1)
+    such that approx p * universe_size ~= target_count. Clamped between min_pct and max_pct.
+    """
+    if df is None or df.empty:
+        return 0.30
+    universe_size = len(df)
+    if universe_size <= 0:
+        return 0.30
+    p = float(target_count) / float(universe_size)
+    p = max(min_pct, min(max_pct, p))
+    return float(round(p, 2))
+
+
+def build_liquidity_json(row):
+    """
+    Build serializable liquidity info JSON/dict for storing in params.
+    """
+    return {
+        "net_trdval": float(row.get("net_trdval") if pd.notna(row.get("net_trdval")) else 0.0),
+        "avg_20d_trdval": float(row.get("avg_20d_trdval") if pd.notna(row.get("avg_20d_trdval")) else 0.0),
+        "turnover_rank_pct_today": float(row.get("turnover_rank_pct_today") if pd.notna(row.get("turnover_rank_pct_today")) else 0.0),
+        "liquidity_momentum": float(row.get("liquidity_momentum") if pd.notna(row.get("liquidity_momentum")) else 1.0),
+        "combined_score": float(row.get("combined_score") if pd.notna(row.get("combined_score")) else 0.0),
+        "liquidity_pass": bool(row.get("liquidity_pass"))
+    }

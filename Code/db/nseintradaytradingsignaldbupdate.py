@@ -16,9 +16,13 @@ project_root = current_file.parents[2]  # go up from Code/db to project root (ns
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from Code.utils.nseintradaytrading_utils import enrich_signals_with_stops_targets,compute_liquidity_metrics,apply_liquidity_filters
+from Code.utils.nseintradaytrading_utils import( enrich_signals_with_stops_targets,compute_liquidity_ranks,
+    compute_liquidity_metrics,apply_liquidity_filters,
+    compute_combined_score,suggest_dynamic_percentile,
+    build_liquidity_json)
 from Code.utils.nseintradaytradingdb_utils import find_offending_cells, sanitize_df_for_sql, safe_to_sql, merge_temp_to_target
 from Code.utils.nseintraday_estimate_expected_hold_days import estimate_expected_hold_days
+
 
 
 
@@ -34,36 +38,40 @@ DEFAULT_CONFIG = {
         "db": "intradaytrading",
         "port": 3306
     },
+
     "behavior": {
-        "preview_only": False,  # If True: compute features/signals but skip DB upserts (no CSVs are written)
-        "dry_run": False         # If True: DB writes are executed inside transactions that are rolled back
+        "preview_only": False, # True to skip signal generation & DB writes,False to run end-to-end
+        "dry_run": True, # True to skip DB writes,False to persist changes to DB
+
+        # -------------------------------
+        # Dynamic Liquidity Rules LIVE HERE
+        # -------------------------------
+        "liquidity_rules": {
+            "hard_min_net_trdval": 2_000_000,   # ₹20 lakhs
+            "hard_min_net_trdqty": 20_000,
+            "hard_min_trades": 100,
+            "min_price": 20,
+
+            # Dynamic percentile filter
+            "dynamic_percentile_keep": 0.30,
+
+            # Ranking weights
+            "ranking_weights": {"mom": 0.6, "turnover": 0.3, "vol": 0.1},
+
+            # Optional FnO boost
+            "fno_boost": 1.10,
+
+            # tag_only → keep all, enforce → drop liquidity-failed symbols
+            "mode": "tag_only"
+        }
     },
+
     "output": {
-        # Kept for future debugging — not written by default
         "features_csv": "features_preview.csv",
         "signals_csv": "signals_preview.csv"
-    },
-    "liquidity_rules": {
-        # Hard constraints (based on your data reality)
-        "hard_min_net_trdval": 2_000_000,   # ₹20 lakhs
-        "hard_min_net_trdqty": 20_000,
-        "hard_min_trades": 100,
-        "min_price": 20,
-
-        # Dynamic filter
-        "dynamic_percentile_keep": 0.30,    # keep top 30% by turnover
-    
-         # Ranking weights
-        "ranking_weights": {"mom": 0.6, "turnover": 0.3, "vol": 0.1},
-
-        # Optional boost for FnO (leave as False for now)
-        "fno_boost": 1.10,
-
-        # Keep this during tuning
-        "mode": "tag_only" #  enforce mode → drop failures / tag_only mode → keep all
+    }
 }
-    
-}
+
 
 # -------------------------
 # Strategy Params (tunable)
@@ -289,15 +297,33 @@ def sanitize_json_column(df, col_name):
 # DB helpers (no filtering here — ingestion handles ETF/SME)
 # -------------------------
 def fetch_bhavcopy_range(engine_obj, start_date, end_date):
+    #This ensures features (momentum/ATR) are only calculated for mainboard stocks so strategy_features will contain the same universe as liquidity tables.
     sql = text("""
-        SELECT symbol, trade_date, prev_close, open, high, low, close, net_trdqty, net_trdval
+        SELECT symbol, trade_date, prev_close, open, high, low, close, net_trdqty, net_trdval, mkt_flag, ind_sec
         FROM intraday_bhavcopy
         WHERE trade_date BETWEEN :start_date AND :end_date
         ORDER BY symbol, trade_date
     """)
     df = pd.read_sql(sql, engine_obj, params={"start_date": start_date, "end_date": end_date})
-    if not df.empty:
-        df["trade_date"] = pd.to_datetime(df["trade_date"])
+    if df.empty:
+        return df
+
+    # ensure date dtype
+    df["trade_date"] = pd.to_datetime(df["trade_date"])
+
+    # ----------------------------
+    # FILTER: keep only main NSE listings
+    # mkt_flag == 0 and ind_sec == 'N' (defensive, allow numeric or string)
+    # ----------------------------
+    try:
+        df["_mkt_flag_str"] = df["mkt_flag"].astype(str).str.strip()
+        df["_ind_sec_str"] = df["ind_sec"].astype(str).str.strip()
+        df = df[(df["_mkt_flag_str"] == "0") & (df["_ind_sec_str"].str.upper() == "N")].copy()
+        df.drop(columns=["_mkt_flag_str", "_ind_sec_str"], inplace=True)
+    except Exception:
+        # if those columns don't exist or cast fails, keep original df (fail-open)
+        pass
+
     return df
 
 
@@ -648,7 +674,7 @@ def generate_momentum_signals_for_date(engine_obj, target_date, lookback=MOMENTU
 
 
 def generate_gap_follow_signals_for_date(engine_obj, target_date, gap_threshold_percent=GAP_MINIMUM_PERCENT):
-    sql = text("SELECT symbol, prev_close, open FROM intraday_bhavcopy WHERE trade_date = :d")
+    sql = text("SELECT symbol, prev_close, open FROM intraday_bhavcopy WHERE trade_date = :d AND mkt_flag = 0 AND ind_sec = 'N'")
     df_open = pd.read_sql(sql, engine_obj, params={"d": target_date})
     if df_open.empty:
         logger.info("No bhavcopy rows for %s to detect gaps.", target_date)
@@ -685,18 +711,19 @@ def generate_volatility_breakout_signals_for_date(engine_obj, target_date,
                                                   atr_stop_multiplier=ATR_STOP_MULTIPLIER,
                                                   atr_target_multiplier=ATR_TARGET_MULTIPLIER,
                                                   expected_hold_days=VOL_BREAK_EXPECTED_HOLD_DAYS):
-    sql_close = text("SELECT symbol, close FROM intraday_bhavcopy WHERE trade_date = :d")
+    sql_close = text("SELECT symbol, close FROM intraday_bhavcopy WHERE trade_date = :d AND mkt_flag = 0 AND ind_sec = 'N'")
     df_close = pd.read_sql(sql_close, engine_obj, params={"d": target_date})
     if df_close.empty:
         logger.info("No close prices for %s", target_date)
         return pd.DataFrame()
 
     sql_prior_high = text(f"""
-       SELECT symbol, MAX(high) AS prior_high
-       FROM intraday_bhavcopy
-       WHERE trade_date BETWEEN DATE_SUB(:d, INTERVAL :lookback DAY) AND DATE_SUB(:d, INTERVAL 1 DAY)
-       GROUP BY symbol
-    """)
+    SELECT symbol, MAX(high) AS prior_high
+    FROM intraday_bhavcopy
+    WHERE trade_date BETWEEN DATE_SUB(:d, INTERVAL :lookback DAY) AND DATE_SUB(:d, INTERVAL 1 DAY)
+         AND mkt_flag = 0 AND ind_sec = 'N'
+    GROUP BY symbol
+        """)
     df_high = pd.read_sql(sql_prior_high, engine_obj, params={"d": target_date, "lookback": lookback_high_days})
 
     atr_feature_name = f"atr_{atr_lookback_days}"
@@ -878,54 +905,96 @@ def run_signal_generation_for_date(target_date_iso: str, engine_obj=None, behavi
     # ----------------------------------------
     # Apply Liquidity Filtering + Scoring
     # ----------------------------------------
-    # prefer liquidity rules from behavior_cfg if provided, else fall back to DEFAULT_CONFIG
-    liquidity_rules = DEFAULT_CONFIG.get("liquidity_rules", {})
-    if isinstance(behavior_cfg, dict) and "liquidity_rules" in behavior_cfg:
-        liquidity_rules = behavior_cfg.get("liquidity_rules", liquidity_rules)
+       # -------------------------
+    # Liquidity enrichment & filtering (dynamic engine)
+    # -------------------------
+    try:
+        # 1) collect symbols from signals
+        symbols_list = df_all_signals["symbol"].dropna().unique().tolist() if not df_all_signals.empty else []
 
-    if df_all_signals is None or df_all_signals.empty:
-        logger.info("No signals generated for %s after enrichment; skipping liquidity filters and upsert.", target_date_iso)
-    else:
-        # ensure 'symbol' exists
-        if "symbol" not in df_all_signals.columns:
-            logger.warning("No 'symbol' column present in signals; skipping liquidity filtering.")
-        else:
-            unique_symbols = df_all_signals["symbol"].unique().tolist()
+        # 2) compute liquidity metrics (20d rolling + today)
+        liq_df = compute_liquidity_metrics(engine_obj, symbols_list, target_date_iso)
+        # Quick inspect: sample liquidity DF (if available)
+        try:
+            logger.info("DEBUG: liq_df shape=%s", None if 'liq_df' not in locals() else getattr(liq_df, 'shape', None))
+            if 'liq_df' in locals() and liq_df is not None:
+                logger.info("DEBUG: liq_df sample: %s", liq_df.head(5).to_dict(orient="records"))
+        except Exception:
+            logger.exception("DEBUG: failed to log liq_df")
+        # Quick inspect merged signals
+        try:
+            logger.info("DEBUG: merged signals sample (liquidity cols): %s", df_all_signals[[
+        c for c in ["symbol","avg_20d_trdval","net_trdval","avg_20d_vol","trades","close","liquidity_pass","combined_score"] if c in df_all_signals.columns
+          ]].head(20).to_dict(orient="records"))
+        except Exception:
+            logger.exception("DEBUG: failed to log merged sample")
 
-            # Step 1: compute raw liquidity metrics
-            liquidity_df = compute_liquidity_metrics(
-                engine_obj,
-                unique_symbols,
-                target_date_iso,
-                lookback_days=20
-            )
+        # 3) compute percentile ranks
+        liq_df = compute_liquidity_ranks(liq_df)
 
-            # Step 2: apply scoring + hard rules
-            df_all_signals = apply_liquidity_filters(
-                df_all_signals,
-                liquidity_df,
-                liquidity_rules,
-                mode=liquidity_rules.get("mode", "tag_only")
-            )
+        # 4) merge liquidity into signals (left join - keep all signals)
+        # avoid column name collisions by using suffixes
+        df_all_signals = df_all_signals.merge(liq_df, on="symbol", how="left", suffixes=("", "_liq"))
 
-            # Step 3: push liquidity info into params JSON (store as JSON-text)
-            def _ensure_params_obj(p):
-                if isinstance(p, dict):
-                    return p
-                if isinstance(p, str):
-                    try:
-                        return json.loads(p)
-                    except Exception:
-                        return {}
-                return {}
+        # 5) prepare rules from behavior_cfg (fall back to defaults if missing)
+        rules = behavior_cfg.get("liquidity_rules", {}) if isinstance(behavior_cfg, dict) else {}
+        # optional: if user provided target_count but not dynamic_percentile_keep, auto-suggest
+        if "target_count" in rules and not rules.get("dynamic_percentile_keep"):
+            suggested_pct = suggest_dynamic_percentile(liq_df, rules["target_count"])
+            rules["dynamic_percentile_keep"] = suggested_pct
+            logger.info("Liquidity: suggested dynamic_percentile_keep=%s (target_count=%s)", suggested_pct, rules["target_count"])
 
-            if "params" in df_all_signals.columns:
-                df_all_signals["params"] = df_all_signals.apply(
-                    lambda row: json.dumps({**_ensure_params_obj(row.get("params")), "liquidity": row.get("liquidity_info")}),
-                    axis=1
-                )
+        # 6) apply filters
+        mode = rules.get("mode", "tag_only")
+        df_all_signals = apply_liquidity_filters(df_all_signals, rules, mode=mode)
+
+        # 7) compute combined score (and optional FnO boost)
+        ranking_weights = rules.get("ranking_weights", {"mom": 0.6, "turnover": 0.3, "vol": 0.1})
+        df_all_signals = compute_combined_score(df_all_signals, ranking_weights, fno_boost=rules.get("fno_boost", False))
+
+        # 8) ensure liquidity_info is serializable for DB: build JSON string for params merge
+        # If your df has a 'params' column that is dict or JSON-string, we merge liquidity_info into it.
+        def _merge_liquidity_into_params(row):
+            existing = row.get("params", None)
+            # normalize existing to dict
+            if existing is None or (isinstance(existing, str) and existing.strip() == ""):
+                params_dict = {}
+            elif isinstance(existing, str):
+                try:
+                    params_dict = json.loads(existing)
+                except Exception:
+                    params_dict = {}
+            elif isinstance(existing, dict):
+                params_dict = existing.copy()
             else:
-                df_all_signals["params"] = df_all_signals["liquidity_info"].apply(lambda x: json.dumps({"liquidity": x}))
+                params_dict = {}
+
+            # take liquidity_info (dict) if present; else build minimal using build_liquidity_json
+            liq = row.get("liquidity_info")
+            if not liq or not isinstance(liq, dict):
+                try:
+                    liq = build_liquidity_json(row)
+                except Exception:
+                    liq = {}
+
+            params_dict["liquidity"] = liq
+            return json.dumps(params_dict)
+
+        # replace or create 'params_json' column for DB upsert. If your DB expects 'params' as JSON string,
+        # set df_all_signals['params'] = df_all_signals.apply(_merge_liquidity_into_params, axis=1)
+        # Otherwise keep df_all_signals['liquidity_info'] as a dict column for debugging.
+        df_all_signals["params"] = df_all_signals.apply(_merge_liquidity_into_params, axis=1)
+
+        logger.info("Liquidity enrichment complete: signals=%d mode=%s passed=%d",
+                    len(df_all_signals),
+                    mode,
+                    int(df_all_signals.get("liquidity_pass", pd.Series([False]*len(df_all_signals))).sum())
+                    )
+
+    except Exception as e:
+        logger.exception("Liquidity integration failed; continuing without liquidity enrichment: %s", e)
+        # if something fails, we continue with df_all_signals unchanged (so pipeline keeps running)
+
 
     logger.info("Total signals generated for %s: %d", target_date_iso, 0 if df_all_signals is None else len(df_all_signals))
 
