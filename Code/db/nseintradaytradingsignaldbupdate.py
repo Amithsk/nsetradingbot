@@ -918,7 +918,7 @@ def run_signal_generation_for_date(target_date_iso: str, engine_obj=None, behavi
         try:
             logger.info("DEBUG: liq_df shape=%s", None if 'liq_df' not in locals() else getattr(liq_df, 'shape', None))
             if 'liq_df' in locals() and liq_df is not None:
-                logger.info("DEBUG: liq_df sample: %s", liq_df.head(10).to_dict(orient="records"))
+                logger.info("DEBUG: liq_df sample: %s", liq_df.head(5).to_dict(orient="records"))
         except Exception:
             logger.exception("DEBUG: failed to log liq_df")
         # Quick inspect merged signals
