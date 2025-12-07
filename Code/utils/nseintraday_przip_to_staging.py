@@ -1,0 +1,416 @@
+#!/usr/bin/env python3
+"""
+ingest_pr_zip_to_staging.py
+
+Extract PR zip (PR*.zip), parse relevant CSVs (pr, mcap, pd, etc.), create canonical staging rows,
+and insert into instruments_master_staging with validation_status='PENDING'.
+
+
+What it does:
+ - opens the zipfile
+ - iterates CSV files inside; attempts to parse common columns automatically
+ - canonicalizes to staging columns:
+     staging_id (DB will assign if autoincrement),
+     symbol_raw, series_raw, market_type_raw, mcap_raw, source_file, other_raw (json of original row),
+     validation_status='PENDING', validation_errors=NULL, parsed_* = NULL
+ - checks if symbol exists in intraday_bhavcopy and includes a boolean column 'present_in_bhav'
+ - inserts rows (if not duplicate by symbol+source_file) into instruments_master_staging
+ - writes preview CSV to disk
+"""
+
+import argparse
+import os
+import json
+import logging
+import zipfile
+import glob
+from pathlib import Path
+from datetime import datetime
+import pandas as pd
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
+from nseintraday_db_utils import connect_db
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("ingest_pr_zip_to_staging")
+
+# heuristics: candidate columns in various PR files
+CANDIDATE_COLS = {
+    "symbol": ["SYMBOL", "symbol", "Security", "security", "security_name", "SC_CODE", "symbol_name"],
+    "series": ["SERIES", "series"],
+    "market_type": ["MKT", "market_type", "mkt_flag", "Mkt"],
+    "mcap": ["MCAP", "mcap", "mktcap", "mcap_bucket", "mktcap_bucket"],
+    # optionally other columns you want to carry
+}
+
+
+
+def get_project_root():
+    """
+    Return project root directory reliably by searching upward until
+    we find a folder containing both 'Code' AND 'Output'. This works
+    regardless of current working directory or where the script is run from.
+    """
+    p = Path(__file__).resolve()
+    for parent in p.parents:
+        if (parent / "Code").is_dir() and (parent / "Output").is_dir():
+            return str(parent)
+    # Fallback: if structure different, attempt to return parent of 'Code' if present
+    for parent in p.parents:
+        if (parent / "Code").is_dir():
+            return str(parent)
+    # Worst-case fallback: two levels up (original behaviour)
+    return str(p.parents[2])
+
+
+# ---------------------------------------------------------
+# Auto-discovery helpers for PR zip
+# ---------------------------------------------------------
+def find_latest_pr_zip(project_root):
+    """
+    Search multiple plausible locations for PR*.zip and return newest match
+    or None if none found.
+    """
+    candidates = []
+    search_paths = [
+        os.path.join(project_root, "Output", "Intraday"),  # primary
+        os.path.join(project_root, "Output"),              # fallback
+        # another fallback attempt if running from Code/ subdir
+        str(Path(project_root).parent / "Output" / "Intraday")
+    ]
+    for d in search_paths:
+        if os.path.isdir(d):
+            pattern = os.path.join(d, "PR*.zip")
+            found = glob.glob(pattern)
+            if found:
+                candidates.extend(found)
+
+    if not candidates:
+        logger.debug("No PR zip candidates found in search paths: %s", search_paths)
+        return None
+
+    candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    return candidates[0]
+
+
+def resolve_zip_path(project_root, pr_date=None, explicit_zip=None):
+    """
+    Determine which PR zip to use:
+      1) If explicit_zip provided and exists -> use it
+      2) If pr_date provided -> construct PR{DDMMYY}.zip (accept both DDMMYY and DDMMYYYY)
+      3) Else auto-detect latest PR zip in Output/Intraday (via find_latest_pr_zip)
+    """
+    # 1) explicit provided
+    if explicit_zip:
+        if os.path.isfile(explicit_zip):
+            return explicit_zip
+        # If explicit provided but not absolute, try join with project root
+        alt = os.path.join(project_root, explicit_zip)
+        if os.path.isfile(alt):
+            return alt
+        raise FileNotFoundError(f"Explicit zip not found: {explicit_zip}")
+
+    # 2) by pr_date (DDMMYY or DDMMYYYY)
+    if pr_date:
+        pr_date = pr_date.strip()
+        if len(pr_date) == 6:  # DDMMYY
+            fname = f"PR{pr_date}.zip"
+        elif len(pr_date) == 8:  # DDMMYYYY => convert to DDMMYY by taking last two digits of year
+            fname = f"PR{pr_date[0:2]}{pr_date[2:4]}{pr_date[6:8]}.zip"
+        else:
+            raise ValueError("pr-date must be DDMMYY or DDMMYYYY")
+        candidate = os.path.join(project_root, "Output", "Intraday", fname)
+        if os.path.isfile(candidate):
+            return candidate
+        # try fallback locations
+        alt1 = os.path.join(project_root, "Output", fname)
+        if os.path.isfile(alt1):
+            return alt1
+        raise FileNotFoundError(f"PR zip for date {pr_date} not found as {candidate} or {alt1}")
+
+    # 3) autodetect newest
+    latest = find_latest_pr_zip(project_root)
+    if latest:
+        return latest
+
+    raise FileNotFoundError("No PR*.zip found under Output/Intraday (searched multiple locations)")
+
+def _resolve_paths_and_engine(args):
+    """
+    Helper used by main() to compute project_root, zip_path and DB engine.
+    Returns (project_root, zip_path, engine, dry, preview)
+    """
+    # Determine project root robustly
+    project_root = get_project_root()
+    logger.info("Detected project_root: %s", project_root)
+
+    # Resolve zip path (may raise FileNotFoundError)
+    zip_path = resolve_zip_path(project_root, pr_date=args.pr_date, explicit_zip=args.zip)
+    logger.info("Using PR zip: %s", zip_path)
+
+    # DB connection (uses your connect_db automatically)
+    try:
+        engine = connect_db()
+    except Exception as e:
+        logger.error("DB connection failed: %s", e)
+        raise
+
+    # Behavior flags
+    # Note: we treat preview-only as forcing dry-run
+    dry = bool(args.dry_run or args.preview_only)
+    preview = bool(args.preview_only)
+    logger.info("Dry run: %s | Preview only: %s", dry, preview)
+
+    return project_root, zip_path, engine, dry, preview
+
+def find_best_col(cols_lower, candidates):
+    """Return original column name for first match in candidates list (case-insensitive)."""
+    for cand in candidates:
+        c = cand.lower()
+        if c in cols_lower:
+            return cols_lower[c]
+    return None
+
+def df_to_staging_rows(df, source_file):
+    """
+    Return list of dict rows for insertion into staging.
+    For each df row produce:
+      symbol_raw, series_raw, market_type_raw, mcap_raw, source_file, other_raw (json)
+    """
+    rows = []
+    if df.empty:
+        return rows
+    # build map of lower->orig for lookup
+    cols_lower = {col.lower(): col for col in df.columns}
+    sym_col = find_best_col(cols_lower, CANDIDATE_COLS["symbol"])
+    series_col = find_best_col(cols_lower, CANDIDATE_COLS["series"])
+    mkt_col = find_best_col(cols_lower, CANDIDATE_COLS["market_type"])
+    mcap_col = find_best_col(cols_lower, CANDIDATE_COLS["mcap"])
+
+    for _, r in df.iterrows():
+        symbol_raw = None
+        try:
+            if sym_col:
+                symbol_raw = _norm_val(r.get(sym_col))
+            else:
+                # fallback: try common columns or first col
+                first = df.columns[0]
+                symbol_raw = _norm_val(r.get(first))
+        except Exception:
+            symbol_raw = None
+
+        series_raw = _norm_val(r.get(series_col)) if series_col else None
+        market_type_raw = _norm_val(r.get(mkt_col)) if mkt_col else None
+        mcap_raw = _norm_val(r.get(mcap_col)) if mcap_col else None
+
+        # other_raw as JSON: only keep small set of columns to avoid huge blobs
+        other = {}
+        for c in df.columns:
+            if c not in (sym_col, series_col, mkt_col, mcap_col):
+                try:
+                    val = r.get(c)
+                    # convert numpy types to python native
+                    if pd.isna(val):
+                        continue
+                    other[c] = val
+                except Exception:
+                    continue
+
+        rows.append({
+            "symbol_raw": symbol_raw,
+            "series_raw": series_raw,
+            "market_type_raw": market_type_raw,
+            "mcap_raw": mcap_raw,
+            "source_file": source_file,
+            "other_raw": json.dumps(other, default=str) if other else None,
+            "validation_status": "PENDING",
+            "validation_errors": None,
+            "parsed_symbol": None,
+            "parsed_series": None,
+            "parsed_market_type": None,
+            "parsed_mcap_bucket": None,
+            "include_in_bhav": None,
+            "fno_flag": False,
+            "created_at": datetime.utcnow()
+        })
+    return rows
+
+def _norm_val(v):
+    if v is None:
+        return None
+    if isinstance(v, str):
+        s = v.strip()
+        return s if s != "" else None
+    # numeric -> string
+    try:
+        if pd.isna(v):
+            return None
+    except Exception:
+        pass
+    return str(v).strip()
+
+def read_csv_from_bytes(b, filename):
+    """Read CSV bytes into pandas DataFrame robustly (try a few encodings & separators)."""
+    from io import BytesIO, StringIO
+    # try common encodings/separators
+    attempts = [
+        {"encoding": "utf-8", "sep": None},
+        {"encoding": "utf-8", "sep": ","},
+        {"encoding": "latin-1", "sep": ","},
+        {"encoding": "utf-8", "sep": ";"},
+    ]
+    for a in attempts:
+        try:
+            # pandas will sniff separator if sep=None
+            df = pd.read_csv(BytesIO(b), encoding=a["encoding"], sep=a["sep"], engine="python", dtype=str)
+            # normalize columns (strip)
+            df.columns = [c.strip() if isinstance(c, str) else c for c in df.columns]
+            return df
+        except Exception:
+            continue
+    # last resort: try read_table with whitespace
+    try:
+        df = pd.read_csv(BytesIO(b), encoding="latin-1", sep=None, engine="python", dtype=str)
+        df.columns = [c.strip() if isinstance(c, str) else c for c in df.columns]
+        return df
+    except Exception as e:
+        raise
+
+def symbol_present_in_bhav(engine, symbol):
+    try:
+        sql = text("SELECT 1 FROM intraday_bhavcopy WHERE symbol = :s LIMIT 1")
+        df = pd.read_sql(sql, engine, params={"s": symbol})
+        return not df.empty
+    except Exception:
+        # on DB issues be conservative and return False
+        return False
+
+def insert_staging_rows(engine, rows, dedupe_on=("symbol_raw", "source_file")):
+    """
+    Insert rows into instruments_master_staging.
+    Avoid duplicate symbol+source_file inserts by checking existing rows first.
+    """
+    if not rows:
+        return 0
+    conn = engine.connect()
+    inserted = 0
+    try:
+        # fetch existing symbol+source_file combos
+        existing_q = text("SELECT symbol_raw, source_file FROM instruments_master_staging")
+        existing_df = pd.read_sql(existing_q, conn)
+        existing_set = set((r["symbol_raw"], r["source_file"]) for _, r in existing_df.iterrows())
+        # prepare list to insert
+        to_insert = []
+        for r in rows:
+            key = (r["symbol_raw"], r["source_file"])
+            if key in existing_set:
+                logger.debug("Skipping duplicate staging row: %s / %s", key[0], key[1])
+                continue
+            to_insert.append(r)
+            existing_set.add(key)
+        if not to_insert:
+            return 0
+        # convert to DataFrame and insert via to_sql (use if_exists='append')
+        df_ins = pd.DataFrame(to_insert)
+        # ensure date/time types are compatible
+        df_ins["created_at"] = pd.to_datetime(df_ins["created_at"])
+        df_ins.to_sql("instruments_master_staging", conn, index=False, if_exists="append", method="multi", chunksize=500)
+        inserted = len(df_ins)
+        logger.info("Inserted %d new staging rows", inserted)
+    finally:
+        conn.close()
+    return inserted
+
+def find_csv_files_in_zip(zf):
+    csv_names = [n for n in zf.namelist() if n.lower().endswith(".csv")]
+    return csv_names
+
+def process_zip_to_staging(zip_path, engine, dry_run=True, export_preview_dir="."):
+    if not os.path.exists(zip_path):
+        raise FileNotFoundError(zip_path)
+    zf = zipfile.ZipFile(zip_path, "r")
+    csv_files = find_csv_files_in_zip(zf)
+    if not csv_files:
+        logger.error("No CSV files found inside zip: %s", zip_path)
+        return 0
+    all_rows = []
+    for f in csv_files:
+        try:
+            b = zf.read(f)
+            df = read_csv_from_bytes(b, f)
+        except Exception as e:
+            logger.exception("Failed to read CSV %s inside zip: %s", f, e)
+            continue
+        # produce staging rows from df
+        rows = df_to_staging_rows(df, source_file=os.path.basename(f))
+        logger.info("Parsed %d rows from %s", len(rows), f)
+        all_rows.extend(rows)
+
+    if not all_rows:
+        logger.info("No rows parsed from any CSV inside zip.")
+        return 0
+
+    # dedupe by symbol_raw (keep first)
+    seen = set()
+    deduped = []
+    for r in all_rows:
+        key = (r["symbol_raw"], r["source_file"])
+        if not r["symbol_raw"]:
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(r)
+    logger.info("After dedupe: %d unique staging candidates", len(deduped))
+
+    # add quick bhav presence check
+    for r in deduped:
+        r["present_in_bhav"] = symbol_present_in_bhav(engine, r["symbol_raw"]) if r["symbol_raw"] else False
+
+    # write preview CSV
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    preview_path = os.path.join(export_preview_dir, f"staging_preview_{ts}.csv")
+    pd.DataFrame(deduped).to_csv(preview_path, index=False)
+    logger.info("Wrote staging preview CSV: %s", preview_path)
+
+    if dry_run:
+        logger.info("Dry-run: skipping DB insert (would insert %d rows)", len(deduped))
+        return len(deduped)
+
+    inserted = insert_staging_rows(engine, deduped)
+    return inserted
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--zip", required=False, help="Optional: explicit path to PR zip")
+    p.add_argument("--pr-date", required=False, help="Optional: DDMMYY or DDMMYYYY")
+    p.add_argument("--dry-run", action="store_true", default=True, help="Skip DB writes")
+    p.add_argument("--preview-only", action="store_true", default=False, help="Preview only (skip DB writes)")
+    p.add_argument("--export-dir", default=".", help="Where to write preview CSV")
+    args = p.parse_args()
+
+    # --------------------------------------------
+    # Detect project root (nsetradingbot/)
+    # --------------------------------------------
+
+    try:
+        project_root, zip_path, engine, dry, preview = _resolve_paths_and_engine(args)
+    except Exception as e:
+        logger.error("Initialization failed: %s", e)
+        return
+
+    # --------------------------------------------
+    # Call your existing ingestion logic
+    # --------------------------------------------
+    inserted = process_zip_to_staging(
+        zip_path=zip_path,
+        engine=engine,
+        dry_run=dry,
+        export_preview_dir=args.export_dir
+    )
+
+    logger.info("Done. rows_inserted_or_previewed=%s", inserted)
+
+if __name__ == "__main__":
+    from sqlalchemy import create_engine, text
+    main()
