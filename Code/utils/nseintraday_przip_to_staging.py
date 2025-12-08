@@ -303,41 +303,59 @@ def symbol_present_in_bhav(engine, symbol):
         # on DB issues be conservative and return False
         return False
 
-def insert_staging_rows(engine, rows, dedupe_on=("symbol_raw", "source_file")):
+def insert_staging_rows(engine, rows, dedupe_on=("symbol_raw", "source_file"), batch_size=1000):
     """
-    Insert rows into instruments_master_staging.
-    Avoid duplicate symbol+source_file inserts by checking existing rows first.
+    Robust insert into instruments_master_staging.
+    - Uses engine.begin() (explicit transaction) so commit/rollback behavior is deterministic.
+    - Detects columns present in target table and writes only those (avoids unknown-column MySQL errors).
+    - Inserts in batches for memory/safety.
+    Returns number inserted.
     """
     if not rows:
         return 0
-    conn = engine.connect()
-    inserted = 0
+
+    # Convert to DataFrame for easier processing
+    df_ins = pd.DataFrame(rows)
+    # Normalize datetimes
+    if "created_at" in df_ins.columns:
+        df_ins["created_at"] = pd.to_datetime(df_ins["created_at"], errors="coerce")
+
+    # log engine URL so we can verify which DB is used
     try:
-        # fetch existing symbol+source_file combos
-        existing_q = text("SELECT symbol_raw, source_file FROM instruments_master_staging")
-        existing_df = pd.read_sql(existing_q, conn)
-        existing_set = set((r["symbol_raw"], r["source_file"]) for _, r in existing_df.iterrows())
-        # prepare list to insert
-        to_insert = []
-        for r in rows:
-            key = (r["symbol_raw"], r["source_file"])
-            if key in existing_set:
-                logger.debug("Skipping duplicate staging row: %s / %s", key[0], key[1])
-                continue
-            to_insert.append(r)
-            existing_set.add(key)
-        if not to_insert:
-            return 0
-        # convert to DataFrame and insert via to_sql (use if_exists='append')
-        df_ins = pd.DataFrame(to_insert)
-        # ensure date/time types are compatible
-        df_ins["created_at"] = pd.to_datetime(df_ins["created_at"])
-        df_ins.to_sql("instruments_master_staging", conn, index=False, if_exists="append", method="multi", chunksize=500)
-        inserted = len(df_ins)
-        logger.info("Inserted %d new staging rows", inserted)
-    finally:
-        conn.close()
+        logger.info("Inserting into DB: %s", getattr(engine, "url", "engine (no url)"))
+    except Exception:
+        logger.info("Inserting into DB (engine info not available)")
+
+    # Connect and check what columns exist in target table
+    with engine.connect() as conn:
+        try:
+            tbl_cols = pd.read_sql(text("SELECT * FROM instruments_master_staging LIMIT 0"), conn).columns.tolist()
+        except Exception:
+            # if table doesn't exist or permission denied, raise explicit error
+            raise RuntimeError("Failed to read instruments_master_staging columns — ensure table exists and user has SELECT/INSERT privileges.")
+
+    # Ensure we only write columns that exist in the DB to prevent unknown-column errors
+    writable_cols = [c for c in df_ins.columns if c in tbl_cols]
+    if not writable_cols:
+        logger.warning("No writable columns overlap between staging payload and instruments_master_staging table; aborting insert.")
+        return 0
+
+    # keep order stable
+    df_to_write = df_ins[writable_cols].copy()
+
+    inserted = 0
+    # write in batches inside an explicit transaction
+    with engine.begin() as transaction_conn:
+        for start in range(0, len(df_to_write), batch_size):
+            chunk = df_to_write.iloc[start:start + batch_size]
+            # use pandas to_sql with the engine-bound connection (SQLAlchemy connection accepted)
+            # to_sql with a connection will use that connection and the transaction above.
+            chunk.to_sql("instruments_master_staging", transaction_conn, index=False, if_exists="append", method="multi", chunksize=500)
+            inserted += len(chunk)
+
+    logger.info("Inserted %d new staging rows (batches done)", inserted)
     return inserted
+
 
 def find_csv_files_in_zip(zf):
     csv_names = [n for n in zf.namelist() if n.lower().endswith(".csv")]
