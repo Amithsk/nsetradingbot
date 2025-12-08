@@ -1,8 +1,10 @@
 """
 nseintraday_db_utils.py
 
-Utility to detect intraday_bhavcopy column names (common variants).
-Robust: tries SQLAlchemy inspector, falls back to information_schema.
+1/Utility to detect intraday_bhavcopy column names (common variants).
+    Robust: tries SQLAlchemy inspector, falls back to information_schema.
+2/Connect to intradaytrading DB 
+
 """
 import sqlalchemy as sa
 import logging
@@ -66,3 +68,62 @@ def detect_intraday_columns(engine: sa.engine.Engine) -> Dict[str, str]:
     if missing:
         raise RuntimeError(f"Could not detect required intraday_bhavcopy columns: {missing}")
     return found
+
+
+# -------------------------
+# DB connection helper
+# -------------------------
+
+import sqlalchemy as sa
+import logging
+from typing import Dict
+import urllib.parse
+import os
+from sqlalchemy import create_engine, text
+
+# Setup logger for this module
+logger = logging.getLogger(__name__)
+
+DEFAULT_CONFIG = {
+    "db": {
+        "host": "localhost",
+        "user": "root",
+        "password": "",
+        "db": "intradaytrading",
+        "port": 3306
+    }
+}
+
+def connect_db(db_cfg: dict = None):
+    """
+    Create and return a SQLAlchemy engine.
+
+    Priority of credentials:
+      1. MYSQL_PASSWORD environment variable
+      2. db_cfg["password"]
+      3. DEFAULT password
+    """
+    
+    cfg = db_cfg if db_cfg else DEFAULT_CONFIG["db"]
+
+    # Password priority: environment > config
+    env_password = os.getenv("MYSQL_PASSWORD")
+    password = env_password if env_password else cfg.get("password", "")
+    encoded_pw = urllib.parse.quote_plus(password)
+
+    user = cfg.get("user", "root")
+    host = cfg.get("host", "localhost")
+    port = cfg.get("port", 3306)
+    dbname = cfg.get("db", "intradaytrading")
+
+    DATABASE_URL = f"mysql+pymysql://{user}:{encoded_pw}@{host}:{port}/{dbname}"
+
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        echo=False
+    )
+
+    logger.info(f"SQLAlchemy engine created for DB: {dbname}")
+    return engine
