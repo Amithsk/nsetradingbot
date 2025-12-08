@@ -353,8 +353,8 @@ def process_zip_to_staging(zip_path, engine, dry_run=True, export_preview_dir=".
       - attempts to resolve missing symbol_raw using PD lookup and SECURITY inside other_raw
       - annotates other_raw JSON with is_etf / etf_symbol / etf_match_source
       - dedupes (symbol_raw + source_file)
-      - does quick present_in_bhav check
       - writes preview CSV; inserts into DB if dry_run is False
+      - *** present_in_bhav check REMOVED completely ***
     Returns: number of rows inserted (or previewed when dry_run=True)
     """
     if not os.path.exists(zip_path):
@@ -368,11 +368,10 @@ def process_zip_to_staging(zip_path, engine, dry_run=True, export_preview_dir=".
         return 0
 
     # --- Build PD symbol lookup (security_lower -> symbol) and ETF sets ---
-    pd_symbol_map = {}   # key: security_lower -> value: SYMBOL (canonical)
+    pd_symbol_map = {}
     etf_symbols = set()
     etf_securities_lower = set()
 
-    # helper to normalize column name matching
     def _find_col(cols, candidates):
         for cand in candidates:
             for c in cols:
@@ -380,47 +379,43 @@ def process_zip_to_staging(zip_path, engine, dry_run=True, export_preview_dir=".
                     return c
         return None
 
-    # scan CSVs once to build lookups (non-blocking)
+    # scan CSVs once to build lookups
     for member in csv_members:
         lower_name = os.path.basename(member).lower()
         try:
             b = zf.read(member)
             df = read_csv_from_bytes(b, member)
         except Exception:
-            # ignore unreadable CSVs for lookup build
             continue
 
-        cols = [c for c in df.columns]
+        cols = list(df.columns)
 
-        # build PD map for symbol resolution
+        # PD mapping
         if lower_name.startswith("pd") or "pd" in lower_name:
-            # common PD headers: SYMBOL, SECURITY (but be tolerant)
-            sym_col = _find_col(cols, ["symbol", "sc_code", "sc_code_2", "SYMBOL"])
-            sec_col = _find_col(cols, ["security", "security_name", "SECURITY", "Security"])
+            sym_col = _find_col(cols, ["symbol", "sc_code", "SYMBOL"])
+            sec_col = _find_col(cols, ["security", "security_name", "SECURITY"])
             if sym_col and sec_col:
                 for _, r in df.iterrows():
                     try:
                         sec = r.get(sec_col)
                         sym = r.get(sym_col)
-                        if sec is None or (isinstance(sec, float) and pd.isna(sec)):
+                        if sec is None:
                             continue
                         key = str(sec).strip().lower()
                         if key == "":
                             continue
-                        if sym is not None and str(sym).strip() != "":
+                        if sym and str(sym).strip() != "":
                             pd_symbol_map[key] = str(sym).strip()
                         else:
-                            # store None if no SYMBOL, but having security may still be useful
                             if key not in pd_symbol_map:
                                 pd_symbol_map[key] = None
                     except Exception:
                         continue
 
-        # build ETF lookups if this appears to be an ETF file
+        # ETF mapping
         if "etf" in lower_name:
-            # try symbol column or SECURITY column
             sym_col = _find_col(cols, ["symbol", "sc_code", "SYMBOL"])
-            sec_col = _find_col(cols, ["security", "SECURITY", "Security", "security_name"])
+            sec_col = _find_col(cols, ["security", "SECURITY", "security_name"])
             for _, r in df.iterrows():
                 try:
                     if sym_col:
@@ -437,7 +432,7 @@ def process_zip_to_staging(zip_path, engine, dry_run=True, export_preview_dir=".
     logger.info("Built symbol_lookup from PD: mappings=%d", len(pd_symbol_map))
     logger.info("Built ETF lookup: etf_symbols=%d etf_securities=%d", len(etf_symbols), len(etf_securities_lower))
 
-    # --- Parse CSVs to staging rows using existing df_to_staging_rows helper ---
+    # --- Parse CSVs to staging rows ---
     all_rows = []
     for member in csv_members:
         try:
@@ -455,8 +450,7 @@ def process_zip_to_staging(zip_path, engine, dry_run=True, export_preview_dir=".
         logger.info("No rows parsed from any CSV inside zip.")
         return 0
 
-    # --- Dedupe by (symbol_raw, source_file) but we also want to keep rows that have no symbol yet (resolve later) ---
-    # Keep first occurrence per (symbol_raw, source_file). We'll attempt symbol resolution for missing symbol_raw below.
+    # --- Initial dedupe ---
     seen = set()
     deduped = []
     for r in all_rows:
@@ -467,7 +461,7 @@ def process_zip_to_staging(zip_path, engine, dry_run=True, export_preview_dir=".
         deduped.append(r)
     logger.info("After initial dedupe: %d unique staging candidates", len(deduped))
 
-    # --- Resolve missing symbol_raw using PD lookup or SECURITY in other_raw, and annotate ETF info ---
+    # --- Resolve missing symbols + ETF tagging ---
     def _extract_security_from_other(other_json_str):
         if not other_json_str:
             return None
@@ -475,11 +469,9 @@ def process_zip_to_staging(zip_path, engine, dry_run=True, export_preview_dir=".
             j = json.loads(other_json_str) if isinstance(other_json_str, str) else (other_json_str or {})
         except Exception:
             return None
-        # look for common keys
-        for k in ("SECURITY", "security", "Security", "security_name", "SECURITY_NAME"):
-            if k in j and j[k] not in (None, ""):
+        for k in ("SECURITY", "security", "Security", "SECURITY_NAME", "security_name"):
+            if k in j and j[k]:
                 return str(j[k]).strip()
-        # fallback: find first string-like value with letters and length > 3
         for v in j.values():
             if isinstance(v, str) and len(v.strip()) > 3 and not v.strip().replace(".", "").isdigit():
                 return v.strip()
@@ -487,111 +479,71 @@ def process_zip_to_staging(zip_path, engine, dry_run=True, export_preview_dir=".
 
     resolved_count = 0
     etf_marked = 0
+
     for r in deduped:
-        # ensure other_raw is a JSON string; if not, convert
         other_raw = r.get("other_raw")
         try:
-            other = json.loads(other_raw) if isinstance(other_raw, str) and other_raw.strip() != "" else (other_raw if isinstance(other_raw, dict) else {})
+            other = json.loads(other_raw) if isinstance(other_raw, str) and other_raw.strip() != "" else {}
         except Exception:
-            # keep raw string in fallback field
-            other = {"__other_raw_str": str(other_raw)}
+            other = {}
 
-        # 1) If symbol_raw missing, try to resolve from PD map using security text in other_raw
+        # missing symbol resolution via PD
         sym = r.get("symbol_raw")
-        if not sym or str(sym).strip() == "":
+        if not sym:
             sec = _extract_security_from_other(other)
             if sec:
-                sym_candidate = pd_symbol_map.get(sec.strip().lower())
-                if sym_candidate:
-                    r["symbol_raw"] = sym_candidate
+                candidate = pd_symbol_map.get(sec.strip().lower())
+                if candidate:
+                    r["symbol_raw"] = candidate
                     resolved_count += 1
-                else:
-                    # if pd map had key but None value, leave symbol as None (we still keep the security for manual review)
-                    pass
 
-        # 2) Annotate ETF info:
-        #   - if symbol_raw matches etf_symbols -> is_etf True
-        #   - else if security text in other matches etf_securities_lower -> is_etf True
+        # ETF tagging
         is_etf = False
-        etf_sym = None
-        etf_src = None
         sym_now = r.get("symbol_raw")
-        if sym_now and str(sym_now).strip() != "":
-            if str(sym_now).strip() in etf_symbols:
-                is_etf = True
-                etf_sym = str(sym_now).strip()
-                etf_src = "symbol"
-        if not is_etf:
+        if sym_now and sym_now in etf_symbols:
+            is_etf = True
+            other["is_etf"] = True
+            other["etf_match_source"] = "symbol"
+        else:
             sec = _extract_security_from_other(other)
             if sec and sec.strip().lower() in etf_securities_lower:
                 is_etf = True
-                etf_sym = pd_symbol_map.get(sec.strip().lower()) if sec.strip().lower() in pd_symbol_map else None
-                etf_src = "security"
-
-        # store annotation back into other JSON
-        other["is_etf"] = bool(is_etf)
-        if etf_sym:
-            other["etf_symbol"] = etf_sym
-        if etf_src:
-            other["etf_match_source"] = etf_src
-
-        # persist annotated other_raw back to row as JSON string
-        try:
-            r["other_raw"] = json.dumps(other, default=str)
-        except Exception:
-            # fallback to string
-            r["other_raw"] = str(other)
+                other["is_etf"] = True
+                other["etf_match_source"] = "security"
 
         if is_etf:
             etf_marked += 1
 
-    logger.info("Resolved missing symbols via PD lookup: %d", resolved_count)
-    logger.info("Annotated ETFs in staging: %d", etf_marked)
+        r["other_raw"] = json.dumps(other, default=str)
 
-    # --- Final dedupe/filter: drop rows that still have no symbol_raw (we cannot insert them usefully) ---
+    logger.info("Resolved missing symbols: %d", resolved_count)
+    logger.info("Annotated ETFs: %d", etf_marked)
+
+    # --- Final filter: drop rows without symbol_raw ---
     final_rows = []
-    missing_symbol_rows = 0
+    dropped_missing = 0
     for r in deduped:
-        s = r.get("symbol_raw")
-        if s is None or str(s).strip() == "":
-            missing_symbol_rows += 1
+        if not r.get("symbol_raw"):
+            dropped_missing += 1
             continue
         final_rows.append(r)
-    logger.info("Dropped %d staging rows with no resolved symbol; final candidates=%d", missing_symbol_rows, len(final_rows))
 
-    # --- Quick presence-in-bhav check (best-effort) ---
-    if engine is not None:
-        for r in final_rows:
-            try:
-                r["present_in_bhav"] = symbol_present_in_bhav(engine, r.get("symbol_raw"))
-            except Exception:
-                r["present_in_bhav"] = False
-    else:
-        for r in final_rows:
-            r["present_in_bhav"] = False
+    logger.info("Dropped %d rows with no symbol; final=%d", dropped_missing, len(final_rows))
 
     # --- Write preview CSV ---
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     preview_path = os.path.join(export_preview_dir, f"staging_preview_{ts}.csv")
-    try:
-        pd.DataFrame(final_rows).to_csv(preview_path, index=False)
-        logger.info("Wrote staging preview CSV: %s", preview_path)
-    except Exception as e:
-        logger.exception("Failed to write staging preview CSV: %s", e)
+    pd.DataFrame(final_rows).to_csv(preview_path, index=False)
+    logger.info("Wrote staging preview CSV: %s", preview_path)
 
-    # --- Insert into DB if requested ---
+    # --- DB Insert ---
     if dry_run:
         logger.info("Dry-run: skipping DB insert (would insert %d rows)", len(final_rows))
         return len(final_rows)
 
-    try:
-        inserted = insert_staging_rows(engine, final_rows)
-        logger.info("Inserted %d staging rows into instruments_master_staging", inserted)
-        return inserted
-    except Exception as e:
-        logger.exception("Failed to insert staging rows: %s", e)
-        raise
-
+    inserted = insert_staging_rows(engine, final_rows)
+    logger.info("Inserted %d staging rows.", inserted)
+    return inserted
 
 
 
@@ -599,7 +551,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--zip", required=False, help="Optional: explicit path to PR zip")
     p.add_argument("--pr-date", required=False, help="Optional: DDMMYY or DDMMYYYY")
-    p.add_argument("--dry-run", action="store_true", default=True, help="Skip DB writes")
+    p.add_argument("--dry-run", action="store_true", default=False, help="True =Skip DB writes,False= perform DB writes")
     p.add_argument("--preview-only", action="store_true", default=False, help="Preview only (skip DB writes)")
     p.add_argument("--export-dir", default=".", help="Where to write preview CSV")
     args = p.parse_args()
