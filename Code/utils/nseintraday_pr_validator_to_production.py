@@ -271,6 +271,7 @@ def promote_valid_rows(engine, df_valid: pd.DataFrame, commit: bool = False, exp
     Promote valid staging rows to instruments_master.
     - Runs in a single transaction when commit=True.
     - Returns DataFrame of actions (insert/update/skipped) for audit CSV.
+    NOTE: This version maps parsed_* staging fields into actual instruments_master columns.
     """
     audit_rows = []
     conn = engine.connect()
@@ -278,61 +279,79 @@ def promote_valid_rows(engine, df_valid: pd.DataFrame, commit: bool = False, exp
     try:
         if commit:
             trans = conn.begin()
-        # prepare statements
-        sel_sql = text("SELECT * FROM instruments_master WHERE parsed_symbol = :sym LIMIT 1")
+
+        # lookup by real column 'symbol', not parsed_symbol
+        sel_sql = text("SELECT * FROM instruments_master WHERE symbol = :sym LIMIT 1")
+
+        # INSERT into actual instruments_master columns
         insert_sql = text(
-            "INSERT INTO instruments_master (parsed_symbol, parsed_security, parsed_series, parsed_market_type, include_in_bhav, fno_flag, source_file, other_raw, updated_at, created_at) "
-            "VALUES (:parsed_symbol, :parsed_security, :parsed_series, :parsed_market_type, :include_in_bhav, :fno_flag, :source_file, :other_raw, NOW(), NOW())"
+            "INSERT INTO instruments_master "
+            "(symbol, series, mkt_flag, market_type, mcap_bucket, include_in_bhav, fno_flag, source_file, source_row_raw, mapped_by, mapped_at, created_at, updated_at) "
+            "VALUES (:symbol, :series, :mkt_flag, :market_type, :mcap_bucket, :include_in_bhav, :fno_flag, :source_file, :source_row_raw, :mapped_by, NOW(), NOW(), NOW())"
         )
+
+        # UPDATE actual columns (update source_row_raw with the JSON of the staging other_raw)
         update_sql = text(
-            "UPDATE instruments_master SET parsed_security=:parsed_security, parsed_series=:parsed_series, parsed_market_type=:parsed_market_type, "
-            "include_in_bhav=:include_in_bhav, fno_flag=:fno_flag, source_file=:source_file, other_raw=:other_raw, updated_at=NOW() "
-            "WHERE parsed_symbol=:parsed_symbol"
+            "UPDATE instruments_master SET "
+            "series = :series, mkt_flag = :mkt_flag, market_type = :market_type, mcap_bucket = :mcap_bucket, "
+            "include_in_bhav = :include_in_bhav, fno_flag = :fno_flag, source_file = :source_file, source_row_raw = :source_row_raw, "
+            "mapped_by = :mapped_by, updated_at = NOW() "
+            "WHERE symbol = :symbol"
         )
 
         for _, r in df_valid.iterrows():
             parsed_symbol = r.get("parsed_symbol")
             if not parsed_symbol:
-                audit_rows.append({"parsed_symbol": None, "action": "skipped_no_symbol", "details": "no parsed_symbol"})
+                audit_rows.append({"symbol": None, "action": "skipped_no_symbol", "details": "no parsed_symbol"})
                 continue
 
-            # get existing
+            # read existing instrument by canonical symbol
             exist = pd.read_sql(sel_sql, conn, params={"sym": parsed_symbol})
-            row_payload = {
-                "parsed_symbol": parsed_symbol,
-                "parsed_security": r.get("parsed_security"),
-                "parsed_series": r.get("parsed_series"),
-                "parsed_market_type": r.get("parsed_market_type"),
-                "include_in_bhav": bool(r.get("include_in_bhav")),
-                "fno_flag": bool(r.get("fno_flag")),
+
+            # prepare payload mapping staging -> master columns
+            payload = {
+                "symbol": parsed_symbol,
+                "series": r.get("parsed_series") or None,
+                # Keep mkt_flag empty if not available; you can derive it from parsed_market_type if you want
+                "mkt_flag": r.get("parsed_market_type") if r.get("parsed_market_type") and len(str(r.get("parsed_market_type")).strip()) <= 8 else None,
+                "market_type": r.get("parsed_market_type") or None,
+                "mcap_bucket": r.get("parsed_mcap_bucket") or None,
+                "include_in_bhav": 1 if bool(r.get("include_in_bhav")) else 0,
+                "fno_flag": 1 if bool(r.get("fno_flag")) else 0,
                 "source_file": r.get("source_file"),
-                "other_raw": json.dumps(parse_other_json(r.get("other_raw")), default=str)
+                # store the parsed_security + other_raw into source_row_raw JSON so you keep details
+                "source_row_raw": json.dumps({
+                    "parsed_security": r.get("parsed_security"),
+                    "other": parse_other_json(r.get("other_raw"))
+                }, default=str),
+                "mapped_by": "validator_script"
             }
 
             if exist.empty:
-                # insert
                 if commit:
-                    conn.execute(insert_sql, row_payload)
-                audit_rows.append({"parsed_symbol": parsed_symbol, "action": "inserted", "details": None})
+                    conn.execute(insert_sql, payload)
+                audit_rows.append({"symbol": parsed_symbol, "action": "inserted", "details": None})
             else:
-                # compare fields to decide update
+                # decide whether to update by comparing significant fields
                 exist_row = exist.iloc[0].to_dict()
                 diffs = {}
-                for k in ("parsed_security", "parsed_series", "parsed_market_type", "include_in_bhav", "fno_flag", "source_file", "other_raw"):
-                    newv = row_payload.get(k)
+                # compare important columns
+                for k in ("series", "market_type", "mcap_bucket", "include_in_bhav", "fno_flag", "source_file", "source_row_raw"):
+                    newv = payload.get(k)
                     oldv = exist_row.get(k)
+                    # stringify for safe comparison when both strings
                     if isinstance(newv, str) and isinstance(oldv, str):
-                        if newv.strip() != oldv.strip():
+                        if newv.strip() != (oldv.strip() if oldv is not None else ""):
                             diffs[k] = {"old": oldv, "new": newv}
                     else:
                         if newv != oldv:
                             diffs[k] = {"old": oldv, "new": newv}
                 if diffs:
                     if commit:
-                        conn.execute(update_sql, row_payload)
-                    audit_rows.append({"parsed_symbol": parsed_symbol, "action": "updated", "details": json.dumps(diffs)})
+                        conn.execute(update_sql, payload)
+                    audit_rows.append({"symbol": parsed_symbol, "action": "updated", "details": json.dumps(diffs)})
                 else:
-                    audit_rows.append({"parsed_symbol": parsed_symbol, "action": "no_change", "details": None})
+                    audit_rows.append({"symbol": parsed_symbol, "action": "no_change", "details": None})
 
         if commit:
             trans.commit()
@@ -359,15 +378,16 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--limit", type=int, default=None, help="Limit number of staging rows to process")
     p.add_argument("--status", default="PENDING", help="staging validation_status to consume (default: PENDING)")
-    p.add_argument("--dry-run", action="store_true", default=True, help="Dry run: skip DB writes (default True) ,False will commit to DB")
+    p.add_argument("--dry-run", action="store_true", default=False, help="Dry run: skip DB writes (default True) ,False will commit to DB")
     p.add_argument("--preview-only", action="store_true", default=False, help="Preview mode (alias for dry-run)")
-    p.add_argument("--commit", action="store_true", default=False, help="Actually write validations & promote rows (implies not dry-run)")
+    p.add_argument("--commit", action="store_true", default=True, help="Actually write validations & promote rows (implies not dry-run)")
     p.add_argument("--export-dir", default=".", help="Directory to write audit/error CSVs")
     args = p.parse_args()
 
     # semantics: if --commit passed, we will persist; else dry-run.
     commit = bool(args.commit)
     dry_run = not commit
+
 
     logger.info("Validator start. dry_run=%s, commit=%s, status=%s, limit=%s", dry_run, commit, args.status, args.limit)
 
