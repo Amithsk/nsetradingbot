@@ -382,7 +382,18 @@ def main():
     logger.info("Loaded %d staging rows for validation", len(df_st))
 
     # normalize
-    df_st = df_st.fillna(value={"other_raw": None, "symbol_raw": None, "series_raw": None, "market_type_raw": None, "source_file": None})
+   # Ensure expected columns exist (create them as None if missing)
+    _expected_cols = ["other_raw", "symbol_raw", "series_raw", "market_type_raw", "source_file"]
+    for _c in _expected_cols:
+        if _c not in df_st.columns:
+            df_st[_c] = None
+
+# Robustly replace NA/NaN/None with None for these columns
+# (use .where to avoid dtype surprises and be explicit about nulls)
+    for _c in _expected_cols:
+        # replace pandas NA/NaN-like values with Python None
+        df_st[_c] = df_st[_c].where(df_st[_c].notnull(), None)
+
 
     # outputs
     invalid_rows = []
