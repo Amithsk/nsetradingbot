@@ -81,44 +81,17 @@ def is_etf_check(other: dict, source_file: str) -> bool:
     return False
 
 
-def market_type_check(parsed_market_type: str, other: dict) -> bool:
-    """
-    Return True if parsed_market_type is allowed.
-    Accepts:
-      - direct canonical tokens like 'N'
-      - textual tokens like 'MAINBOARD', 'EQ', 'EQUITY' (best-effort)
-    """
-    if not parsed_market_type:
+
+def market_type_check(market_type_raw: str, other: dict) -> bool:
+    if not market_type_raw:
         return False
-    t = str(parsed_market_type).strip().upper()
+    return market_type_raw.strip().upper() in ALLOWED_MARKET_TYPES
 
-    # Accept primary canonical code directly (N)
-    if t in ALLOWED_MARKET_TYPES:
-        return True
 
-    # Some files may contain descriptive values: try mapping
-    if t in ("MAINBOARD", "MAIN", "EQUITY", "EQ"):
-        # Map textual equity/mainboard to allowed result if ALLOWED_MARKET_TYPES contains the canonical
-        if "N" in ALLOWED_MARKET_TYPES or "MAINBOARD" in ALLOWED_MARKET_TYPES:
-            return True
-
-    # not allowed
-    return False
-
-def series_check(parsed_series: str, other: dict) -> bool:
-    """
-    Return True if parsed series is allowed (e.g., 'EQ').
-    Accepts exact or textual tokens (EQ, EQUITY).
-    """
-    if not parsed_series:
+def series_check(series_raw: str, other: dict) -> bool:
+    if not series_raw:
         return False
-    s = str(parsed_series).strip().upper()
-    if s in ALLOWED_SERIES:
-        return True
-    # textual variations
-    if s in ("EQUITY", "EQ"):
-        return True
-    return False
+    return series_raw.strip().upper() in ALLOWED_SERIES
 
 # ---------------------------------------------------------------------------
 # Validation core
