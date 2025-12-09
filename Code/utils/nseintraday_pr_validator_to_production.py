@@ -512,40 +512,55 @@ def main():
         try:
             conn = engine.connect()
             trans = conn.begin()
-            for row in invalid_rows + valid_rows:
+            # Prepare both update statements (use staging_id if present else fallback to symbol+source_file)
+            upd_by_id = text("""
+                UPDATE instruments_master_staging
+                SET validation_status=:status,
+                    validation_errors=:errs,
+                    parsed_symbol=:ps,
+                    parsed_security=:psec,
+                    parsed_series=:pseries,
+                    parsed_market_type=:pmkt,
+                    include_in_bhav=:inc,
+                    fno_flag=:fno,
+                    mapped_at=NOW()
+                WHERE staging_id=:staging_id
+            """)
+            upd_by_keys = text("""
+                UPDATE instruments_master_staging
+                SET validation_status=:status,
+                    validation_errors=:errs,
+                    parsed_symbol=:ps,
+                    parsed_security=:psec,
+                    parsed_series=:pseries,
+                    parsed_market_type=:pmkt,
+                    include_in_bhav=:inc,
+                    fno_flag=:fno,
+                    mapped_at=NOW()
+                WHERE symbol_raw=:sym AND source_file=:src
+            """)
+            for row in (invalid_rows + valid_rows):
                 pk = row.get("staging_id") or row.get("id")
-                if not pk:
-                    # fallback update by symbol_raw + source_file
-                    upd_sql = text(
-                        "UPDATE instruments_master_staging SET validation_status=:status, validation_errors=:errs, parsed_symbol=:ps, parsed_security=:psec, parsed_series=:pseries, parsed_market_type=:pmkt, include_in_bhav=:inc, fno_flag=:fno WHERE symbol_raw=:sym AND source_file=:src"
-                    )
-                    conn.execute(upd_sql, {
-                        "status": row.get("validation_status"),
-                        "errs": row.get("validation_errors"),
-                        "ps": row.get("parsed_symbol"),
-                        "psec": row.get("parsed_security"),
-                        "pseries": row.get("parsed_series"),
-                        "pmkt": row.get("parsed_market_type"),
-                        "inc": bool(row.get("include_in_bhav")),
-                        "fno": bool(row.get("fno_flag")),
-                        "sym": row.get("symbol_raw"),
-                        "src": row.get("source_file")
-                    })
+                params_common = {
+                    "status": row.get("validation_status"),
+                    "errs": row.get("validation_errors"),
+                    "ps": row.get("parsed_symbol"),
+                    "psec": row.get("parsed_security"),
+                    "pseries": row.get("parsed_series"),
+                    "pmkt": row.get("parsed_market_type"),
+                    "inc": 1 if row.get("include_in_bhav") else 0,
+                    "fno": 1 if row.get("fno_flag") else 0
+                }
+                if pk:
+                    params = dict(params_common)
+                    # support both 'staging_id' and numeric 'id' as primary key
+                    params["staging_id"] = int(pk)
+                    conn.execute(upd_by_id, params)
                 else:
-                    upd_sql2 = text(
-                        "UPDATE instruments_master_staging SET validation_status=:status, validation_errors=:errs, parsed_symbol=:ps, parsed_security=:psec, parsed_series=:pseries, parsed_market_type=:pmkt, include_in_bhav=:inc, fno_flag=:fno WHERE id=:id"
-                    )
-                    conn.execute(upd_sql2, {
-                        "status": row.get("validation_status"),
-                        "errs": row.get("validation_errors"),
-                        "ps": row.get("parsed_symbol"),
-                        "psec": row.get("parsed_security"),
-                        "pseries": row.get("parsed_series"),
-                        "pmkt": row.get("parsed_market_type"),
-                        "inc": bool(row.get("include_in_bhav")),
-                        "fno": bool(row.get("fno_flag")),
-                        "id": pk
-                    })
+                    params = dict(params_common)
+                    params["sym"] = row.get("symbol_raw")
+                    params["src"] = row.get("source_file")
+                    conn.execute(upd_by_keys, params)
             trans.commit()
             conn.close()
             logger.info("Staging rows updated with validation_status/parsed fields (commit applied).")
