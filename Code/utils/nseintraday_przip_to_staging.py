@@ -322,7 +322,7 @@ def insert_staging_rows(engine, rows, dedupe_on=("symbol_raw", "source_file"), b
 
     # log engine URL so we can verify which DB is used
     try:
-        logger.info("Inserting into DB: %s", getattr(engine, "url", "engine (no url)"))
+        logger.info("Inserting into DB")
     except Exception:
         logger.info("Inserting into DB (engine info not available)")
 
