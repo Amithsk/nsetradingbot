@@ -73,44 +73,13 @@ def _str(v):
 # ---------------------------------------------------------------------------
 def is_etf_check(other: dict, source_file: str) -> bool:
     """
-    Return True if instrument is an ETF.
-    Heuristics (order matters):
-      1) If source_file looks like an ETF file (e.g., startswith "etf") -> True.
-      2) If explicit flags exist in `other` (keys like 'is_etf','ETF','security_type').
-      3) If SECURITY / name contains ETF keywords.
+    ETF detection is based ONLY on staging flags.
+    Staging has already added: other["is_etf"] = True for ETFs.
     """
-    src = (source_file or "").lower()
-    if src.startswith("etf") or "/etf" in src or "\\etf" in src:
-        return True
-
     if isinstance(other, dict):
-        # keys that may indicate ETF boolean or a label
-        for key in ("is_etf", "ETF", "etf", "fund_type", "security_type"):
-            if key in other:
-                try:
-                    v = str(other.get(key)).strip().lower()
-                    if v in ("y", "yes", "true", "1", "etf", "exchange traded fund"):
-                        return True
-                except Exception:
-                    continue
-
-        # check name fields for ETF keywords
-        for cand_key in ("SECURITY", "security", "Security", "NAME", "name", "security_name"):
-            val = other.get(cand_key)
-            if isinstance(val, str) and val.strip():
-                s = val.strip().lower()
-                for kw in ETF_KEYWORDS:
-                    if kw in s:
-                        return True
-
-        # check any other string field for ETF keyword as fallback (conservative)
-        for v in other.values():
-            if isinstance(v, str):
-                s = v.strip().lower()
-                for kw in ETF_KEYWORDS:
-                    if kw in s:
-                        return True
+        return bool(other.get("is_etf"))
     return False
+
 
 def market_type_check(parsed_market_type: str, other: dict) -> bool:
     """
@@ -178,14 +147,8 @@ def validate_row(st_row: dict,
     # resolve parsed_symbol: prefer explicit symbol_raw, else try PD 'SYMBOL' or other keys
     parsed_symbol = None
     if symbol_raw:
-        parsed_symbol = symbol_raw
-    else:
-        # try common columns inside other
-        for k in ("SYMBOL", "symbol", "SC_CODE", "sc_code", "Scrip", "SCRIP"):
-            v = other.get(k)
-            if v and str(v).strip():
-                parsed_symbol = str(v).strip()
-                break
+        parsed_symbol = symbol_raw.strip()
+    # do NOT use SECURITY/text fallback to set parsed_symbol
 
     # parsed_security from other (human-readable name)
     parsed_security = None
@@ -266,13 +229,17 @@ def load_pending_staging(engine, status="PENDING", limit: int | None = None) -> 
         df = pd.read_sql(text(q), engine, params={"status": status})
     return df
 
-def promote_valid_rows(engine, df_valid: pd.DataFrame, commit: bool = False, export_dir: str = ".") -> pd.DataFrame:
+def promote_valid_rows(engine, df_valid: pd.DataFrame, commit: bool = False, mapped_by: str = "validator", export_dir: str = ".") -> pd.DataFrame:
     """
-    Promote valid staging rows to instruments_master.
-    - Runs in a single transaction when commit=True.
-    - Returns DataFrame of actions (insert/update/skipped) for audit CSV.
-    NOTE: This version maps parsed_* staging fields into actual instruments_master columns.
+    Promote validated staging rows (df_valid) into instruments_master.
+    - df_valid must already contain parsed_symbol, parsed_security (optional), parsed_series,
+      parsed_market_type, include_in_bhav, fno_flag, source_file, other_raw (json string).
+    - If commit==True we perform DB writes inside a transaction.
+    - Returns audit DataFrame with actions per parsed_symbol.
     """
+    import json
+    from datetime import datetime
+
     audit_rows = []
     conn = engine.connect()
     trans = None
@@ -280,66 +247,59 @@ def promote_valid_rows(engine, df_valid: pd.DataFrame, commit: bool = False, exp
         if commit:
             trans = conn.begin()
 
-        # lookup by real column 'symbol', not parsed_symbol
         sel_sql = text("SELECT * FROM instruments_master WHERE symbol = :sym LIMIT 1")
-
-        # INSERT into actual instruments_master columns
         insert_sql = text(
             "INSERT INTO instruments_master "
             "(symbol, series, mkt_flag, market_type, mcap_bucket, include_in_bhav, fno_flag, source_file, source_row_raw, mapped_by, mapped_at, created_at, updated_at) "
-            "VALUES (:symbol, :series, :mkt_flag, :market_type, :mcap_bucket, :include_in_bhav, :fno_flag, :source_file, :source_row_raw, :mapped_by, NOW(), NOW(), NOW())"
+            "VALUES (:symbol, :series, :mkt_flag, :market_type, :mcap_bucket, :include_in_bhav, :fno_flag, :source_file, :source_row_raw, :mapped_by, :mapped_at, NOW(), NOW())"
         )
-
-        # UPDATE actual columns (update source_row_raw with the JSON of the staging other_raw)
         update_sql = text(
-            "UPDATE instruments_master SET "
-            "series = :series, mkt_flag = :mkt_flag, market_type = :market_type, mcap_bucket = :mcap_bucket, "
-            "include_in_bhav = :include_in_bhav, fno_flag = :fno_flag, source_file = :source_file, source_row_raw = :source_row_raw, "
-            "mapped_by = :mapped_by, updated_at = NOW() "
-            "WHERE symbol = :symbol"
+            "UPDATE instruments_master SET series=:series, mkt_flag=:mkt_flag, market_type=:market_type, mcap_bucket=:mcap_bucket, "
+            "include_in_bhav=:include_in_bhav, fno_flag=:fno_flag, source_file=:source_file, source_row_raw=:source_row_raw, mapped_by=:mapped_by, mapped_at=:mapped_at, updated_at=NOW() "
+            "WHERE symbol=:symbol"
         )
 
-        for _, r in df_valid.iterrows():
-            parsed_symbol = r.get("parsed_symbol")
+        mapped_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+        # iterate rows from df_valid (this DataFrame is authoritative)
+        for _, row in df_valid.iterrows():
+            parsed_symbol = (row.get("parsed_symbol") or "").strip() if row.get("parsed_symbol") else None
             if not parsed_symbol:
                 audit_rows.append({"symbol": None, "action": "skipped_no_symbol", "details": "no parsed_symbol"})
                 continue
 
-            # read existing instrument by canonical symbol
-            exist = pd.read_sql(sel_sql, conn, params={"sym": parsed_symbol})
-
-            # prepare payload mapping staging -> master columns
+            # Build canonical payload from staging parsed fields
             payload = {
                 "symbol": parsed_symbol,
-                "series": r.get("parsed_series") or None,
-                # Keep mkt_flag empty if not available; you can derive it from parsed_market_type if you want
-                "mkt_flag": r.get("parsed_market_type") if r.get("parsed_market_type") and len(str(r.get("parsed_market_type")).strip()) <= 8 else None,
-                "market_type": r.get("parsed_market_type") or None,
-                "mcap_bucket": r.get("parsed_mcap_bucket") or None,
-                "include_in_bhav": 1 if bool(r.get("include_in_bhav")) else 0,
-                "fno_flag": 1 if bool(r.get("fno_flag")) else 0,
-                "source_file": r.get("source_file"),
-                # store the parsed_security + other_raw into source_row_raw JSON so you keep details
-                "source_row_raw": json.dumps({
-                    "parsed_security": r.get("parsed_security"),
-                    "other": parse_other_json(r.get("other_raw"))
-                }, default=str),
-                "mapped_by": "validator_script"
+                "series": row.get("parsed_series") or row.get("parsed_series") or None,
+                "mkt_flag": row.get("parsed_mkt_flag") or row.get("parsed_mkt_flag") or None,
+                "market_type": row.get("parsed_market_type") or row.get("parsed_market_type") or None,
+                "mcap_bucket": row.get("parsed_mcap_bucket") or None,
+                "include_in_bhav": bool(row.get("include_in_bhav")),
+                "fno_flag": bool(row.get("fno_flag")),
+                "source_file": row.get("source_file"),
+                "source_row_raw": json.dumps(parse_other_json(row.get("other_raw")), default=str) if row.get("other_raw") else None,
+                "mapped_by": mapped_by,
+                "mapped_at": mapped_at
             }
 
+            # check existing master by symbol (master column is 'symbol')
+            exist = pd.read_sql(sel_sql, conn, params={"sym": parsed_symbol})
             if exist.empty:
+                # insert
                 if commit:
                     conn.execute(insert_sql, payload)
                 audit_rows.append({"symbol": parsed_symbol, "action": "inserted", "details": None})
             else:
-                # decide whether to update by comparing significant fields
+                # compare fields to decide update
                 exist_row = exist.iloc[0].to_dict()
                 diffs = {}
-                # compare important columns
-                for k in ("series", "market_type", "mcap_bucket", "include_in_bhav", "fno_flag", "source_file", "source_row_raw"):
+                # keys to compare (strings/booleans)
+                compare_keys = ["series", "mkt_flag", "market_type", "mcap_bucket", "include_in_bhav", "fno_flag", "source_file", "source_row_raw"]
+                for k in compare_keys:
                     newv = payload.get(k)
                     oldv = exist_row.get(k)
-                    # stringify for safe comparison when both strings
+                    # normalize strings for comparison
                     if isinstance(newv, str) and isinstance(oldv, str):
                         if newv.strip() != (oldv.strip() if oldv is not None else ""):
                             diffs[k] = {"old": oldv, "new": newv}
@@ -364,6 +324,7 @@ def promote_valid_rows(engine, df_valid: pd.DataFrame, commit: bool = False, exp
 
     return pd.DataFrame(audit_rows)
 
+
 def write_csv(df: pd.DataFrame, path: str):
     try:
         df.to_csv(path, index=False)
@@ -378,9 +339,9 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--limit", type=int, default=None, help="Limit number of staging rows to process")
     p.add_argument("--status", default="PENDING", help="staging validation_status to consume (default: PENDING)")
-    p.add_argument("--dry-run", action="store_true", default=False, help="Dry run: skip DB writes (default True) ,False will commit to DB")
+    p.add_argument("--dry-run", action="store_true", default=True, help="Dry run: skip DB writes (default True) ,False will commit to DB")
     p.add_argument("--preview-only", action="store_true", default=False, help="Preview mode (alias for dry-run)")
-    p.add_argument("--commit", action="store_true", default=True, help="Actually write validations & promote rows (implies not dry-run)")
+    p.add_argument("--commit", action="store_true", default=False, help="Actually write validations & promote rows (implies not dry-run)")
     p.add_argument("--export-dir", default=".", help="Directory to write audit/error CSVs")
     args = p.parse_args()
 
