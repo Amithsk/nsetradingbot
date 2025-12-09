@@ -1,35 +1,9 @@
 {
-<<<<<<< HEAD
   "target_date": "2025-12-08",
-  "state": "failed",
+  "state": "committed",
   "downloaded": "PR081225.zip",
   "source": "git_commit_changes",
-  "error": "git rebase failed - manual intervention required",
-  "ts": "2025-12-08T21:00:15.966885"
-=======
-<<<<<<< HEAD
-  "target_date": "2025-12-03",
-<<<<<<< HEAD
-=======
-  "target_date": "2025-12-04",
->>>>>>> main
-  "state": "committed",
-  "downloaded": "PR041225.zip",
-  "source": "git_commit_changes",
-  "commit_sha": "9e1e914da5ffd883ad8b7c3ae2eb5b81788e30cb",
+  "commit_sha": "5af536d3fd5b6d46e905b392d86080da8d0ed162",
   "note": "artifact commit pushed",
-<<<<<<< HEAD
-  "ts": "2025-12-04T07:00:20.447140"
-=======
-  "state": "downloaded",
-  "downloaded": "PR031225.zip",
-  "downloaded_at": "2025-12-03T19:00:08.757575",
-  "source": "git_commit_changes",
-  "note": "artifact downloaded locally; about to commit",
-  "ts": "2025-12-03T19:00:08.757763"
->>>>>>> 22fc781 (Bhavcopy artifact PR031225.zip - downloaded on 03-Dec-2025)
-=======
-  "ts": "2025-12-05T07:00:20.072100"
->>>>>>> main
->>>>>>> a01303428e182387120d3bf1c151a2293af5ab2a
+  "ts": "2025-12-09T07:00:21.509533"
 }
