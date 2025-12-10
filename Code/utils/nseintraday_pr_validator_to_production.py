@@ -27,7 +27,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 # Import your DB helper
-from nseintraday_db_utils import connect_db
+from Code.utils.nseintraday_db_utils import connect_db
 
 # ---------------------------
 # Config — editable
@@ -46,6 +46,74 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 # ---------------------------------------------------------------------------
 # Utility helpers
 # ---------------------------------------------------------------------------
+
+# ---------- PATCH: helpers to reduce noisy diffs & build safe master payloads ----------
+_NOISE_KEYS = {
+    "TRADES", "NET_TRDQTY", "NET_TRDVAL",
+    "OPEN_PRICE", "CLOSE_PRICE", "LOW_PRICE", "HIGH_PRICE",
+    "LAST_PRICE", "PREV_CL_PR"
+}
+
+def _prune_trade_fields(d):
+    """
+    Remove top-level noisy trade fields from an 'other' dict before comparing/storing.
+    Keeps nested structures untouched. Returns a shallow-copied dict.
+    """
+    try:
+        if not isinstance(d, dict):
+            return d
+        cleaned = dict(d)
+        for k in list(cleaned.keys()):
+            if str(k).upper() in _NOISE_KEYS:
+                cleaned.pop(k, None)
+        return cleaned
+    except Exception:
+        return d
+
+def _build_master_payload(parsed: dict):
+    """
+    Build a safe payload for instruments_master INSERT/UPDATE.
+    Only include canonical columns if non-empty; compute include_in_bhav deterministically.
+    """
+    payload = {}
+
+    # canonical symbol (prefer parsed_symbol)
+    psym = (parsed.get("parsed_symbol") or parsed.get("symbol") or parsed.get("symbol_raw"))
+    if psym:
+        payload["symbol"] = psym
+
+    pseries = (parsed.get("parsed_series") or parsed.get("series") or parsed.get("series_raw"))
+    if pseries:
+        payload["series"] = pseries
+
+    pmkt = (parsed.get("parsed_market_type") or parsed.get("market_type") or parsed.get("market_type_raw"))
+    if pmkt:
+        payload["market_type"] = pmkt
+
+    # mkt_flag if present
+    mflag = parsed.get("mkt_flag") or parsed.get("mkt_flag_raw")
+    if mflag is not None:
+        payload["mkt_flag"] = mflag
+
+    # fno_flag if present
+    if parsed.get("fno_flag") is not None:
+        payload["fno_flag"] = 1 if bool(parsed.get("fno_flag")) else 0
+
+    # compute include_in_bhav strictly
+    is_etf = bool(parsed.get("is_etf") or parsed.get("etf") or False)
+    include_flag = 1 if (str(pseries).upper() == "EQ" and str(pmkt).upper() == "N" and not is_etf) else 0
+    payload["include_in_bhav"] = include_flag
+
+    # source_file / source_row_raw if present
+    if parsed.get("source_file"):
+        payload["source_file"] = parsed.get("source_file")
+    if parsed.get("source_row_raw"):
+        payload["source_row_raw"] = parsed.get("source_row_raw")
+
+    payload["mapped_by"] = "validator_script"
+    return payload
+# ---------- END PATCH ----------
+
 def parse_other_json(other_raw: Any) -> dict:
     """Safely parse other_raw (which may be JSON string or already dict)."""
     if other_raw is None:
@@ -152,7 +220,7 @@ def validate_row(st_row: dict,
         series_ok = False
         errors.append(f"series_check_error:{e}")
 
-    # --- EXACT logic you requested ---
+    # --- To filter Market:EQ Series:N---
     include_in_bhav = (not is_etf) and market_ok and series_ok
 
     # --- FNO flag detection ---
@@ -540,7 +608,7 @@ def main():
                 WHERE symbol_raw=:sym AND source_file=:src
             """)
             for row in (invalid_rows + valid_rows):
-                pk = row.get("staging_id") or row.get("id")
+                staging_pk = row.get("staging_id")
                 params_common = {
                     "status": row.get("validation_status"),
                     "errs": row.get("validation_errors"),
@@ -551,10 +619,9 @@ def main():
                     "inc": 1 if row.get("include_in_bhav") else 0,
                     "fno": 1 if row.get("fno_flag") else 0
                 }
-                if pk:
+                if staging_pk:
                     params = dict(params_common)
-                    # support both 'staging_id' and numeric 'id' as primary key
-                    params["staging_id"] = int(pk)
+                    params["staging_id"] = int(staging_pk)
                     conn.execute(upd_by_id, params)
                 else:
                     params = dict(params_common)
