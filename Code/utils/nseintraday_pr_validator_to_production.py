@@ -19,12 +19,19 @@ import json
 import logging
 import os
 import glob
+import sys
+from pathlib import Path
 from datetime import datetime
 from typing import Tuple, Dict, List, Any
 
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+# --- Make sure project root is in sys.path so we can import from Code/*
+current_file = Path(__file__).resolve()
+project_root = current_file.parents[2]  # go up from Code/db to project root (nsetradingbot)
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 # Import your DB helper
 from Code.utils.nseintraday_db_utils import connect_db
@@ -478,7 +485,7 @@ def main():
     p.add_argument("--limit", type=int, default=None, help="Limit number of staging rows to process")
     p.add_argument("--status", default="PENDING", help="staging validation_status to consume (default: PENDING)")
     p.add_argument("--preview-only", action="store_true", default=False, help="Preview mode (alias for dry-run)")
-    p.add_argument("--commit", action="store_true", default=True, help="Actually write validations & promote rows (implies not dry-run)")
+    p.add_argument("--commit", action="store_true", default=False, help="Actually write validations & promote rows (implies not dry-run)")
     p.add_argument("--export-dir", default=".", help="Directory to write audit/error CSVs")
     args = p.parse_args()
 
