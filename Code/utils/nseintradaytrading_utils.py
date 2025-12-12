@@ -25,6 +25,12 @@ from sqlalchemy import text
 import sqlalchemy as sa
 from Code.utils.nseintraday_db_utils import detect_intraday_columns
 import json
+from typing import Optional, Set, Iterable
+from sqlalchemy.engine import Engine
+from sqlalchemy import text
+from functools import lru_cache
+
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -840,3 +846,97 @@ def build_liquidity_json(row):
         "combined_score": float(row.get("combined_score") if pd.notna(row.get("combined_score")) else 0.0),
         "liquidity_pass": bool(row.get("liquidity_pass"))
     }
+
+
+#To retrieve the symbol from the instrument master table for filtering purposes
+logger = logging.getLogger(__name__)
+
+
+def _normalize_symbols_iterable(iterable: Iterable[str]) -> Set[str]:
+    """Normalize iterable of symbols to an uppercase stripped set."""
+    return {str(s).strip().upper() for s in iterable if s is not None and str(s).strip() != ""}
+
+
+def get_instruments_master_symbols(engine: Engine, symbol_column: str = "symbol") -> Set[str]:
+    """
+    Fetch all symbols from instruments_master and return as a normalized set.
+
+    Args:
+        engine: SQLAlchemy Engine connected to your DB.
+        symbol_column: Column name for the symbol (default 'symbol').
+
+    Returns:
+        Set[str] of uppercase, stripped symbols. Empty set on error.
+    """
+    if engine is None:
+        raise ValueError("engine is required")
+
+    sql = text(f"SELECT {symbol_column} FROM instruments_master")
+    try:
+        df = pd.read_sql(sql, engine)
+        if df.empty or symbol_column not in df.columns:
+            return set()
+        return _normalize_symbols_iterable(df[symbol_column].astype(str).tolist())
+    except Exception as exc:
+        logger.exception("get_instruments_master_symbols DB error: %s", exc)
+        return set()
+
+
+@lru_cache(maxsize=1)
+def _get_instruments_master_symbols_cached(engine_url: str) -> Set[str]:
+    """
+    Internal helper to cache a symbols set per-engine URL string.
+    Caller should pass engine.url.__to_string__() (or similar unique string) to cache per DB.
+    WARNING: caching by engine URL requires you to pass a stable string key.
+    """
+    # The actual engine object is not cached here; caller must call get_instruments_master_symbols
+    # and pass results into is_symbol_in_instruments_master via symbols_cache param.
+    # This helper kept for completeness; see usage below for caching pattern.
+    return set()
+
+
+def is_symbol_in_instruments_master(
+    symbol: Optional[str],
+    engine: Optional[Engine] = None,
+    symbols_cache: Optional[Set[str]] = None
+) -> bool:
+    """
+    Check whether a symbol exists in instruments_master.
+
+    Behavior:
+      - If `symbols_cache` is provided, membership is checked against it (fast, recommended).
+      - Else if `engine` provided, this will fetch symbols from DB (bulk) and check membership.
+      - Otherwise raises ValueError.
+
+    Args:
+        symbol: symbol to check (case-insensitive).
+        engine: optional SQLAlchemy Engine used to fetch symbols if no cache supplied.
+        symbols_cache: optional pre-fetched set of symbols (preferred).
+
+    Returns:
+        True if symbol present, False otherwise.
+    """
+    if symbol is None:
+        return False
+
+    sym = str(symbol).strip().upper()
+    if sym == "":
+        return False
+
+    if symbols_cache is not None:
+        # Expect the cache to already be normalized uppercase set
+        return sym in symbols_cache
+
+    if engine is None:
+        raise ValueError("Either symbols_cache or engine must be provided")
+
+    try:
+        # Bulk fetch once and check membership (avoids per-row DB calls)
+        symbols = get_instruments_master_symbols(engine)
+        return sym in symbols
+    except Exception as exc:
+        logger.exception("is_symbol_in_instruments_master error for %s: %s", sym, exc)
+        return False
+    
+
+#End of Code retrieval code
