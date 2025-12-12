@@ -77,7 +77,7 @@ DEFAULT_CONFIG = {
         "exclude_etf": True,
         "exclude_sme": True,
         "preview_only": False, #If True, the script skips the final DB-upsert stage (upsert_candidatelist() for intraday_bhavcopy). If False, it runs the full pipeline including that final step.
-        "dry_run": True  # if True, DB writes are rolled back; if False, DB writes are committed
+        "dry_run": False  # if True, DB writes are rolled back; if False, DB writes are committed
         #For validation purposes, set dry_run to True and preview_only to False to run the full pipeline without committing changes.
         #For production use, set dry_run to False and preview_only to False to run the full pipeline and commit changes.
     },
