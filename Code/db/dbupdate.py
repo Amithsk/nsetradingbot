@@ -286,7 +286,7 @@ if __name__ == "__main__":
         print(f"\nProcessing only folder {RUN_DATE_STR} (previous trading day: {YDAY_STR})")
         process_date(OUTPUT_ROOT, conn, RUN_DATE_STR)
 
-        #session.commit()
+        session.commit()
         print("\nData load finished successfully.")
 
     except Exception as e:
