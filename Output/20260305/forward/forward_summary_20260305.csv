@@ -1,0 +1,5 @@
+model,date,total_bars,bullish,bearish,bullish_pct,predicted_close_mean
+LGBM,2026-03-05,76,76,0,100.0,24473.95
+Logistic,2026-03-05,76,0,76,0.0,24466.95
+RF,2026-03-05,76,76,0,100.0,24473.95
+XGB,2026-03-05,76,76,0,100.0,24473.95
