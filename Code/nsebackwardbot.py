@@ -213,6 +213,16 @@ print(f"Output folder date: {folder_date}")
 OUTPUT_DIR = Path(f"./Output/{folder_date}/backward")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+# ------------------------------------------------
+# Prevent duplicate runs for same market day
+# ------------------------------------------------
+
+existing_backward_files = list(OUTPUT_DIR.glob(f"*{file_date}.csv"))
+
+if existing_backward_files:
+    print(f"Backward output for {file_date} already exists. Skipping duplicate run.")
+    exit(0)
+
 # -------------------------------
 # Continue processing
 # -------------------------------
