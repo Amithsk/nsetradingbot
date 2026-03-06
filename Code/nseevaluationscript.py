@@ -86,6 +86,15 @@ if actual_df.empty:
     print("Yahoo returned empty dataset - skipping evaluation.")
     sys.exit(0)
 
+# ------------------------------------------------
+# FIX: Yahoo sometimes returns MultiIndex columns
+# ------------------------------------------------
+
+if isinstance(actual_df.columns, pd.MultiIndex):
+    actual_df.columns = actual_df.columns.get_level_values(0)
+
+# ------------------------------------------------
+
 actual_df = actual_df.reset_index()
 
 actual_df.rename(columns={
