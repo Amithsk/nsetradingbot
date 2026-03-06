@@ -2,7 +2,8 @@
 
 import pandas as pd
 import numpy as np
-from datetime import datetime
+import yfinance as yf
+from datetime import datetime, timedelta
 from pathlib import Path
 import sys
 from utils.nseholiday import nseholiday
@@ -16,6 +17,7 @@ OUTPUT_DIR = Path("./Output")
 # ------------------------------------------------
 
 try:
+
     with open("backward_date.txt") as f:
         content = f.read().strip()
         folder_date, file_date = content.split(",")
@@ -23,7 +25,7 @@ try:
     print(f"Backward pipeline folder_date: {folder_date}")
     print(f"Backward pipeline file_date: {file_date}")
 
-except Exception as e:
+except Exception:
 
     print("ERROR: backward_date.txt missing - cannot run evaluation.")
     sys.exit(1)
@@ -43,95 +45,113 @@ if nseholiday(file_date_obj):
 # Paths
 # ------------------------------------------------
 
-BACKWARD_DIR = OUTPUT_DIR / folder_date / "backward"
 FORWARD_DIR  = OUTPUT_DIR / folder_date / "forward"
 EVAL_DIR     = OUTPUT_DIR / folder_date / "evaluation"
 
 EVAL_DIR.mkdir(parents=True, exist_ok=True)
 
-print(f"Backward directory: {BACKWARD_DIR}")
 print(f"Forward directory: {FORWARD_DIR}")
 print(f"Evaluation directory: {EVAL_DIR}")
 
 summary_rows = []
 
 # ------------------------------------------------
+# Download ACTUAL candles from Yahoo
+# ------------------------------------------------
+
+eval_date = datetime.strptime(folder_date, "%Y%m%d").date()
+
+start_date = eval_date.strftime("%Y-%m-%d")
+end_date   = (eval_date + timedelta(days=1)).strftime("%Y-%m-%d")
+
+print(f"Downloading actual candles from Yahoo for {start_date}")
+
+try:
+
+    actual_df = yf.download(
+        "^NSEI",
+        start=start_date,
+        end=end_date,
+        interval="5m",
+        progress=False
+    )
+
+except Exception as e:
+
+    print(f"ERROR downloading Yahoo data: {e}")
+    sys.exit(1)
+
+if actual_df.empty:
+
+    print("Yahoo returned empty dataset - skipping evaluation.")
+    sys.exit(0)
+
+actual_df = actual_df.reset_index()
+
+actual_df.rename(columns={
+    "Close": "close_price_act"
+}, inplace=True)
+
+actual_df["Datetime"] = pd.to_datetime(actual_df["Datetime"]).dt.tz_localize(None)
+
+# true direction calculation
+actual_df["true_direction"] = (
+    actual_df["close_price_act"].shift(-1) > actual_df["close_price_act"]
+).astype(int)
+
+actual_df.dropna(inplace=True)
+
+print(f"Downloaded {len(actual_df)} candles")
+
+# ------------------------------------------------
 # Evaluate each model
 # ------------------------------------------------
 
-for backward_file in BACKWARD_DIR.glob("nifty_*_*.csv"):
+for forward_file in FORWARD_DIR.glob("nifty_*_forward_*.csv"):
 
-    model_name = backward_file.stem.split("_")[1]
-
-    forward_file = FORWARD_DIR / f"nifty_{model_name}_forward_{folder_date}.csv"
+    model_name = forward_file.stem.split("_")[1]
 
     print(f"\nProcessing model: {model_name}")
 
-    print(f"Backward file: {backward_file}")
     print(f"Forward file: {forward_file}")
 
-    if not forward_file.exists():
-
-        print(f"WARNING: Missing forward file for model: {model_name}")
-        continue
-
     # ------------------------------------------------
-    # Load files
+    # Load prediction file
     # ------------------------------------------------
 
-    actual_df = pd.read_csv(backward_file, parse_dates=["Datetime"])
-    pred_df   = pd.read_csv(forward_file, parse_dates=["Datetime"])
+    pred_df = pd.read_csv(forward_file, parse_dates=["Datetime"])
 
     print("Forward file preview:")
     print(pred_df.head().to_string(index=False))
-
-    print("Backward file preview:")
-    print(actual_df.head().to_string(index=False))
-
-    # ------------------------------------------------
-    # Prepare data
-    # ------------------------------------------------
 
     pred_df = pred_df.rename(columns={
         "Close_Price": "close_price_pred",
         "Predicted_Price": "predicted_price"
     })
 
-    actual_df = actual_df.rename(columns={
-        "Close": "close_price_act",
-        "Target": "true_direction"
-    })[["Datetime","close_price_act","true_direction"]]
-
     pred_df["Datetime"] = pd.to_datetime(pred_df["Datetime"]).dt.tz_localize(None)
-    actual_df["Datetime"] = pd.to_datetime(actual_df["Datetime"]).dt.tz_localize(None)
 
     # ------------------------------------------------
-    # Filter actuals to forward timestamps
+    # Merge predictions with actual candles
     # ------------------------------------------------
 
-    filtered_actual_df = actual_df[
-        actual_df["Datetime"].isin(pred_df["Datetime"])
-    ]
+    cmp = pd.merge(
+        pred_df,
+        actual_df[["Datetime","close_price_act","true_direction"]],
+        on="Datetime",
+        how="inner"
+    )
 
-    print("Filtered actual rows preview:")
-    print(filtered_actual_df.head().to_string(index=False))
+    if cmp.empty:
 
-    # ------------------------------------------------
-    # Merge
-    # ------------------------------------------------
-
-    cmp = pd.merge(pred_df, filtered_actual_df, on="Datetime", how="inner")
+        print(f"No matching candles found for model: {model_name}")
+        continue
 
     cmp["was_correct"] = cmp["Prediction"] == cmp["true_direction"]
 
     cmp["error_mag"] = np.abs(
         cmp["predicted_price"] - cmp["close_price_act"]
     )
-
-    if cmp.empty:
-
-        print(f"No matching records found for model: {model_name}")
-        continue
 
     # ------------------------------------------------
     # Save comparison
