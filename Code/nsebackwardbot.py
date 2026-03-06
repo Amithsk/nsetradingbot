@@ -34,11 +34,11 @@ today = now_ist
 
 # Weekend protection
 if today.weekday() == 5:
-    print("Today is Saturday → rolling back to Friday")
+    print("Today is Saturday -rolling back to Friday")
     today -= timedelta(days=1)
 
 elif today.weekday() == 6:
-    print("Today is Sunday → rolling back to Friday")
+    print("Today is Sunday - rolling back to Friday")
     today -= timedelta(days=2)
 
 end_date = today
@@ -47,7 +47,7 @@ start_date = end_date - timedelta(days=55)
 start_str = start_date.strftime("%Y-%m-%d")
 end_str = end_date.strftime("%Y-%m-%d")
 
-print(f"Data download window: {start_str} → {end_str}")
+print(f"Data download window: {start_str} - {end_str}")
 
 # -------------------------------
 # Folder setup (temporary)
@@ -129,7 +129,7 @@ def get_nse_data(symbol, start_str, end_str, interval):
         print("No missing intervals detected.")
         return df_bulk
 
-    print(f"Found {len(missing_times)} missing intervals → attempting patch...")
+    print(f"Found {len(missing_times)} missing intervals - attempting patch...")
 
     patched_rows = []
 
@@ -188,7 +188,7 @@ for attempt in range(MAX_RETRIES):
 
     # Holiday safety
     if nseholiday(last_candle_date):
-        print(f"{last_candle_date} is an NSE holiday → skipping pipeline.")
+        print(f"{last_candle_date} is an NSE holiday - skipping pipeline.")
         exit(0)
 
     # Accept data immediately

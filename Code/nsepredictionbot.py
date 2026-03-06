@@ -35,7 +35,7 @@ except Exception as e:
 file_date_obj = datetime.strptime(file_date, "%Y%m%d").date()
 
 if nseholiday(file_date_obj):
-    print(f"{file_date_obj} was an NSE holiday → skipping forward pipeline.")
+    print(f"{file_date_obj} was an NSE holiday - skipping forward pipeline.")
     sys.exit(0)
 
 # ------------------------------------------------
@@ -87,7 +87,7 @@ for model_path in MODEL_DIR.glob("*_backward.pkl"):
 
     if not back_csv.exists():
 
-        print(f"WARNING: backward file missing → {back_csv}")
+        print(f"WARNING: backward file missing - {back_csv}")
         continue
 
     df = pd.read_csv(back_csv, parse_dates=["Datetime"])

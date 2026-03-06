@@ -25,7 +25,7 @@ try:
 
 except Exception as e:
 
-    print("ERROR: backward_date.txt missing → cannot run evaluation.")
+    print("ERROR: backward_date.txt missing - cannot run evaluation.")
     sys.exit(1)
 
 # ------------------------------------------------
@@ -36,7 +36,7 @@ file_date_obj = datetime.strptime(file_date, "%Y%m%d").date()
 
 if nseholiday(file_date_obj):
 
-    print(f"{file_date_obj} was an NSE holiday → skipping evaluation.")
+    print(f"{file_date_obj} was an NSE holiday - skipping evaluation.")
     sys.exit(0)
 
 # ------------------------------------------------
