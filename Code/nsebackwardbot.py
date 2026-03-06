@@ -1,5 +1,6 @@
 # nse_backward_xgb.py
 # Download 5m data for last 50 days, train backward-looking models, and save results.
+
 import yfinance as yf
 from datetime import datetime, timedelta
 import pandas as pd
@@ -23,15 +24,21 @@ from zoneinfo import ZoneInfo
 
 INTERVAL = "5m"
 
+print("----- NSE BACKWARD PIPELINE START -----")
+
 # Ensure IST timezone (important for GitHub runners)
 now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
+print(f"Pipeline run time (IST): {now_ist}")
 
 today = now_ist
 
-# roll back weekends
+# Weekend protection
 if today.weekday() == 5:
+    print("Today is Saturday → rolling back to Friday")
     today -= timedelta(days=1)
+
 elif today.weekday() == 6:
+    print("Today is Sunday → rolling back to Friday")
     today -= timedelta(days=2)
 
 end_date = today
@@ -40,43 +47,13 @@ start_date = end_date - timedelta(days=55)
 start_str = start_date.strftime("%Y-%m-%d")
 end_str = end_date.strftime("%Y-%m-%d")
 
-# -------------------------------
-# Determine file date (previous trading day)
-# -------------------------------
-
-temp_file_date = now_ist
-
-if temp_file_date.weekday() == 0:
-    file_date = (temp_file_date - timedelta(days=3)).strftime("%Y%m%d")
-elif temp_file_date.weekday() == 5:
-    file_date = (temp_file_date - timedelta(days=1)).strftime("%Y%m%d")
-elif temp_file_date.weekday() == 6:
-    file_date = (temp_file_date - timedelta(days=2)).strftime("%Y%m%d")
-else:
-    file_date = (temp_file_date - timedelta(days=1)).strftime("%Y%m%d")
-
-file_date_obj = datetime.strptime(file_date, "%Y%m%d").date()
+print(f"Data download window: {start_str} → {end_str}")
 
 # -------------------------------
-# Holiday Check
+# Folder setup (temporary)
 # -------------------------------
 
-if nseholiday(file_date_obj):
-    print(f"{file_date_obj} was an NSE holiday. Skipping backward script.")
-    with open("holiday_flag.txt", "w") as f:
-        f.write(str(file_date_obj))
-    exit(0)
-
-# -------------------------------
-# Folder setup
-# -------------------------------
-
-folder_date = end_date.strftime("%Y%m%d")
-
-OUTPUT_DIR = Path(f"./Output/{folder_date}/backward")
 MODEL_DIR = Path("./models")
-
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 results = []
@@ -86,6 +63,7 @@ results = []
 # -------------------------------
 
 def fetch_chart_data(symbol, start_epoch, end_epoch, interval):
+
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 
     params = {
@@ -120,13 +98,13 @@ def fetch_chart_data(symbol, start_epoch, end_epoch, interval):
         return df.dropna()
 
     except Exception as e:
-        print(f"Error fetching chart data: {e}")
+        print(f"Chart API patch error: {e}")
         return pd.DataFrame()
 
 
 def get_nse_data(symbol, start_str, end_str, interval):
 
-    print("Downloading bulk data from Yahoo...")
+    print("Downloading bulk data from Yahoo Finance...")
 
     df_bulk = yf.download(
         symbol,
@@ -151,13 +129,13 @@ def get_nse_data(symbol, start_str, end_str, interval):
         print("No missing intervals detected.")
         return df_bulk
 
-    print(f"Found {len(missing_times)} missing intervals — patching...")
+    print(f"Found {len(missing_times)} missing intervals → attempting patch...")
 
     patched_rows = []
 
     for ts in missing_times:
 
-        time.sleep(random.uniform(2, 4))
+        time.sleep(random.uniform(2,4))
 
         start_epoch = int(ts.timestamp()) - 60
         end_epoch = int(ts.timestamp()) + 60
@@ -166,6 +144,7 @@ def get_nse_data(symbol, start_str, end_str, interval):
 
         if not df_patch.empty:
             if ts in df_patch.index:
+
                 row = df_patch.loc[ts]
 
                 patched_rows.append(
@@ -180,21 +159,23 @@ def get_nse_data(symbol, start_str, end_str, interval):
                 )
 
     if patched_rows:
+        print(f"Patched {len(patched_rows)} missing candles")
+
         df_patch_final = pd.DataFrame(patched_rows).set_index("Datetime")
         df_bulk.update(df_patch_final)
-
-    df_bulk.index = df_bulk.index.tz_convert("Asia/Kolkata")
 
     return df_bulk
 
 
 # -------------------------------
-# Data Fetch with Validation
+# 3) Data Fetch + Validation
 # -------------------------------
 
 MAX_RETRIES = 3
 
 for attempt in range(MAX_RETRIES):
+
+    print(f"\nData fetch attempt {attempt+1}/{MAX_RETRIES}")
 
     nifty = get_nse_data("^NSEI", start_str=start_str, end_str=end_str, interval="5m")
 
@@ -203,54 +184,83 @@ for attempt in range(MAX_RETRIES):
 
     last_candle_date = nifty.index[-1].date()
 
-    expected_date = file_date_obj
+    print(f"Last candle detected from Yahoo: {last_candle_date}")
 
-    print(f"Last candle date: {last_candle_date}")
-    print(f"Expected date: {expected_date}")
+    # Holiday safety
+    if nseholiday(last_candle_date):
+        print(f"{last_candle_date} is an NSE holiday → skipping pipeline.")
+        exit(0)
 
-    if last_candle_date == expected_date:
-        print("Yahoo data validation successful.")
-        break
-
-    print("Yahoo data not updated yet. Retrying...")
-    time.sleep(60)
+    # Accept data immediately
+    print("Yahoo data accepted.")
+    break
 
 else:
-    raise RuntimeError("Yahoo data did not update after retries.")
+
+    raise RuntimeError("Yahoo data fetch failed after retries.")
+
+
+# -------------------------------
+# Determine output dates
+# -------------------------------
+
+file_date = last_candle_date.strftime("%Y%m%d")
+folder_date = file_date
+
+print(f"File date (market session): {file_date}")
+print(f"Output folder date: {folder_date}")
+
+OUTPUT_DIR = Path(f"./Output/{folder_date}/backward")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# -------------------------------
+# Continue processing
+# -------------------------------
 
 nifty = nifty.reset_index().dropna()
 
+print(f"Total rows downloaded: {len(nifty)}")
+
 # -------------------------------
-# 3) Feature engineering
+# Feature engineering
 # -------------------------------
 
 def compute_rsi(s, window=14):
+
     delta = s.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
+
     avg_gain = gain.rolling(window).mean()
     avg_loss = loss.rolling(window).mean()
+
     rs = avg_gain / (avg_loss + 1e-8)
-    return 100 - (100 / (1 + rs))
+
+    return 100 - (100/(1+rs))
 
 
 def compute_atr(df, window=14):
+
     hl = df["High"] - df["Low"]
     hc = (df["High"] - df["Close"].shift()).abs()
     lc = (df["Low"] - df["Close"].shift()).abs()
+
     tr = np.maximum(hl, np.maximum(hc, lc))
+
     return tr.rolling(window).mean()
 
 
-nifty["SMA_5"] = nifty["Close"].rolling(5).mean()
+nifty["SMA_5"]  = nifty["Close"].rolling(5).mean()
 nifty["SMA_20"] = nifty["Close"].rolling(20).mean()
-nifty["RSI"] = compute_rsi(nifty["Close"])
-nifty["ATR"] = compute_atr(nifty)
+nifty["RSI"]    = compute_rsi(nifty["Close"])
+nifty["ATR"]    = compute_atr(nifty)
 
 nifty.dropna(inplace=True)
 
+print("Feature engineering completed.")
+
 # -------------------------------
-# 4) Target and features
+# Target
 # -------------------------------
 
 nifty["Target"] = (nifty["Close"].shift(-1) > nifty["Close"]).astype(int)
@@ -261,58 +271,65 @@ nifty["Pct_Change"] = (
 
 nifty.dropna(inplace=True)
 
-FEATURES = ["SMA_5", "SMA_20", "RSI", "ATR", "Close"]
+FEATURES = ["SMA_5","SMA_20","RSI","ATR","Close"]
 
 X = nifty[FEATURES]
 y = nifty["Target"]
 
 # -------------------------------
-# 5) Train/test split
+# Train/test split
 # -------------------------------
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, shuffle=False, test_size=0.2
 )
 
+print(f"Train size: {len(X_train)} | Test size: {len(X_test)}")
+
 # -------------------------------
-# 6) Model training
+# Models
 # -------------------------------
 
 models = {
 
-    "Logistic": LogisticRegression(max_iter=500, solver="lbfgs", C=1.0),
+"Logistic": LogisticRegression(max_iter=500, solver="lbfgs", C=1.0),
 
-    "RF": RandomForestClassifier(
-        n_estimators=100,
-        max_depth=6,
-        random_state=42,
-        n_jobs=-1,
-    ),
+"RF": RandomForestClassifier(
+    n_estimators=100,
+    max_depth=6,
+    random_state=42,
+    n_jobs=-1
+),
 
-    "XGB": xgb.XGBClassifier(
-        n_estimators=100,
-        max_depth=4,
-        learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        use_label_encoder=False,
-        eval_metric="logloss",
-        random_state=42,
-    ),
+"XGB": xgb.XGBClassifier(
+    n_estimators=100,
+    max_depth=4,
+    learning_rate=0.1,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    use_label_encoder=False,
+    eval_metric="logloss",
+    random_state=42
+),
 
-    "LGBM": lgb.LGBMClassifier(
-        n_estimators=100,
-        max_depth=4,
-        learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        random_state=42,
-    ),
+"LGBM": lgb.LGBMClassifier(
+    n_estimators=100,
+    max_depth=4,
+    learning_rate=0.1,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    random_state=42
+)
+
 }
+
+# -------------------------------
+# Train + Save
+# -------------------------------
 
 for name, model in models.items():
 
-    print(f"Training {name}...")
+    print(f"\nTraining model: {name}")
 
     model.fit(X_train, y_train)
 
@@ -323,7 +340,6 @@ for name, model in models.items():
     report_dict = classification_report(y_test, preds, output_dict=True)
 
     summary_row = {
-
         "model": name,
         "accuracy": acc,
         "precision_0": report_dict["0"]["precision"],
@@ -342,43 +358,30 @@ for name, model in models.items():
     res["Prediction"] = preds
 
     res["Was_Correct"] = np.where(
-        res["Prediction"] == res["Target"], "Success", "Fail"
+        res["Prediction"] == res["Target"],
+        "Success",
+        "Fail"
     )
 
     res["Predicted_Price"] = np.where(
         res["Prediction"] == 1,
-        res["Close"] * (1 + res["Pct_Change"].abs() / 100),
-        res["Close"] * (1 - res["Pct_Change"].abs() / 100),
+        res["Close"]*(1+res["Pct_Change"].abs()/100),
+        res["Close"]*(1-res["Pct_Change"].abs()/100)
     )
 
     out = res.reset_index()[[
-        "Datetime",
-        "Open",
-        "High",
-        "Low",
-        "Volume",
-        "Close",
-        "Predicted_Price",
-        "Target",
-        "Prediction",
-        "Was_Correct",
-        "Pct_Change",
-        "SMA_5",
-        "SMA_20",
-        "RSI",
-        "ATR",
+        "Datetime","Open","High","Low","Volume","Close",
+        "Predicted_Price","Target","Prediction","Was_Correct",
+        "Pct_Change","SMA_5","SMA_20","RSI","ATR"
     ]]
 
-    out.to_csv(
-        OUTPUT_DIR / f"nifty_{name}_backward_{file_date}.csv",
-        index=False,
-    )
+    out_file = OUTPUT_DIR / f"nifty_{name}_backward_{file_date}.csv"
 
-    print(
-        f"Saved backward {name} results to: {OUTPUT_DIR}/nifty_{name}_backward_{file_date}.csv"
-    )
+    out.to_csv(out_file,index=False)
 
-    joblib.dump(model, f"./models/{name}_backward.pkl")
+    print(f"Saved: {out_file}")
+
+    joblib.dump(model,f"./models/{name}_backward.pkl")
 
 # -------------------------------
 # Save metrics
@@ -386,16 +389,19 @@ for name, model in models.items():
 
 metrics_df = pd.DataFrame(results)
 
-metrics_df.to_csv(
-    OUTPUT_DIR / f"model_metrics_{file_date}.csv",
-    index=False,
-)
+metrics_file = OUTPUT_DIR / f"model_metrics_{file_date}.csv"
 
-print("Saved classification summary for all models.")
+metrics_df.to_csv(metrics_file,index=False)
+
+print(f"Metrics saved: {metrics_file}")
 
 # -------------------------------
-# Write folder date for GitHub Action
+# Write date for GitHub Action
 # -------------------------------
 
-with open("backward_date.txt", "w") as f:
+with open("backward_date.txt","w") as f:
     f.write(f"{folder_date},{file_date}")
+
+print("backward_date.txt written for GitHub Actions")
+
+print("----- NSE BACKWARD PIPELINE COMPLETE -----")
