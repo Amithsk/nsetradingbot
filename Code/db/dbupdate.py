@@ -333,44 +333,26 @@ def load_comparisons(OUTPUT_ROOT, conn, _date_str_unused):
 def load_daily_summary(OUTPUT_ROOT, conn, _date_str_unused):
 
     try:
-
         daily_matches = list(Path(OUTPUT_ROOT, RUN_DATE_STR, "evaluation").glob("evaluation_summary*.csv"))
-
         if not daily_matches:
-
             print("No evaluation summary file found")
-
             return None
-
-
         sum_file = daily_matches[0].as_posix()
-
-        df = pd.read_csv(sum_file)
-
+        try:
+            df = pd.read_csv(sum_file)
+        except pd.errors.EmptyDataError:
+            print(f"[{RUN_DATE_STR}] Evaluation summary file is empty, skipping.")
+            return None
         df['date'] = pd.to_datetime(df['date']).dt.date
-
         df.rename(columns={'date':'summary_date','model':'model_name'}, inplace=True)
-
-
         existing = pd.read_sql("SELECT summary_date,model_name FROM model_daily_summary", conn)
-
-
         df = df.merge(existing,on=["summary_date","model_name"],how="left",indicator=True)
-
         df = df[df["_merge"] == "left_only"].drop(columns=["_merge"])
-
-
         if not df.empty:
-
             df.to_sql('model_daily_summary',conn,if_exists='append',index=False)
-
             print(f"[{RUN_DATE_STR}] Inserted {len(df)} daily summary rows")
-
-
     except Exception as e:
-
         print(f"[{RUN_DATE_STR}] Error in load_daily_summary: {e}")
-
         traceback.print_exc()
 
 
@@ -464,30 +446,15 @@ if __name__ == "__main__":
     try:
 
         folder_input = input("Enter folder name (YYYYMMDD): ").strip()
-
         folder_path = Path(OUTPUT_ROOT) / folder_input
-
-
         if not folder_path.exists():
-
             print("Folder not found")
-
             raise SystemExit(1)
-
-
         RUN_DATE_STR = folder_input
-
         run_day = datetime.strptime(RUN_DATE_STR,"%Y%m%d").date()
-
-        prev_day = prev_trading_day(run_day)
-
-        YDAY_STR = prev_day.strftime("%Y%m%d")
-
-
+        YDAY_STR = run_day.strftime("%Y%m%d")
         process_date(OUTPUT_ROOT, conn, RUN_DATE_STR)
-
         session.commit()
-
         print("DB update completed successfully")
 
 

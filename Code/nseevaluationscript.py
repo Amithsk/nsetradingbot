@@ -209,10 +209,16 @@ for forward_file in FORWARD_DIR.glob("nifty_*_forward_*.csv"):
 summary_df = pd.DataFrame(summary_rows)
 
 summary_file = EVAL_DIR / f"evaluation_summary_{folder_date}.csv"
+if not summary_df.empty:
 
-summary_df.to_csv(summary_file, index=False)
+    summary_df.to_csv(summary_file, index=False)
 
-print(f"\nEvaluation summary saved: {summary_file}")
+    print(f"\nEvaluation summary saved: {summary_file}")
+
+else:
+
+    print("No evaluation results generated — summary file not created.")
+
 
 # ------------------------------------------------
 # Write folder date for GitHub Action
