@@ -42,11 +42,26 @@ if nseholiday(file_date_obj):
     sys.exit(0)
 
 # ------------------------------------------------
+# Determine prediction folder (previous trading day)
+# ------------------------------------------------
+
+folder_date_obj = datetime.strptime(folder_date, "%Y%m%d").date()
+
+prediction_folder_date = folder_date_obj - timedelta(days=1)
+
+while prediction_folder_date.weekday() >= 5 or nseholiday(prediction_folder_date):
+    prediction_folder_date -= timedelta(days=1)
+
+prediction_folder_str = prediction_folder_date.strftime("%Y%m%d")
+
+print(f"Evaluating predictions from folder: {prediction_folder_str}")
+
+# ------------------------------------------------
 # Paths
 # ------------------------------------------------
 
-FORWARD_DIR  = OUTPUT_DIR / folder_date / "forward"
-EVAL_DIR     = OUTPUT_DIR / folder_date / "evaluation"
+FORWARD_DIR  = OUTPUT_DIR / prediction_folder_str / "forward"
+EVAL_DIR     = OUTPUT_DIR / prediction_folder_str / "evaluation"
 
 EVAL_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -59,7 +74,7 @@ summary_rows = []
 # Download ACTUAL candles from Yahoo
 # ------------------------------------------------
 
-eval_date = datetime.strptime(folder_date, "%Y%m%d").date()
+eval_date = folder_date_obj
 
 start_date = eval_date.strftime("%Y-%m-%d")
 end_date   = (eval_date + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -166,7 +181,7 @@ for forward_file in FORWARD_DIR.glob("nifty_*_forward_*.csv"):
     # Save comparison
     # ------------------------------------------------
 
-    comparison_file = EVAL_DIR / f"{model_name}_comparison_{folder_date}.csv"
+    comparison_file = EVAL_DIR / f"{model_name}_comparison_{prediction_folder_str}.csv"
 
     cmp.to_csv(comparison_file, index=False)
 
@@ -208,7 +223,8 @@ for forward_file in FORWARD_DIR.glob("nifty_*_forward_*.csv"):
 
 summary_df = pd.DataFrame(summary_rows)
 
-summary_file = EVAL_DIR / f"evaluation_summary_{folder_date}.csv"
+summary_file = EVAL_DIR / f"evaluation_summary_{prediction_folder_str}.csv"
+
 if not summary_df.empty:
 
     summary_df.to_csv(summary_file, index=False)
@@ -226,7 +242,7 @@ else:
 
 with open("evaluation_date.txt","w") as f:
 
-    f.write(folder_date)
+    f.write(prediction_folder_str)
 
 print("evaluation_date.txt written for GitHub Actions")
 
