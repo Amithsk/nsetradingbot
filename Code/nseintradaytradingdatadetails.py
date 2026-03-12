@@ -72,20 +72,36 @@ def main():
     csv_path = input("Enter CSV file path: ").strip()
     prev_close = float(input("Enter Previous Close value: ").strip())
 
+    # ------------------------------------------------
+    # Load CSV
+    # ------------------------------------------------
+
     df = pd.read_csv(csv_path)
 
+    # ------------------------------------------------
+    # Keep only required columns
+    # ------------------------------------------------
+
+    required_cols = ["Open", "High", "Low", "Close", "Volume"]
+
+    missing = [c for c in required_cols if c not in df.columns]
+
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
+
+    df = df[required_cols].copy()
+
+    # ------------------------------------------------
     # Clean Volume
+    # ------------------------------------------------
+
     df["Volume"] = df["Volume"].astype(str).str.replace(",", "")
     df["Volume"] = df["Volume"].astype(float)
 
-    # Clean Date column
-    df["Date"] = df["Date"].str.replace(r" GMT.*", "", regex=True)
-    df["Date"] = pd.to_datetime(df["Date"], format="%a %b %d %Y %H:%M:%S")
-
-    # Sort by Date
-    df = df.sort_values("Date").reset_index(drop=True)
-
+    # ------------------------------------------------
     # Calculate VWAP
+    # ------------------------------------------------
+
     df = calculate_vwap(df)
 
     open_price = df.iloc[0]["Open"]
