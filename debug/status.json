@@ -1,9 +1,9 @@
 {
   "target_date": "2026-03-20",
-  "state": "downloaded",
+  "state": "committed",
   "downloaded": "PR200326.zip",
-  "downloaded_at": "2026-03-20T19:00:09.707455",
   "source": "git_commit_changes",
-  "note": "artifact downloaded locally; about to commit",
-  "ts": "2026-03-20T19:00:09.707644"
+  "commit_sha": "99afe38db5cfd3158f6f2d46e9c1dddc55856bda",
+  "note": "artifact commit pushed",
+  "ts": "2026-03-20T19:00:28.774175"
 }
