@@ -8,12 +8,21 @@ from sqlalchemy.orm import sessionmaker
 import urllib.parse
 from pathlib import Path
 import traceback
-
+import sys
 from zoneinfo import ZoneInfo
+# --- Make sure project root is in sys.path so we can import from Code/*
+current_file = Path(__file__).resolve()
+project_root = current_file.parents[2]  # go up from Code/db to project root (nsetradingbot)
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+from Code.utils.nseniftyIndicator import apply_indicators
+
 try:
     from nsedatadailydownload import nseholiday
 except Exception:
     nseholiday = None
+
+
 
 
 # ------------------------------------------------
@@ -80,7 +89,7 @@ YDAY_STR = None
 
 
 # ------------------------------------------------
-# LOAD PRICES (UPDATED ONLY HERE)
+# LOAD PRICES (UPDATED WITH INDICATORS)
 # ------------------------------------------------
 
 def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
@@ -97,7 +106,20 @@ def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
 
         df['Datetime'] = pd.to_datetime(df['Datetime'])
 
-        price_df = df[['Datetime','Open','High','Low','Close','Volume']].copy()
+        # ------------------------------------------------
+        # ✅ APPLY INDICATORS
+        # ------------------------------------------------
+        df = apply_indicators(df)
+
+        # Remove initial NaN rows due to rolling calculations
+        df = df.dropna()
+
+        # ------------------------------------------------
+        # SELECT FINAL COLUMNS
+        # ------------------------------------------------
+        price_df = df[
+            ['Datetime','Open','High','Low','Close','Volume','SMA_5','SMA_20','RSI','ATR']
+        ].copy()
 
         price_df.rename(columns={'Datetime': 'Date'}, inplace=True)
 
@@ -172,6 +194,7 @@ def process_date(OUTPUT_ROOT, conn, date_str):
 # ------------------------------------------------
 
 if __name__ == "__main__":
+    print("SYS PATH:", sys.path[0])
 
     OUTPUT_ROOT, engine = load_config()
 
