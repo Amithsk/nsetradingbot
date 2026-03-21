@@ -12,7 +12,7 @@ import traceback
 # NEW: IST + holiday hook
 from zoneinfo import ZoneInfo
 try:
-    from nsebackwardbot import nseholiday
+    from nsedatadailydownload import nseholiday
 except Exception:
     nseholiday = None
 

@@ -17,20 +17,6 @@ jobs:
         uses: actions/checkout@v3
 
 
-      - name: Download trained model
-        shell: bash
-        run: |
-          mkdir -p models
-          curl -L -o models/XGB_backward.pkl \
-             https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/XGB_backward.pkl
-          curl -L -o models/RF_backward.pkl \
-             https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/RF_backward.pkl
-          curl -L -o models/LGBM_backward.pkl \
-             https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/LGBM_backward.pkl
-          curl -L -o models/Logistic_backward.pkl \
-             https://github.com/Amithsk/nsetradingbot/releases/download/V2.0/Logistic_backward.pkl
-
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -45,16 +31,16 @@ jobs:
 
 
       # ------------------------------------------------
-      # Run backward training
+      # Run Nifty Data Downloader
       # ------------------------------------------------
 
-      - name: Run backward script
+      - name: Run nifty data downloader
         shell: bash
         run: |
-          python Code/nsebackwardbot.py
+          python Code/nsedatadailydownload.py
 
 
-      - name: Read backward pipeline dates
+      - name: Read download dates
         shell: bash
         run: |
           content=$(cat backward_date.txt)
@@ -69,66 +55,14 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git add Output/$FOLDER_DATE/backward/
+          git add Output/$FOLDER_DATE/
 
-          git commit -m "Backward evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
-
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
-
-
-      # ------------------------------------------------
-      # Run forward prediction
-      # ------------------------------------------------
-
-      - name: Run forward script
-        shell: bash
-        run: |
-          python Code/nsepredictionbot.py
-
-
-      - name: Commit forward files
-        shell: bash
-        run: |
-
-          folder_date=$(cat predicton_date.txt)
-
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-
-          git add Output/$folder_date/forward/
-
-          git commit -m "Forward prediction for $(date +'%Y-%m-%d')" || echo "No changes to commit"
+          git commit -m "Nifty data for $(date +'%Y-%m-%d')" || echo "No changes to commit"
 
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
 
 
-      # ------------------------------------------------
-      # Run evaluation
-      # ------------------------------------------------
-
-      - name: Run evaluation script
-        shell: bash
-        run: |
-          python Code/nseevaluationscript.py
-
-
-      - name: Commit evaluation results
-        shell: bash
-        run: |
-
-          folder_date=$(cat evaluation_date.txt)
-
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-
-          # safer commit (avoids missing file crash)
-          git add Output/$folder_date/evaluation/
-
-          git commit -m "Automated evaluation for $(date +'%Y-%m-%d')" || echo "No changes to commit"
-
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
-
-
+      
       # ------------------------------------------------
       # Cleanup
       # ------------------------------------------------
@@ -136,6 +70,4 @@ jobs:
       - name: Cleanup temp files
         shell: bash
         run: |
-          rm -f evaluation_date.txt
           rm -f backward_date.txt
-          rm -f predicton_date.txt
