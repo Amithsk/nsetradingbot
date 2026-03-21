@@ -43,7 +43,7 @@ jobs:
       - name: Read download dates
         shell: bash
         run: |
-          content=$(cat backward_date.txt)
+          content=$(cat download_date.txt)
           IFS=, read folder_date file_date <<< "$content"
           echo "FOLDER_DATE=$folder_date" >> $GITHUB_ENV
           echo "FILE_DATE=$file_date" >> $GITHUB_ENV
