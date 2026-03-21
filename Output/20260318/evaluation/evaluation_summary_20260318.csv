@@ -1,5 +1,0 @@
-model,date,total_bars,correct,incorrect,accuracy_pct,avg_error_mag
-LGBM,2026-03-19,9,5,4,55.56,720.2622
-Logistic,2026-03-19,9,5,4,55.56,720.2622
-RF,2026-03-19,9,5,4,55.56,720.2622
-XGB,2026-03-19,9,5,4,55.56,720.2622
