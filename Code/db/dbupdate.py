@@ -10,19 +10,19 @@ from pathlib import Path
 import traceback
 import sys
 from zoneinfo import ZoneInfo
+
 # --- Make sure project root is in sys.path so we can import from Code/*
 current_file = Path(__file__).resolve()
 project_root = current_file.parents[2]  # go up from Code/db to project root (nsetradingbot)
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
+
 from Code.utils.nseniftyIndicator import apply_indicators
 
 try:
     from nsedatadailydownload import nseholiday
 except Exception:
     nseholiday = None
-
-
 
 
 # ------------------------------------------------
@@ -125,12 +125,19 @@ def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
 
         price_df = price_df.drop_duplicates(subset=["Date"])
 
+        # ✅ ADDED NORMALIZATION (FIX DUPLICATE ISSUE)
+        price_df["Date"] = pd.to_datetime(price_df["Date"]).dt.floor("min")
+
         csv_start = price_df['Date'].min().strftime("%Y-%m-%d")
         csv_end = price_df['Date'].max().strftime("%Y-%m-%d")
 
         query = "SELECT Date FROM nifty_prices WHERE Date BETWEEN %s AND %s"
 
         existing = pd.read_sql(query, conn, params=(csv_start, csv_end))
+
+        # ✅ ADDED NORMALIZATION (FIX DUPLICATE ISSUE)
+        if not existing.empty:
+            existing["Date"] = pd.to_datetime(existing["Date"]).dt.floor("min")
 
         if not existing.empty:
             price_df = price_df[~price_df["Date"].isin(existing["Date"])]
@@ -147,7 +154,13 @@ def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
 
     except Exception as e:
 
-        print(f"[{RUN_DATE_STR}] Error in load_prices: {e}")
+        error_str = str(e)
+
+        # ✅ HANDLE DUPLICATE ERROR CLEANLY
+        if "1062" in error_str or "Duplicate entry" in error_str:
+            print(f"[{RUN_DATE_STR}] Duplicate data detected - already present in DB, skipping insert.")
+        else:
+            print(f"[{RUN_DATE_STR}] Error in load_prices: {e}")
 
 
 # ------------------------------------------------
@@ -194,7 +207,7 @@ def process_date(OUTPUT_ROOT, conn, date_str):
 # ------------------------------------------------
 
 if __name__ == "__main__":
-    print("SYS PATH:", sys.path[0])
+    
 
     OUTPUT_ROOT, engine = load_config()
 
