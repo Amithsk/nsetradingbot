@@ -207,6 +207,9 @@ output_file = OUTPUT_DIR / f"{file_date}data.csv"
 # Save Clean Data
 # -------------------------------
 
+# ✅ Added sorting
+nifty = nifty.sort_index()
+
 nifty = nifty.reset_index().dropna()
 
 print(f"Total rows downloaded: {len(nifty)}")
@@ -216,5 +219,11 @@ nifty.rename(columns={"index":"Datetime"}, inplace=True)
 nifty.to_csv(output_file, index=False)
 
 print(f"Nifty data saved: {output_file}")
+
+# ✅ Added GitHub integration file
+with open("download_date.txt","w") as f:
+    f.write(file_date)
+
+print("download_date.txt written for GitHub Actions")
 
 print("----- NIFTY DATA DOWNLOAD COMPLETE -----")
