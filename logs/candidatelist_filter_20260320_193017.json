@@ -1,0 +1,6372 @@
+{
+  "generated_at": "20260320_193017",
+  "total_candidates_before": 1020,
+  "total_candidates_after": 614,
+  "dropped_count": 406,
+  "dropped": [
+    {
+      "symbol": "OMFURN",
+      "pd_lookup_key": "OMFURN",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.85,
+      "last_price": 49.95,
+      "prev_close": 48.1,
+      "turnover": null
+    },
+    {
+      "symbol": "GRAPHISAD",
+      "pd_lookup_key": "GRAPHISADS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.73,
+      "last_price": 33.4,
+      "prev_close": 32.2,
+      "turnover": null
+    },
+    {
+      "symbol": "HDFCLOWVOL",
+      "pd_lookup_key": "HDFCAMC HDFCLOWVOL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.59,
+      "last_price": 19.39,
+      "prev_close": 18.9,
+      "turnover": null
+    },
+    {
+      "symbol": "WTICAB",
+      "pd_lookup_key": "WISE TRAVEL",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.41,
+      "last_price": 99.15,
+      "prev_close": 102.65,
+      "turnover": null
+    },
+    {
+      "symbol": "CLASSICEIL",
+      "pd_lookup_key": "CLASSIC ELECTRODE L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.33,
+      "last_price": 46.5,
+      "prev_close": 45.0,
+      "turnover": null
+    },
+    {
+      "symbol": "SHREERAMA",
+      "pd_lookup_key": "SHREE RAMA MULTI TECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.03,
+      "last_price": 44.5,
+      "prev_close": 45.42,
+      "turnover": null
+    },
+    {
+      "symbol": "MEDISTEP",
+      "pd_lookup_key": "MEDISTEP HEALTHCARE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.31,
+      "last_price": 19.0,
+      "prev_close": 19.65,
+      "turnover": null
+    },
+    {
+      "symbol": "MOINFRA",
+      "pd_lookup_key": "MOTILALAMC MOINFRA",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.4,
+      "last_price": 56.82,
+      "prev_close": 58.22,
+      "turnover": null
+    },
+    {
+      "symbol": "805NMC35",
+      "pd_lookup_key": "NMC 8 05% 2035 SR STRPP G",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.09,
+      "last_price": 124.55,
+      "prev_close": 122.0,
+      "turnover": null
+    },
+    {
+      "symbol": "EFORCE",
+      "pd_lookup_key": "ELECTRO FORCE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.54,
+      "last_price": 20.2,
+      "prev_close": 19.7,
+      "turnover": null
+    },
+    {
+      "symbol": "KEL",
+      "pd_lookup_key": "KUNDAN EDIFICE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.63,
+      "last_price": 77.25,
+      "prev_close": 81.0,
+      "turnover": null
+    },
+    {
+      "symbol": "BEWLTD",
+      "pd_lookup_key": "BEW ENGINEERING",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.12,
+      "last_price": 82.0,
+      "prev_close": 80.3,
+      "turnover": null
+    },
+    {
+      "symbol": "CLEANMAX",
+      "pd_lookup_key": "CLEAN MAX ENVIRO EN SOL L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.99,
+      "last_price": 889.9,
+      "prev_close": 847.6,
+      "turnover": null
+    },
+    {
+      "symbol": "ITADD",
+      "pd_lookup_key": "DSPAMC DSPIT",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.43,
+      "last_price": 31.2,
+      "prev_close": 30.46,
+      "turnover": null
+    },
+    {
+      "symbol": "VISASTEEL",
+      "pd_lookup_key": "VISA STEEL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.5,
+      "last_price": 30.06,
+      "prev_close": 30.83,
+      "turnover": null
+    },
+    {
+      "symbol": "GROWWCAPM",
+      "pd_lookup_key": "GROWWAMC GROWWCAPM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.5,
+      "last_price": 9.37,
+      "prev_close": 9.61,
+      "turnover": null
+    },
+    {
+      "symbol": "TECHERA",
+      "pd_lookup_key": "TECHERA ENGINEER L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.98,
+      "last_price": 183.4,
+      "prev_close": 174.7,
+      "turnover": null
+    },
+    {
+      "symbol": "CHETANA",
+      "pd_lookup_key": "CHETANA EDUCATION",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.24,
+      "last_price": 34.45,
+      "prev_close": 33.05,
+      "turnover": null
+    },
+    {
+      "symbol": "AXISTECETF",
+      "pd_lookup_key": "AXISAMC AXISTECETF",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.71,
+      "last_price": 321.81,
+      "prev_close": 313.31,
+      "turnover": null
+    },
+    {
+      "symbol": "MOBILISE",
+      "pd_lookup_key": "MOBILISE APP LAB",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 20.0,
+      "last_price": 54.0,
+      "prev_close": 45.0,
+      "turnover": null
+    },
+    {
+      "symbol": "VGINFOTECH",
+      "pd_lookup_key": "VIRTUAL GALAXY INFOTECH L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.59,
+      "last_price": 118.95,
+      "prev_close": 115.95,
+      "turnover": null
+    },
+    {
+      "symbol": "SAROJA",
+      "pd_lookup_key": "SAROJA PHARMA INDUS IND L",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.9,
+      "last_price": 28.15,
+      "prev_close": 29.6,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBNOV26",
+      "pd_lookup_key": "2 50%GOLDBONDS2026SR III",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.11,
+      "last_price": 14250.0,
+      "prev_close": 14557.5,
+      "turnover": null
+    },
+    {
+      "symbol": "RICHA",
+      "pd_lookup_key": "RICHA INFO SYSTEMS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.92,
+      "last_price": 59.9,
+      "prev_close": 63.0,
+      "turnover": null
+    },
+    {
+      "symbol": "BALAJIPHOS",
+      "pd_lookup_key": "BALAJI PHOSPHATES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -11.63,
+      "last_price": 110.55,
+      "prev_close": 125.1,
+      "turnover": null
+    },
+    {
+      "symbol": "KSHINTL",
+      "pd_lookup_key": "KSH INTERNATIONAL",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 7.0,
+      "last_price": 434.2,
+      "prev_close": 405.8,
+      "turnover": null
+    },
+    {
+      "symbol": "KODYTECH",
+      "pd_lookup_key": "KODY TECHNOLAB",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.0,
+      "last_price": 694.75,
+      "prev_close": 681.15,
+      "turnover": null
+    },
+    {
+      "symbol": "SPPPOLY",
+      "pd_lookup_key": "SPP POLYMER",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.96,
+      "last_price": 12.7,
+      "prev_close": 12.1,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBDEC26",
+      "pd_lookup_key": "2 50%GOLDBONDS2026SR IV",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -8.73,
+      "last_price": 14248.0,
+      "prev_close": 15611.0,
+      "turnover": null
+    },
+    {
+      "symbol": "ZENITHDRUG",
+      "pd_lookup_key": "ZENITH DRUGS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.53,
+      "last_price": 41.0,
+      "prev_close": 42.5,
+      "turnover": null
+    },
+    {
+      "symbol": "SHETHJI",
+      "pd_lookup_key": "SHREEJI GLOBAL FMCG",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.34,
+      "last_price": 118.9,
+      "prev_close": 113.95,
+      "turnover": null
+    },
+    {
+      "symbol": "ATLPP",
+      "pd_lookup_key": "ATL RE 0 50 PPD UP",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.14,
+      "last_price": 8.34,
+      "prev_close": 8.61,
+      "turnover": null
+    },
+    {
+      "symbol": "IPSL",
+      "pd_lookup_key": "INTEGRATED PERSO SER",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.47,
+      "last_price": 248.9,
+      "prev_close": 236.0,
+      "turnover": null
+    },
+    {
+      "symbol": "ABSMARINE",
+      "pd_lookup_key": "ABS MARINE SERVICES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.0,
+      "last_price": 166.7,
+      "prev_close": 161.85,
+      "turnover": null
+    },
+    {
+      "symbol": "ETL",
+      "pd_lookup_key": "EMKAY TOOLS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.26,
+      "last_price": 950.0,
+      "prev_close": 920.0,
+      "turnover": null
+    },
+    {
+      "symbol": "MAHICKRA",
+      "pd_lookup_key": "MAHICKRA CHEMICAL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.48,
+      "last_price": 196.9,
+      "prev_close": 204.0,
+      "turnover": null
+    },
+    {
+      "symbol": "BVCL",
+      "pd_lookup_key": "BARAK VALLEY CEM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 6.85,
+      "last_price": 39.44,
+      "prev_close": 36.91,
+      "turnover": null
+    },
+    {
+      "symbol": "TGL",
+      "pd_lookup_key": "TEERTH GOPICON",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "SATIPOLY",
+      "pd_lookup_key": "SATI POLY PLAST",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.48,
+      "last_price": 34.15,
+      "prev_close": 33.0,
+      "turnover": null
+    },
+    {
+      "symbol": "965SCL28",
+      "pd_lookup_key": "SEC RE NCD 9 65% SR VII",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -31.8,
+      "last_price": 450.0,
+      "prev_close": 659.8,
+      "turnover": null
+    },
+    {
+      "symbol": "935TSIIC28",
+      "pd_lookup_key": "TSIIC 9 35% 2028 SR I B",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.17,
+      "last_price": 100570.01,
+      "prev_close": 102800.0,
+      "turnover": null
+    },
+    {
+      "symbol": "VISHWAS",
+      "pd_lookup_key": "VISHWAS AGRI SEEDS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 6.55,
+      "last_price": 34.15,
+      "prev_close": 32.05,
+      "turnover": null
+    },
+    {
+      "symbol": "FEL",
+      "pd_lookup_key": "FUTURE ENTERPRISES",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "HYBRIDFIN",
+      "pd_lookup_key": "HYBRID FINANCIAL SERVICE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.02,
+      "last_price": 16.7,
+      "prev_close": 16.21,
+      "turnover": null
+    },
+    {
+      "symbol": "SAMAY",
+      "pd_lookup_key": "SAMAY PROJECT SERVICES L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.37,
+      "last_price": 33.0,
+      "prev_close": 33.8,
+      "turnover": null
+    },
+    {
+      "symbol": "ARUNAYA",
+      "pd_lookup_key": "ARUNAYA ORGANICS",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "OWAIS",
+      "pd_lookup_key": "OWAIS METAL MINERAL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.97,
+      "last_price": 106.75,
+      "prev_close": 101.7,
+      "turnover": null
+    },
+    {
+      "symbol": "RBS",
+      "pd_lookup_key": "RAMDEVBABA SOLVENT",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.48,
+      "last_price": 81.55,
+      "prev_close": 78.05,
+      "turnover": null
+    },
+    {
+      "symbol": "SOUTHWEST",
+      "pd_lookup_key": "SOUTH WEST PINNACLE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 6.86,
+      "last_price": 204.04,
+      "prev_close": 190.94,
+      "turnover": null
+    },
+    {
+      "symbol": "TECH",
+      "pd_lookup_key": "BIRLASLAMC TECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.3,
+      "last_price": 31.64,
+      "prev_close": 30.93,
+      "turnover": null
+    },
+    {
+      "symbol": "APSISAERO",
+      "pd_lookup_key": "APSIS AEROCOM",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.98,
+      "last_price": 177.05,
+      "prev_close": 168.65,
+      "turnover": null
+    },
+    {
+      "symbol": "HEALTHIETF",
+      "pd_lookup_key": "ICICIPRAMC ICICIPHARM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.22,
+      "last_price": 147.75,
+      "prev_close": 144.54,
+      "turnover": null
+    },
+    {
+      "symbol": "SINGERIND",
+      "pd_lookup_key": "SINGER",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "EXIMROUTES",
+      "pd_lookup_key": "EXIM ROUTES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.99,
+      "last_price": 137.65,
+      "prev_close": 133.65,
+      "turnover": null
+    },
+    {
+      "symbol": "PARAMATRIX",
+      "pd_lookup_key": "PARAMATRIX TECHNOLOGIES L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -8.24,
+      "last_price": 65.15,
+      "prev_close": 71.0,
+      "turnover": null
+    },
+    {
+      "symbol": "PRATHAM",
+      "pd_lookup_key": "PRATHAM EPC PROJECTS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.14,
+      "last_price": 117.2,
+      "prev_close": 123.55,
+      "turnover": null
+    },
+    {
+      "symbol": "TECHLABS",
+      "pd_lookup_key": "TRIDENT TECHLABS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.64,
+      "last_price": 186.95,
+      "prev_close": 182.15,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBFEB28IX",
+      "pd_lookup_key": "2 50%GOLDBONDS2028SR IX",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.59,
+      "last_price": 14320.0,
+      "prev_close": 14700.0,
+      "turnover": null
+    },
+    {
+      "symbol": "MIEL",
+      "pd_lookup_key": "MANGLAM INFRA ENG",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "OSELDEVICE",
+      "pd_lookup_key": "OSEL DEVICES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.04,
+      "last_price": 520.8,
+      "prev_close": 510.4,
+      "turnover": null
+    },
+    {
+      "symbol": "AQYLON",
+      "pd_lookup_key": "AQYLON NEXUS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.95,
+      "last_price": 65.3,
+      "prev_close": 68.7,
+      "turnover": null
+    },
+    {
+      "symbol": "HDFCLIQUID",
+      "pd_lookup_key": "HDFCAMC HDFCLIQUID",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "MDL",
+      "pd_lookup_key": "MARVEL DECOR",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.24,
+      "last_price": 56.4,
+      "prev_close": 58.9,
+      "turnover": null
+    },
+    {
+      "symbol": "USHAFIN",
+      "pd_lookup_key": "USHA FINANCIAL SERVICES L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -9.9,
+      "last_price": 34.6,
+      "prev_close": 38.4,
+      "turnover": null
+    },
+    {
+      "symbol": "GML",
+      "pd_lookup_key": "GALAXY MEDICARE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.79,
+      "last_price": 17.75,
+      "prev_close": 18.45,
+      "turnover": null
+    },
+    {
+      "symbol": "HDFCNIFIT",
+      "pd_lookup_key": "HDFCAMC HDFCNIFIT",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.11,
+      "last_price": 30.97,
+      "prev_close": 30.33,
+      "turnover": null
+    },
+    {
+      "symbol": "AARNAV",
+      "pd_lookup_key": "AARNAV FASHIONS",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "BOSS",
+      "pd_lookup_key": "BOSS PACKAGING SOLU",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.69,
+      "last_price": 42.0,
+      "prev_close": 40.9,
+      "turnover": null
+    },
+    {
+      "symbol": "DRSCARGO",
+      "pd_lookup_key": "DRS CARGO MOVERS",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.81,
+      "last_price": 20.8,
+      "prev_close": 21.85,
+      "turnover": null
+    },
+    {
+      "symbol": "BBNPPGOLD",
+      "pd_lookup_key": "BARODABNP BBNPPGOLD",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.73,
+      "last_price": 142.3,
+      "prev_close": 146.3,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBMAR28X",
+      "pd_lookup_key": "2 50%GOLDBONDS2028SR X",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.34,
+      "last_price": 14249.71,
+      "prev_close": 14591.19,
+      "turnover": null
+    },
+    {
+      "symbol": "QUALITY30",
+      "pd_lookup_key": "KOTAKMAMC QUALITY30",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.45,
+      "last_price": 19.33,
+      "prev_close": 20.02,
+      "turnover": null
+    },
+    {
+      "symbol": "813GS2045",
+      "pd_lookup_key": "GOI LOAN 8 13% 2045",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.01,
+      "last_price": 111.4,
+      "prev_close": 109.21,
+      "turnover": null
+    },
+    {
+      "symbol": "PARIN",
+      "pd_lookup_key": "PARIN ENTERPRISES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -9.26,
+      "last_price": 575.3,
+      "prev_close": 634.0,
+      "turnover": null
+    },
+    {
+      "symbol": "MAXVOLT",
+      "pd_lookup_key": "MAXVOLT ENERGY INDUS L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.0,
+      "last_price": 262.5,
+      "prev_close": 250.0,
+      "turnover": null
+    },
+    {
+      "symbol": "PSUBANKADD",
+      "pd_lookup_key": "DSPAMC DSPPSBKETF",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.04,
+      "last_price": 86.18,
+      "prev_close": 84.46,
+      "turnover": null
+    },
+    {
+      "symbol": "MIDQ50ADD",
+      "pd_lookup_key": "DSPAMC DSPQ50ETF",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.57,
+      "last_price": 221.5,
+      "prev_close": 234.56,
+      "turnover": null
+    },
+    {
+      "symbol": "NILASPACES",
+      "pd_lookup_key": "NILA SPACES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.35,
+      "last_price": 12.49,
+      "prev_close": 12.79,
+      "turnover": null
+    },
+    {
+      "symbol": "SOLARAPP1",
+      "pd_lookup_key": "SOLARA RS 7 PPD UP",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.22,
+      "last_price": 299.35,
+      "prev_close": 290.0,
+      "turnover": null
+    },
+    {
+      "symbol": "UCL",
+      "pd_lookup_key": "USHANTI COLOUR CHEM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.14,
+      "last_price": 75.45,
+      "prev_close": 73.15,
+      "turnover": null
+    },
+    {
+      "symbol": "K2INFRA",
+      "pd_lookup_key": "K2 INFRAGEN",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.05,
+      "last_price": 47.8,
+      "prev_close": 45.5,
+      "turnover": null
+    },
+    {
+      "symbol": "CELLECOR",
+      "pd_lookup_key": "CELLECOR GADGETS",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.34,
+      "last_price": 24.1,
+      "prev_close": 23.55,
+      "turnover": null
+    },
+    {
+      "symbol": "GROWWRLTY",
+      "pd_lookup_key": "GROWWAMC GROWWRLTY",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "SIGMA",
+      "pd_lookup_key": "SIGMA SOLVE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.81,
+      "last_price": 39.65,
+      "prev_close": 41.22,
+      "turnover": null
+    },
+    {
+      "symbol": "ANYA",
+      "pd_lookup_key": "ANYA POLYTECH FERTI",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -6.07,
+      "last_price": 17.8,
+      "prev_close": 18.95,
+      "turnover": null
+    },
+    {
+      "symbol": "PURPLEUTED",
+      "pd_lookup_key": "PURPLE UNITED SALES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.8,
+      "last_price": 292.55,
+      "prev_close": 279.15,
+      "turnover": null
+    },
+    {
+      "symbol": "1050SCL31",
+      "pd_lookup_key": "SEC RE NCD 10 5% SR IX",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 10.38,
+      "last_price": 1060.0,
+      "prev_close": 960.3,
+      "turnover": null
+    },
+    {
+      "symbol": "GLOBALPET",
+      "pd_lookup_key": "GLOBAL PET INDUSTRIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.17,
+      "last_price": 90.15,
+      "prev_close": 92.15,
+      "turnover": null
+    },
+    {
+      "symbol": "RAJINDLTD",
+      "pd_lookup_key": "RAJPUTANA INDUSTRIES",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.86,
+      "last_price": 64.8,
+      "prev_close": 63.0,
+      "turnover": null
+    },
+    {
+      "symbol": "ARVINDPORT",
+      "pd_lookup_key": "ARVIND PORT AND INFRA",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.14,
+      "last_price": 31.05,
+      "prev_close": 30.4,
+      "turnover": null
+    },
+    {
+      "symbol": "MAL",
+      "pd_lookup_key": "MANGALAM ALLOYS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.21,
+      "last_price": 32.2,
+      "prev_close": 31.2,
+      "turnover": null
+    },
+    {
+      "symbol": "ENSER",
+      "pd_lookup_key": "ENSER COMMUNICATIONS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.74,
+      "last_price": 11.1,
+      "prev_close": 10.7,
+      "turnover": null
+    },
+    {
+      "symbol": "YAAP",
+      "pd_lookup_key": "YAAP DIGITAL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.79,
+      "last_price": 146.5,
+      "prev_close": 141.15,
+      "turnover": null
+    },
+    {
+      "symbol": "GROWWSLVR",
+      "pd_lookup_key": "GROWWAMC GROWWSLVR",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.81,
+      "last_price": 22.48,
+      "prev_close": 23.13,
+      "turnover": null
+    },
+    {
+      "symbol": "AEPL",
+      "pd_lookup_key": "ARTEMIS ELECTRICALS P L",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.6,
+      "last_price": 16.85,
+      "prev_close": 17.48,
+      "turnover": null
+    },
+    {
+      "symbol": "RAPPID",
+      "pd_lookup_key": "RAPPID VALVES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.27,
+      "last_price": 260.75,
+      "prev_close": 254.95,
+      "turnover": null
+    },
+    {
+      "symbol": "SOCL",
+      "pd_lookup_key": "SUNDREX OIL COMPANY",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.95,
+      "last_price": 28.0,
+      "prev_close": 29.15,
+      "turnover": null
+    },
+    {
+      "symbol": "ADVAIT",
+      "pd_lookup_key": "ADVAIT ENRGY TRANSITION L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.43,
+      "last_price": 1644.6,
+      "prev_close": 1574.8,
+      "turnover": null
+    },
+    {
+      "symbol": "BIKEWO",
+      "pd_lookup_key": "BIKEWO GREEN TECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.69,
+      "last_price": 18.25,
+      "prev_close": 17.6,
+      "turnover": null
+    },
+    {
+      "symbol": "VIYASH",
+      "pd_lookup_key": "VIYASH SCIENTIFIC",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "SHREEKARNI",
+      "pd_lookup_key": "SHREE KARNI FABCOM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.37,
+      "last_price": 355.6,
+      "prev_close": 368.0,
+      "turnover": null
+    },
+    {
+      "symbol": "VDEAL",
+      "pd_lookup_key": "VDEAL SYSTEM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.61,
+      "last_price": 159.0,
+      "prev_close": 152.0,
+      "turnover": null
+    },
+    {
+      "symbol": "ZEAL",
+      "pd_lookup_key": "ZEAL GLOBAL SERVICES",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.44,
+      "last_price": 63.15,
+      "prev_close": 65.4,
+      "turnover": null
+    },
+    {
+      "symbol": "IRBINVIT",
+      "pd_lookup_key": "IRB INVIT FUND",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.64,
+      "last_price": 57.96,
+      "prev_close": 59.53,
+      "turnover": null
+    },
+    {
+      "symbol": "RITEZONE",
+      "pd_lookup_key": "RITE ZONE CHEMCON IND",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.15,
+      "last_price": 15.9,
+      "prev_close": 16.25,
+      "turnover": null
+    },
+    {
+      "symbol": "MSCIINDIA",
+      "pd_lookup_key": "KOTAKMAMC MSCIINDIA",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 6.24,
+      "last_price": 29.44,
+      "prev_close": 27.71,
+      "turnover": null
+    },
+    {
+      "symbol": "DHARARAIL",
+      "pd_lookup_key": "DHARA RAIL PROJECTS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.44,
+      "last_price": 102.15,
+      "prev_close": 104.7,
+      "turnover": null
+    },
+    {
+      "symbol": "SFML",
+      "pd_lookup_key": "SUPREME FACILITY MGMT",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "TVSELECT",
+      "pd_lookup_key": "TVS ELECTRONICS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.49,
+      "last_price": 405.15,
+      "prev_close": 384.05,
+      "turnover": null
+    },
+    {
+      "symbol": "PRESSTONIC",
+      "pd_lookup_key": "PRESSTONIC ENGINEERING L",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.99,
+      "last_price": 34.3,
+      "prev_close": 36.1,
+      "turnover": null
+    },
+    {
+      "symbol": "LTM",
+      "pd_lookup_key": "LTIMINDTREE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.39,
+      "last_price": 4298.8,
+      "prev_close": 4198.5,
+      "turnover": null
+    },
+    {
+      "symbol": "PPSL",
+      "pd_lookup_key": "PICTUREPOST STUDIOS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.26,
+      "last_price": 6.8,
+      "prev_close": 6.65,
+      "turnover": null
+    },
+    {
+      "symbol": "SCLZC26B",
+      "pd_lookup_key": "SEC RE NCD SR VI",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 16.54,
+      "last_price": 1080.3,
+      "prev_close": 927.0,
+      "turnover": null
+    },
+    {
+      "symbol": "DIVYADHAN",
+      "pd_lookup_key": "DIVYADHAN RECYCLING IND L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.32,
+      "last_price": 20.25,
+      "prev_close": 19.6,
+      "turnover": null
+    },
+    {
+      "symbol": "SUBAHOTELS",
+      "pd_lookup_key": "SUBA HOTELS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.95,
+      "last_price": 119.8,
+      "prev_close": 115.25,
+      "turnover": null
+    },
+    {
+      "symbol": "CORONA",
+      "pd_lookup_key": "CORONA REMEDIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.05,
+      "last_price": 1650.5,
+      "prev_close": 1601.6,
+      "turnover": null
+    },
+    {
+      "symbol": "SERVICE",
+      "pd_lookup_key": "SERVICE CARE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.0,
+      "last_price": 53.55,
+      "prev_close": 51.0,
+      "turnover": null
+    },
+    {
+      "symbol": "COOLCAPS",
+      "pd_lookup_key": "COOL CAPS INDUSTRIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.82,
+      "last_price": 26.1,
+      "prev_close": 24.9,
+      "turnover": null
+    },
+    {
+      "symbol": "PRANIK",
+      "pd_lookup_key": "PRANIK LOGISTICS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.93,
+      "last_price": 48.35,
+      "prev_close": 51.4,
+      "turnover": null
+    },
+    {
+      "symbol": "INNOMET",
+      "pd_lookup_key": "INNOMET ADVANCED MATERI L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.31,
+      "last_price": 74.35,
+      "prev_close": 70.6,
+      "turnover": null
+    },
+    {
+      "symbol": "DPEL",
+      "pd_lookup_key": "DIVINE POWER ENERGY",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "NARMADA",
+      "pd_lookup_key": "NARMADA AGROBASE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.2,
+      "last_price": 32.5,
+      "prev_close": 31.8,
+      "turnover": null
+    },
+    {
+      "symbol": "GANESHIN",
+      "pd_lookup_key": "GANESH INFRAWORLD",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.0,
+      "last_price": 77.6,
+      "prev_close": 80.0,
+      "turnover": null
+    },
+    {
+      "symbol": "MODINATUR",
+      "pd_lookup_key": "MODI NATURALS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.35,
+      "last_price": 299.65,
+      "prev_close": 287.15,
+      "turnover": null
+    },
+    {
+      "symbol": "XELPMOC",
+      "pd_lookup_key": "XELPMOC DESIGN TECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.41,
+      "last_price": 90.31,
+      "prev_close": 95.48,
+      "turnover": null
+    },
+    {
+      "symbol": "817GS2044",
+      "pd_lookup_key": "GOI LOAN 8 17% 2044",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.99,
+      "last_price": 125.78,
+      "prev_close": 119.8,
+      "turnover": null
+    },
+    {
+      "symbol": "ARMOUR",
+      "pd_lookup_key": "ARMOUR SECURITY L",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.24,
+      "last_price": 22.85,
+      "prev_close": 22.35,
+      "turnover": null
+    },
+    {
+      "symbol": "SAAKSHI",
+      "pd_lookup_key": "SAAKSHI MEDTEC N PANELS L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.28,
+      "last_price": 191.0,
+      "prev_close": 186.75,
+      "turnover": null
+    },
+    {
+      "symbol": "BLUEPEBBLE",
+      "pd_lookup_key": "BLUE PEBBLE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.51,
+      "last_price": 115.0,
+      "prev_close": 111.1,
+      "turnover": null
+    },
+    {
+      "symbol": "SHADOWFAX",
+      "pd_lookup_key": "SHADOWFAX TECHNOLOGIES L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.36,
+      "last_price": 112.11,
+      "prev_close": 109.52,
+      "turnover": null
+    },
+    {
+      "symbol": "HCG-RE",
+      "pd_lookup_key": "HEALTHCARE GLOBAL",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "CHAVDA",
+      "pd_lookup_key": "CHAVDA INFRA",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.95,
+      "last_price": 96.0,
+      "prev_close": 92.35,
+      "turnover": null
+    },
+    {
+      "symbol": "JYOTIGLOBL",
+      "pd_lookup_key": "JYOTI GLOBAL PLAST",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "115VCCL27",
+      "pd_lookup_key": "VCCL 11 5% 2027 SR II",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.0,
+      "last_price": 96000.0,
+      "prev_close": 100000.0,
+      "turnover": null
+    },
+    {
+      "symbol": "GSLSU",
+      "pd_lookup_key": "GLOBAL SURFACES",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.99,
+      "last_price": 57.65,
+      "prev_close": 60.68,
+      "turnover": null
+    },
+    {
+      "symbol": "WOL3D",
+      "pd_lookup_key": "WOL 3D",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.19,
+      "last_price": 123.0,
+      "prev_close": 118.05,
+      "turnover": null
+    },
+    {
+      "symbol": "UNITEDPOLY",
+      "pd_lookup_key": "UNITED POLYFAB GUJ",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.28,
+      "last_price": 28.04,
+      "prev_close": 26.89,
+      "turnover": null
+    },
+    {
+      "symbol": "COMPINFO",
+      "pd_lookup_key": "COMPUAGE INFOCOM",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "VERA",
+      "pd_lookup_key": "VERA SYNTHETIC",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.21,
+      "last_price": 67.75,
+      "prev_close": 70.0,
+      "turnover": null
+    },
+    {
+      "symbol": "BMETRICS",
+      "pd_lookup_key": "BOMBAY METRICS S C",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.12,
+      "last_price": 40.9,
+      "prev_close": 40.05,
+      "turnover": null
+    },
+    {
+      "symbol": "READYMIX",
+      "pd_lookup_key": "READYMIX CONSTRU MACHI L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -9.24,
+      "last_price": 77.15,
+      "prev_close": 85.0,
+      "turnover": null
+    },
+    {
+      "symbol": "1025SCL35A",
+      "pd_lookup_key": "SCL 10 25% SR XII",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -15.25,
+      "last_price": 1000.0,
+      "prev_close": 1180.0,
+      "turnover": null
+    },
+    {
+      "symbol": "971SCL30A",
+      "pd_lookup_key": "SCL 9 71% SR XIII",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.0,
+      "last_price": 995.0,
+      "prev_close": 966.0,
+      "turnover": null
+    },
+    {
+      "symbol": "MICROPRO",
+      "pd_lookup_key": "MICROPRO SOFTWARE SOL L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -10.5,
+      "last_price": 18.75,
+      "prev_close": 20.95,
+      "turnover": null
+    },
+    {
+      "symbol": "DOLLEX",
+      "pd_lookup_key": "DOLLEX AGROTECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.97,
+      "last_price": 30.65,
+      "prev_close": 29.2,
+      "turnover": null
+    },
+    {
+      "symbol": "ENVIRO",
+      "pd_lookup_key": "ENVIROTECH SYSTEMS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.03,
+      "last_price": 97.95,
+      "prev_close": 96.0,
+      "turnover": null
+    },
+    {
+      "symbol": "JALAN",
+      "pd_lookup_key": "JALAN TRANSOLU",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.55,
+      "last_price": 2.1,
+      "prev_close": 2.2,
+      "turnover": null
+    },
+    {
+      "symbol": "OMNI",
+      "pd_lookup_key": "OMNITECH ENGINEERING",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "POLYSIL",
+      "pd_lookup_key": "POLYSIL IRRIGATION SYST L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.98,
+      "last_price": 151.75,
+      "prev_close": 159.7,
+      "turnover": null
+    },
+    {
+      "symbol": "SURANI",
+      "pd_lookup_key": "SURANI STEEL TUBES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 9.55,
+      "last_price": 78.6,
+      "prev_close": 71.75,
+      "turnover": null
+    },
+    {
+      "symbol": "SHAIVAL",
+      "pd_lookup_key": "SHAIVAL REALITY",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.13,
+      "last_price": 33.0,
+      "prev_close": 32.0,
+      "turnover": null
+    },
+    {
+      "symbol": "QMSMEDI",
+      "pd_lookup_key": "QMS MEDICAL ALLIED S",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.63,
+      "last_price": 78.0,
+      "prev_close": 76.0,
+      "turnover": null
+    },
+    {
+      "symbol": "AGSTRA",
+      "pd_lookup_key": "AGS TRANSACT TECH",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "GVPTECHPP",
+      "pd_lookup_key": "GVPTECH RE 1 PPD UP",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.25,
+      "last_price": 2.48,
+      "prev_close": 2.59,
+      "turnover": null
+    },
+    {
+      "symbol": "IPHL",
+      "pd_lookup_key": "INDIAN PHOSPHATE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.85,
+      "last_price": 52.5,
+      "prev_close": 54.6,
+      "turnover": null
+    },
+    {
+      "symbol": "IEML",
+      "pd_lookup_key": "INDIAN EMULSIFIERS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.96,
+      "last_price": 73.15,
+      "prev_close": 71.05,
+      "turnover": null
+    },
+    {
+      "symbol": "KWIL",
+      "pd_lookup_key": "KWALITY WALL S L",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "DEFENCE",
+      "pd_lookup_key": "MIRAEAMC DEFENCE",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "WINNY",
+      "pd_lookup_key": "WINNY IMMIGRA EDU SER L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.9,
+      "last_price": 45.6,
+      "prev_close": 47.95,
+      "turnover": null
+    },
+    {
+      "symbol": "KONTOR",
+      "pd_lookup_key": "KONTOR SPACE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 11.11,
+      "last_price": 70.0,
+      "prev_close": 63.0,
+      "turnover": null
+    },
+    {
+      "symbol": "CMRSL",
+      "pd_lookup_key": "CYBER MEDIA RES SER",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.73,
+      "last_price": 61.5,
+      "prev_close": 64.55,
+      "turnover": null
+    },
+    {
+      "symbol": "VITAL",
+      "pd_lookup_key": "VITAL CHEMTECH",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.75,
+      "last_price": 37.25,
+      "prev_close": 38.7,
+      "turnover": null
+    },
+    {
+      "symbol": "APEXECO",
+      "pd_lookup_key": "APEX ECOTECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.39,
+      "last_price": 114.0,
+      "prev_close": 118.0,
+      "turnover": null
+    },
+    {
+      "symbol": "CMNL",
+      "pd_lookup_key": "CHAMAN METALLICS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.26,
+      "last_price": 100.0,
+      "prev_close": 95.0,
+      "turnover": null
+    },
+    {
+      "symbol": "SHEEL",
+      "pd_lookup_key": "SHEEL BIOTECH",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "SHRIKANHA",
+      "pd_lookup_key": "SHRI KANHA STAINLESS",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.76,
+      "last_price": 20.0,
+      "prev_close": 21.0,
+      "turnover": null
+    },
+    {
+      "symbol": "SANGANI",
+      "pd_lookup_key": "SANGANI HOSPITALS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.61,
+      "last_price": 40.0,
+      "prev_close": 41.5,
+      "turnover": null
+    },
+    {
+      "symbol": "HDFCMOMENT",
+      "pd_lookup_key": "HDFCAMC HDFCMOMENT",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.02,
+      "last_price": 28.65,
+      "prev_close": 29.24,
+      "turnover": null
+    },
+    {
+      "symbol": "833GS2026",
+      "pd_lookup_key": "GOI LOAN 8 33% 2026",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.56,
+      "last_price": 101.2,
+      "prev_close": 98.67,
+      "turnover": null
+    },
+    {
+      "symbol": "PARKHOSPS",
+      "pd_lookup_key": "PARK MEDI WORLD",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.62,
+      "last_price": 199.16,
+      "prev_close": 194.08,
+      "turnover": null
+    },
+    {
+      "symbol": "SYLVANPLY",
+      "pd_lookup_key": "SYLVAN PLYBOARD L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.07,
+      "last_price": 45.05,
+      "prev_close": 46.0,
+      "turnover": null
+    },
+    {
+      "symbol": "MPEL",
+      "pd_lookup_key": "MANAS POLYMER N ENERGIE L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 13.55,
+      "last_price": 71.25,
+      "prev_close": 62.75,
+      "turnover": null
+    },
+    {
+      "symbol": "MEGAFLEX",
+      "pd_lookup_key": "MEGA FLEX PLASTICS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.98,
+      "last_price": 154.8,
+      "prev_close": 147.45,
+      "turnover": null
+    },
+    {
+      "symbol": "TCC",
+      "pd_lookup_key": "TCC CONCEPT",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "GRCL",
+      "pd_lookup_key": "GAYATRI RUBB AND CHEM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.29,
+      "last_price": 377.15,
+      "prev_close": 390.0,
+      "turnover": null
+    },
+    {
+      "symbol": "TANKUP",
+      "pd_lookup_key": "TANKUP ENGINEERS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.0,
+      "last_price": 463.75,
+      "prev_close": 473.2,
+      "turnover": null
+    },
+    {
+      "symbol": "BANK10ADD",
+      "pd_lookup_key": "DSPAMC BANK10ADD",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "SBIBPB",
+      "pd_lookup_key": "SBIAMC SBIBPB",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.05,
+      "last_price": 49.75,
+      "prev_close": 48.75,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBMAY26",
+      "pd_lookup_key": "2 50%GOLDBONDS2026SR I",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.2,
+      "last_price": 14259.05,
+      "prev_close": 14579.12,
+      "turnover": null
+    },
+    {
+      "symbol": "UTSSAV",
+      "pd_lookup_key": "UTSSAV CZ GOLD JEWELS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.52,
+      "last_price": 205.95,
+      "prev_close": 198.95,
+      "turnover": null
+    },
+    {
+      "symbol": "ASHALOG",
+      "pd_lookup_key": "ASHAPURA LOGISTICS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 9.23,
+      "last_price": 60.95,
+      "prev_close": 55.8,
+      "turnover": null
+    },
+    {
+      "symbol": "DENEERS",
+      "pd_lookup_key": "DE NEERS TOOLS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.69,
+      "last_price": 147.0,
+      "prev_close": 143.15,
+      "turnover": null
+    },
+    {
+      "symbol": "SAFEENTP",
+      "pd_lookup_key": "SAFE ENTER RETAIL FIX",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.16,
+      "last_price": 213.3,
+      "prev_close": 218.0,
+      "turnover": null
+    },
+    {
+      "symbol": "CONNPLEX",
+      "pd_lookup_key": "CONNPLEX CINEMAS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.32,
+      "last_price": 238.15,
+      "prev_close": 232.75,
+      "turnover": null
+    },
+    {
+      "symbol": "MANDEEP",
+      "pd_lookup_key": "MANDEEP AUTO INDUSTRIES L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.8,
+      "last_price": 18.55,
+      "prev_close": 17.7,
+      "turnover": null
+    },
+    {
+      "symbol": "CELLPOINT",
+      "pd_lookup_key": "CELL POINT",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.14,
+      "last_price": 14.3,
+      "prev_close": 14.0,
+      "turnover": null
+    },
+    {
+      "symbol": "CGRAPHICS",
+      "pd_lookup_key": "CREATIVE GRAPHICS S IND L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.11,
+      "last_price": 145.0,
+      "prev_close": 142.0,
+      "turnover": null
+    },
+    {
+      "symbol": "QUICKTOUCH",
+      "pd_lookup_key": "QUICKTOUCH TECHNOLOGIES L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.67,
+      "last_price": 30.25,
+      "prev_close": 28.9,
+      "turnover": null
+    },
+    {
+      "symbol": "CYBERMEDIA",
+      "pd_lookup_key": "CYBER MEDIA",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.3,
+      "last_price": 13.12,
+      "prev_close": 13.71,
+      "turnover": null
+    },
+    {
+      "symbol": "IDFNIFTYET",
+      "pd_lookup_key": "BANDHANAMC IDFNIFTYET",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.56,
+      "last_price": 253.64,
+      "prev_close": 260.3,
+      "turnover": null
+    },
+    {
+      "symbol": "AARADHYA",
+      "pd_lookup_key": "AARADHYA DISPOSAL INDUS L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -6.01,
+      "last_price": 108.0,
+      "prev_close": 114.9,
+      "turnover": null
+    },
+    {
+      "symbol": "RCDL",
+      "pd_lookup_key": "RAJGOR CASTOR DERIVATI L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -10.0,
+      "last_price": 19.8,
+      "prev_close": 22.0,
+      "turnover": null
+    },
+    {
+      "symbol": "MANILAM",
+      "pd_lookup_key": "MANILAM INDUSTRIES IND L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 6.31,
+      "last_price": 58.15,
+      "prev_close": 54.7,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBJAN27",
+      "pd_lookup_key": "2 50%GOLDBONDS2027SR V",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.39,
+      "last_price": 14250.37,
+      "prev_close": 14750.0,
+      "turnover": null
+    },
+    {
+      "symbol": "ABHAPOWER",
+      "pd_lookup_key": "ABHA POWER N STEEL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.63,
+      "last_price": 29.25,
+      "prev_close": 28.5,
+      "turnover": null
+    },
+    {
+      "symbol": "MEP",
+      "pd_lookup_key": "MEP INFRA DEVELOPERS",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "971SCL28A",
+      "pd_lookup_key": "SEC RE NCD 9 71% SR VIII",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.92,
+      "last_price": 975.0,
+      "prev_close": 920.5,
+      "turnover": null
+    },
+    {
+      "symbol": "NEXT50ADD",
+      "pd_lookup_key": "DSPAMC NEXT50ADD",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.51,
+      "last_price": 63.96,
+      "prev_close": 65.61,
+      "turnover": null
+    },
+    {
+      "symbol": "SATTVAENGG",
+      "pd_lookup_key": "SATTVA ENGINEERING CSTN L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.16,
+      "last_price": 46.9,
+      "prev_close": 49.45,
+      "turnover": null
+    },
+    {
+      "symbol": "AHCL",
+      "pd_lookup_key": "ANLON HEALTHCARE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 7.4,
+      "last_price": 121.11,
+      "prev_close": 112.77,
+      "turnover": null
+    },
+    {
+      "symbol": "STALLION",
+      "pd_lookup_key": "STALLION IND FLUOROCHEM L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.05,
+      "last_price": 114.69,
+      "prev_close": 112.39,
+      "turnover": null
+    },
+    {
+      "symbol": "BHADORA",
+      "pd_lookup_key": "BHADORA INDUSTRIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.97,
+      "last_price": 62.0,
+      "prev_close": 63.9,
+      "turnover": null
+    },
+    {
+      "symbol": "AONESILVER",
+      "pd_lookup_key": "AONEAMC AONESILVER",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "VERITAAS",
+      "pd_lookup_key": "VERITAAS ADVERTISING",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.0,
+      "last_price": 43.7,
+      "prev_close": 46.0,
+      "turnover": null
+    },
+    {
+      "symbol": "BALCO",
+      "pd_lookup_key": "SOLVE PLASTIC PRODUCTS L",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.94,
+      "last_price": 15.4,
+      "prev_close": 16.2,
+      "turnover": null
+    },
+    {
+      "symbol": "KRISHCA",
+      "pd_lookup_key": "KRISHCA STRAPPING SLTN L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.3,
+      "last_price": 173.9,
+      "prev_close": 168.35,
+      "turnover": null
+    },
+    {
+      "symbol": "GKSL",
+      "pd_lookup_key": "GUJARAT KIDNEY N SUP SP L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.12,
+      "last_price": 106.21,
+      "prev_close": 103.0,
+      "turnover": null
+    },
+    {
+      "symbol": "TAC",
+      "pd_lookup_key": "TAC INFOSEC",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.39,
+      "last_price": 433.5,
+      "prev_close": 448.7,
+      "turnover": null
+    },
+    {
+      "symbol": "SPECTSTM",
+      "pd_lookup_key": "SPECTRUM TALENT MGMT",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.77,
+      "last_price": 61.2,
+      "prev_close": 63.6,
+      "turnover": null
+    },
+    {
+      "symbol": "AKIKO",
+      "pd_lookup_key": "AKIKO GLOBAL SERVICES L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.1,
+      "last_price": 221.5,
+      "prev_close": 216.95,
+      "turnover": null
+    },
+    {
+      "symbol": "TBI",
+      "pd_lookup_key": "TBI CORN",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.45,
+      "last_price": 61.55,
+      "prev_close": 65.1,
+      "turnover": null
+    },
+    {
+      "symbol": "HBSL",
+      "pd_lookup_key": "HB STOCKHOLDINGS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.37,
+      "last_price": 48.16,
+      "prev_close": 49.33,
+      "turnover": null
+    },
+    {
+      "symbol": "FRACTAL",
+      "pd_lookup_key": "FRACTAL ANALYTICS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.57,
+      "last_price": 823.1,
+      "prev_close": 794.75,
+      "turnover": null
+    },
+    {
+      "symbol": "HIGREEN",
+      "pd_lookup_key": "HI GREEN CARBON",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.6,
+      "last_price": 120.5,
+      "prev_close": 125.0,
+      "turnover": null
+    },
+    {
+      "symbol": "NRVANDANA",
+      "pd_lookup_key": "N R VANDANA TEX IND",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.96,
+      "last_price": 57.75,
+      "prev_close": 54.5,
+      "turnover": null
+    },
+    {
+      "symbol": "CUBEINVIT",
+      "pd_lookup_key": "CUBE HIGHWAYS TRUST",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.36,
+      "last_price": 146.0,
+      "prev_close": 141.25,
+      "turnover": null
+    },
+    {
+      "symbol": "LRRPL",
+      "pd_lookup_key": "LEAD REC AND RUB PROD",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.96,
+      "last_price": 70.85,
+      "prev_close": 67.5,
+      "turnover": null
+    },
+    {
+      "symbol": "SPUNWEB",
+      "pd_lookup_key": "SPUNWEB NONWOVEN",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.9,
+      "last_price": 85.3,
+      "prev_close": 82.9,
+      "turnover": null
+    },
+    {
+      "symbol": "GREENLEAF",
+      "pd_lookup_key": "GREENLEAF ENVIROTECH",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.81,
+      "last_price": 70.95,
+      "prev_close": 73.0,
+      "turnover": null
+    },
+    {
+      "symbol": "SMALLADD",
+      "pd_lookup_key": "DSPAMC SMALLADD",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.38,
+      "last_price": 14.79,
+      "prev_close": 15.15,
+      "turnover": null
+    },
+    {
+      "symbol": "LLOYDS",
+      "pd_lookup_key": "LLOYDS LUXURIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.14,
+      "last_price": 49.0,
+      "prev_close": 47.05,
+      "turnover": null
+    },
+    {
+      "symbol": "699GS2051",
+      "pd_lookup_key": "GOI LOAN 6 99% 2051",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.11,
+      "last_price": 94.37,
+      "prev_close": 96.4,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBAUG27",
+      "pd_lookup_key": "2 50%GOLDBONDS2027SR III",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.6,
+      "last_price": 14274.04,
+      "prev_close": 14654.71,
+      "turnover": null
+    },
+    {
+      "symbol": "965SCL25C",
+      "pd_lookup_key": "SEC RE NCD 9 39% SR VIII",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 11.17,
+      "last_price": 445.0,
+      "prev_close": 400.3,
+      "turnover": null
+    },
+    {
+      "symbol": "KEN",
+      "pd_lookup_key": "KEN ENTERPRISES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.8,
+      "last_price": 38.0,
+      "prev_close": 39.5,
+      "turnover": null
+    },
+    {
+      "symbol": "HOLMARC",
+      "pd_lookup_key": "HOLMARC OPTO MECHATRO L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.85,
+      "last_price": 77.5,
+      "prev_close": 75.35,
+      "turnover": null
+    },
+    {
+      "symbol": "VERTEXPLUS",
+      "pd_lookup_key": "VERTEXPLUS TECHNOLOGIES L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.97,
+      "last_price": 99.5,
+      "prev_close": 104.7,
+      "turnover": null
+    },
+    {
+      "symbol": "GREENCHEF",
+      "pd_lookup_key": "GREENCHEF APPLIANCES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.56,
+      "last_price": 47.55,
+      "prev_close": 48.8,
+      "turnover": null
+    },
+    {
+      "symbol": "HRHNEXT",
+      "pd_lookup_key": "HRH NEXT SERVICES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.86,
+      "last_price": 28.05,
+      "prev_close": 26.75,
+      "turnover": null
+    },
+    {
+      "symbol": "INFLUX",
+      "pd_lookup_key": "INFLUX HEALTHTECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.85,
+      "last_price": 221.65,
+      "prev_close": 215.5,
+      "turnover": null
+    },
+    {
+      "symbol": "SYNOPTICS",
+      "pd_lookup_key": "SYNOPTICS TECHNOLOGIES L",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "MEDIORG",
+      "pd_lookup_key": "MEDICAMEN ORGANICS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.69,
+      "last_price": 22.2,
+      "prev_close": 23.05,
+      "turnover": null
+    },
+    {
+      "symbol": "GANGABATH",
+      "pd_lookup_key": "GANGA BATH FITTINGS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -7.44,
+      "last_price": 22.4,
+      "prev_close": 24.2,
+      "turnover": null
+    },
+    {
+      "symbol": "SPCENET",
+      "pd_lookup_key": "SPACENET ENTERS IND",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.33,
+      "last_price": 3.95,
+      "prev_close": 3.86,
+      "turnover": null
+    },
+    {
+      "symbol": "EXCELLENT",
+      "pd_lookup_key": "EXCELLENT WIRES N PACK L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.8,
+      "last_price": 100.0,
+      "prev_close": 103.95,
+      "turnover": null
+    },
+    {
+      "symbol": "PRIZOR",
+      "pd_lookup_key": "PRIZOR VIZTECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.0,
+      "last_price": 389.55,
+      "prev_close": 371.0,
+      "turnover": null
+    },
+    {
+      "symbol": "AMBEY",
+      "pd_lookup_key": "AMBEY LABORATORIES",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "NEPHROCARE",
+      "pd_lookup_key": "NEPHRO CARE",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "NEELAM",
+      "pd_lookup_key": "NEELAM LINENS GAR L",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.36,
+      "last_price": 10.35,
+      "prev_close": 10.6,
+      "turnover": null
+    },
+    {
+      "symbol": "NEWJAISA",
+      "pd_lookup_key": "NEWJAISA TECHNOLOGIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.79,
+      "last_price": 19.7,
+      "prev_close": 18.8,
+      "turnover": null
+    },
+    {
+      "symbol": "HEALTHADD",
+      "pd_lookup_key": "DSPAMC HEALTHADD",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.04,
+      "last_price": 145.38,
+      "prev_close": 141.09,
+      "turnover": null
+    },
+    {
+      "symbol": "LICMFGOLD",
+      "pd_lookup_key": "LIC MF LIC GOLD ETF",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "772GS2055",
+      "pd_lookup_key": "GOI LOAN 7 72% 2055",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.75,
+      "last_price": 106.0,
+      "prev_close": 109.0,
+      "turnover": null
+    },
+    {
+      "symbol": "PSUBNKIETF",
+      "pd_lookup_key": "ICICIPRAMC PSUBANKICI",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.35,
+      "last_price": 86.94,
+      "prev_close": 84.94,
+      "turnover": null
+    },
+    {
+      "symbol": "BRANDMAN",
+      "pd_lookup_key": "BRANDMAN RETAIL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 7.38,
+      "last_price": 138.2,
+      "prev_close": 128.7,
+      "turnover": null
+    },
+    {
+      "symbol": "DHARIWAL",
+      "pd_lookup_key": "DHARIWALCORP",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.5,
+      "last_price": 43.0,
+      "prev_close": 41.15,
+      "turnover": null
+    },
+    {
+      "symbol": "NMSTEEL",
+      "pd_lookup_key": "NEWMALAYALAM STEEL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -6.78,
+      "last_price": 22.0,
+      "prev_close": 23.6,
+      "turnover": null
+    },
+    {
+      "symbol": "RBMINFRA",
+      "pd_lookup_key": "RBM INFRACON",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.83,
+      "last_price": 327.0,
+      "prev_close": 318.0,
+      "turnover": null
+    },
+    {
+      "symbol": "ANONDITA",
+      "pd_lookup_key": "ANONDITA MEDICARE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.04,
+      "last_price": 680.85,
+      "prev_close": 695.0,
+      "turnover": null
+    },
+    {
+      "symbol": "CKKRETAIL",
+      "pd_lookup_key": "C K K RETAIL MART",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.97,
+      "last_price": 131.95,
+      "prev_close": 125.7,
+      "turnover": null
+    },
+    {
+      "symbol": "GIRIRAJ",
+      "pd_lookup_key": "GIRIRAJ CIVIL DEVP",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.97,
+      "last_price": 176.2,
+      "prev_close": 167.85,
+      "turnover": null
+    },
+    {
+      "symbol": "MONOPHARMA",
+      "pd_lookup_key": "MONO PHARMACARE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.27,
+      "last_price": 12.2,
+      "prev_close": 11.7,
+      "turnover": null
+    },
+    {
+      "symbol": "VEEKAYEM",
+      "pd_lookup_key": "VEEKAYEM FASH APP",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.83,
+      "last_price": 120.0,
+      "prev_close": 123.5,
+      "turnover": null
+    },
+    {
+      "symbol": "MONOLITH",
+      "pd_lookup_key": "MONOLITHISCH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.81,
+      "last_price": 417.35,
+      "prev_close": 405.95,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBDC27VII",
+      "pd_lookup_key": "2 50%GOLDBONDS2027SR VII",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.06,
+      "last_price": 14245.29,
+      "prev_close": 14695.25,
+      "turnover": null
+    },
+    {
+      "symbol": "SAMBHAAV",
+      "pd_lookup_key": "SAMBHAAV MEDIA",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.25,
+      "last_price": 5.71,
+      "prev_close": 5.53,
+      "turnover": null
+    },
+    {
+      "symbol": "SILKFLEX",
+      "pd_lookup_key": "SILKFLEX POLYMERS L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.66,
+      "last_price": 112.0,
+      "prev_close": 116.25,
+      "turnover": null
+    },
+    {
+      "symbol": "AAREYDRUGS",
+      "pd_lookup_key": "AAREY DRUGS PHARM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.48,
+      "last_price": 69.28,
+      "prev_close": 66.95,
+      "turnover": null
+    },
+    {
+      "symbol": "GAUDIUMIVF",
+      "pd_lookup_key": "GAUDIUM IVF N WOMEN H L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.36,
+      "last_price": 77.04,
+      "prev_close": 80.55,
+      "turnover": null
+    },
+    {
+      "symbol": "INVICTA",
+      "pd_lookup_key": "INVICTA DIAGNOSTIC",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.02,
+      "last_price": 71.0,
+      "prev_close": 74.75,
+      "turnover": null
+    },
+    {
+      "symbol": "EFACTOR",
+      "pd_lookup_key": "E FACTOR EXPERIENCES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.07,
+      "last_price": 181.75,
+      "prev_close": 191.45,
+      "turnover": null
+    },
+    {
+      "symbol": "SHANTHALA",
+      "pd_lookup_key": "SHANTHALA FMCG PRODUCTS L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 16.91,
+      "last_price": 28.0,
+      "prev_close": 23.95,
+      "turnover": null
+    },
+    {
+      "symbol": "WEWIN",
+      "pd_lookup_key": "WE WIN",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 6.13,
+      "last_price": 42.45,
+      "prev_close": 40.0,
+      "turnover": null
+    },
+    {
+      "symbol": "ADDICTIVE",
+      "pd_lookup_key": "ADDICTIVE LEARNING TECH L",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -6.33,
+      "last_price": 74.75,
+      "prev_close": 79.8,
+      "turnover": null
+    },
+    {
+      "symbol": "DCCL",
+      "pd_lookup_key": "DAR CREDIT CAPITAL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 6.82,
+      "last_price": 36.0,
+      "prev_close": 33.7,
+      "turnover": null
+    },
+    {
+      "symbol": "LIQUIDSHRI",
+      "pd_lookup_key": "SHRIRAM LIQUIDSHRI",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "MASKINVEST",
+      "pd_lookup_key": "MASK INVESTMENTS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.05,
+      "last_price": 130.56,
+      "prev_close": 136.07,
+      "turnover": null
+    },
+    {
+      "symbol": "SHIVASHRIT",
+      "pd_lookup_key": "SHIVASHRIT FOODS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.24,
+      "last_price": 118.05,
+      "prev_close": 122.0,
+      "turnover": null
+    },
+    {
+      "symbol": "NACLIND",
+      "pd_lookup_key": "NACL INDUSTRIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.99,
+      "last_price": 137.99,
+      "prev_close": 132.69,
+      "turnover": null
+    },
+    {
+      "symbol": "EFFWA",
+      "pd_lookup_key": "EFFWA INFRA RESEARCH L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.94,
+      "last_price": 204.75,
+      "prev_close": 198.9,
+      "turnover": null
+    },
+    {
+      "symbol": "SJLOGISTIC",
+      "pd_lookup_key": "S J LOGISTICS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.33,
+      "last_price": 274.5,
+      "prev_close": 268.25,
+      "turnover": null
+    },
+    {
+      "symbol": "PUSHPA",
+      "pd_lookup_key": "PUSHPA JEWELLERS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.79,
+      "last_price": 91.75,
+      "prev_close": 88.4,
+      "turnover": null
+    },
+    {
+      "symbol": "SHIGAN",
+      "pd_lookup_key": "SHIGAN QUANTUM TECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.4,
+      "last_price": 51.2,
+      "prev_close": 50.0,
+      "turnover": null
+    },
+    {
+      "symbol": "SHRIAHIMSA",
+      "pd_lookup_key": "SHRI AHIMSA NATURALS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.83,
+      "last_price": 240.2,
+      "prev_close": 233.6,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBJUN27",
+      "pd_lookup_key": "2 50%GOLDBONDS2027SR I",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.25,
+      "last_price": 14259.99,
+      "prev_close": 14588.25,
+      "turnover": null
+    },
+    {
+      "symbol": "DIRL",
+      "pd_lookup_key": "DHANUKA INFRA REALTY",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.49,
+      "last_price": 9.3,
+      "prev_close": 8.9,
+      "turnover": null
+    },
+    {
+      "symbol": "YCCL",
+      "pd_lookup_key": "YASONS CHEMEX CARE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.5,
+      "last_price": 10.25,
+      "prev_close": 10.0,
+      "turnover": null
+    },
+    {
+      "symbol": "PSFL",
+      "pd_lookup_key": "PARAMOUNT SPECIALI FORG L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.08,
+      "last_price": 25.5,
+      "prev_close": 24.5,
+      "turnover": null
+    },
+    {
+      "symbol": "PROLIFE",
+      "pd_lookup_key": "PROLIFE INDUSTRIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.34,
+      "last_price": 58.4,
+      "prev_close": 59.8,
+      "turnover": null
+    },
+    {
+      "symbol": "TAPIFRUIT",
+      "pd_lookup_key": "TAPI FRUIT PROCESSING",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.0,
+      "last_price": 57.75,
+      "prev_close": 55.0,
+      "turnover": null
+    },
+    {
+      "symbol": "948SCL26",
+      "pd_lookup_key": "SEC RE NCD 9 48% SR V",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 18.79,
+      "last_price": 588.0,
+      "prev_close": 495.0,
+      "turnover": null
+    },
+    {
+      "symbol": "GURUNANAK",
+      "pd_lookup_key": "GURUNANAK AGRICULTUR IN L",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.08,
+      "last_price": 25.2,
+      "prev_close": 26.55,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBFEB27",
+      "pd_lookup_key": "2 50%GOLDBONDS2027SR VI",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.19,
+      "last_price": 14279.41,
+      "prev_close": 14750.0,
+      "turnover": null
+    },
+    {
+      "symbol": "VINYAS",
+      "pd_lookup_key": "VINYAS INNOVATIVE TECH L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.22,
+      "last_price": 939.15,
+      "prev_close": 901.1,
+      "turnover": null
+    },
+    {
+      "symbol": "SUNREST",
+      "pd_lookup_key": "SUNREST LIFESCIENCE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.83,
+      "last_price": 44.6,
+      "prev_close": 45.9,
+      "turnover": null
+    },
+    {
+      "symbol": "MAITREYA",
+      "pd_lookup_key": "MAITREYA MEDICARE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.65,
+      "last_price": 189.1,
+      "prev_close": 194.25,
+      "turnover": null
+    },
+    {
+      "symbol": "ENFUSE",
+      "pd_lookup_key": "ENFUSE SOLUTIONS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.37,
+      "last_price": 175.0,
+      "prev_close": 183.0,
+      "turnover": null
+    },
+    {
+      "symbol": "SIGMAADV",
+      "pd_lookup_key": "SIGMA ADVANCED SYSTEM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.74,
+      "last_price": 172.48,
+      "prev_close": 164.68,
+      "turnover": null
+    },
+    {
+      "symbol": "VELS",
+      "pd_lookup_key": "VELS FILM INTERNATIONAL L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.89,
+      "last_price": 45.7,
+      "prev_close": 48.05,
+      "turnover": null
+    },
+    {
+      "symbol": "MUNISH",
+      "pd_lookup_key": "MUNISH FORGE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.83,
+      "last_price": 56.4,
+      "prev_close": 53.8,
+      "turnover": null
+    },
+    {
+      "symbol": "GCHOTELS",
+      "pd_lookup_key": "GRAND CONTINENT HOTELS L",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.65,
+      "last_price": 84.0,
+      "prev_close": 88.1,
+      "turnover": null
+    },
+    {
+      "symbol": "AXISNIFTY",
+      "pd_lookup_key": "AXISAMC AXISNIFTY",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.63,
+      "last_price": 254.61,
+      "prev_close": 261.49,
+      "turnover": null
+    },
+    {
+      "symbol": "VISHNUINFR",
+      "pd_lookup_key": "VISHNUSURYA PROJ N INFR L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.94,
+      "last_price": 143.6,
+      "prev_close": 139.5,
+      "turnover": null
+    },
+    {
+      "symbol": "QFIL",
+      "pd_lookup_key": "QUALITY FOILS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.75,
+      "last_price": 47.15,
+      "prev_close": 49.5,
+      "turnover": null
+    },
+    {
+      "symbol": "716GS2050",
+      "pd_lookup_key": "GOI LOAN 7 16% 2050",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.46,
+      "last_price": 104.8,
+      "prev_close": 101.3,
+      "turnover": null
+    },
+    {
+      "symbol": "MOGOLD",
+      "pd_lookup_key": "MOTILALAMC MOGOLD",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.39,
+      "last_price": 144.85,
+      "prev_close": 148.4,
+      "turnover": null
+    },
+    {
+      "symbol": "ANNAPURNA",
+      "pd_lookup_key": "ANNAPURNA SWADISHT",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.97,
+      "last_price": 159.65,
+      "prev_close": 155.05,
+      "turnover": null
+    },
+    {
+      "symbol": "GROWWHOSPI",
+      "pd_lookup_key": "GROWWAMC GROWWHOSPI",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "THESL",
+      "pd_lookup_key": "THINKING HATS ENTER SOL L",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.96,
+      "last_price": 12.45,
+      "prev_close": 13.1,
+      "turnover": null
+    },
+    {
+      "symbol": "VIGOR",
+      "pd_lookup_key": "VIGOR PLAST",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "BRACEPORT",
+      "pd_lookup_key": "BRACE PORT LOGISTICS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.59,
+      "last_price": 59.5,
+      "prev_close": 58.0,
+      "turnover": null
+    },
+    {
+      "symbol": "VOLERCAR",
+      "pd_lookup_key": "VOLER CAR",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.42,
+      "last_price": 235.5,
+      "prev_close": 246.4,
+      "turnover": null
+    },
+    {
+      "symbol": "SONUINFRA",
+      "pd_lookup_key": "SONU INFRATECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.95,
+      "last_price": 46.1,
+      "prev_close": 48.5,
+      "turnover": null
+    },
+    {
+      "symbol": "AGNI",
+      "pd_lookup_key": "AGNI GREEN POWER",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "ARIHANTACA",
+      "pd_lookup_key": "ARIHANT ACADEMY",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 6.38,
+      "last_price": 500.0,
+      "prev_close": 470.0,
+      "turnover": null
+    },
+    {
+      "symbol": "AISL",
+      "pd_lookup_key": "ANI INTEGRATED SERV",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.0,
+      "last_price": 62.7,
+      "prev_close": 66.0,
+      "turnover": null
+    },
+    {
+      "symbol": "93MOFSL34",
+      "pd_lookup_key": "SEC RE NCD 9 30% SR VII",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 9.05,
+      "last_price": 1145.0,
+      "prev_close": 1050.0,
+      "turnover": null
+    },
+    {
+      "symbol": "NIFTYBETF",
+      "pd_lookup_key": "BFAM NIFTYBETF",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.37,
+      "last_price": 237.1,
+      "prev_close": 247.94,
+      "turnover": null
+    },
+    {
+      "symbol": "MTEDUCARE",
+      "pd_lookup_key": "MT EDUCARE",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "ROCKINGDCE",
+      "pd_lookup_key": "ROCKINGDEALS CIRCU ECO L",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "SONAMAC",
+      "pd_lookup_key": "SONA MACHINERY",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "GRETEX",
+      "pd_lookup_key": "GRETEX INDUSTRIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.31,
+      "last_price": 266.0,
+      "prev_close": 255.0,
+      "turnover": null
+    },
+    {
+      "symbol": "TIRUPATI",
+      "pd_lookup_key": "SHREE TIRUPATI BALAJEE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.0,
+      "last_price": 451.25,
+      "prev_close": 475.0,
+      "turnover": null
+    },
+    {
+      "symbol": "REFRACTORY",
+      "pd_lookup_key": "REFRACTORY SHAPES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.98,
+      "last_price": 32.7,
+      "prev_close": 31.15,
+      "turnover": null
+    },
+    {
+      "symbol": "ALPEXSOLAR",
+      "pd_lookup_key": "ALPEX SOLAR",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.08,
+      "last_price": 770.55,
+      "prev_close": 747.5,
+      "turnover": null
+    },
+    {
+      "symbol": "CEDAAR",
+      "pd_lookup_key": "CEDAAR TEXTILE",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.93,
+      "last_price": 22.0,
+      "prev_close": 22.9,
+      "turnover": null
+    },
+    {
+      "symbol": "SUNLITE",
+      "pd_lookup_key": "SUNLITE RECYCLING IND",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.27,
+      "last_price": 345.95,
+      "prev_close": 335.0,
+      "turnover": null
+    },
+    {
+      "symbol": "FALCONTECH",
+      "pd_lookup_key": "FALCON TECHNOPROJ IND",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.28,
+      "last_price": 12.6,
+      "prev_close": 12.2,
+      "turnover": null
+    },
+    {
+      "symbol": "STRIDERS",
+      "pd_lookup_key": "STRIDERS IMPEX",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.24,
+      "last_price": 65.5,
+      "prev_close": 67.0,
+      "turnover": null
+    },
+    {
+      "symbol": "DTL",
+      "pd_lookup_key": "DIENSTEN TECH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.17,
+      "last_price": 104.75,
+      "prev_close": 99.6,
+      "turnover": null
+    },
+    {
+      "symbol": "RNPL",
+      "pd_lookup_key": "RENOL POLYCHEM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.76,
+      "last_price": 139.75,
+      "prev_close": 136.0,
+      "turnover": null
+    },
+    {
+      "symbol": "AXISHCETF",
+      "pd_lookup_key": "AXISAMC AXISHCETF",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.55,
+      "last_price": 146.65,
+      "prev_close": 143.0,
+      "turnover": null
+    },
+    {
+      "symbol": "KARNIKA",
+      "pd_lookup_key": "KARNIKA INDUSTRIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.98,
+      "last_price": 113.85,
+      "prev_close": 108.45,
+      "turnover": null
+    },
+    {
+      "symbol": "BAWEJA",
+      "pd_lookup_key": "BAWEJA STUDIOS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.5,
+      "last_price": 29.75,
+      "prev_close": 28.2,
+      "turnover": null
+    },
+    {
+      "symbol": "PANSARI",
+      "pd_lookup_key": "PANSARI DEVELOPERS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.71,
+      "last_price": 276.1,
+      "prev_close": 283.8,
+      "turnover": null
+    },
+    {
+      "symbol": "FRESHARA",
+      "pd_lookup_key": "FRESHARA AGRO EXPORTS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.04,
+      "last_price": 182.9,
+      "prev_close": 177.5,
+      "turnover": null
+    },
+    {
+      "symbol": "DSFCL",
+      "pd_lookup_key": "DCM SHRIRAM FINE CHEM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.49,
+      "last_price": 21.96,
+      "prev_close": 22.52,
+      "turnover": null
+    },
+    {
+      "symbol": "SILLYMONKS",
+      "pd_lookup_key": "SILLY MONKS ENTERTAIN",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.7,
+      "last_price": 16.33,
+      "prev_close": 15.9,
+      "turnover": null
+    },
+    {
+      "symbol": "AUSL",
+      "pd_lookup_key": "ADITYA ULTRA STEEL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.0,
+      "last_price": 21.0,
+      "prev_close": 20.0,
+      "turnover": null
+    },
+    {
+      "symbol": "UNIHEALTH",
+      "pd_lookup_key": "UNIHEALTH HOSPITALS",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.99,
+      "last_price": 395.35,
+      "prev_close": 376.55,
+      "turnover": null
+    },
+    {
+      "symbol": "MAYASHEEL",
+      "pd_lookup_key": "MAYASHEEL VENTURES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 12.61,
+      "last_price": 46.45,
+      "prev_close": 41.25,
+      "turnover": null
+    },
+    {
+      "symbol": "TAURIAN",
+      "pd_lookup_key": "TAURIAN MPS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.24,
+      "last_price": 207.0,
+      "prev_close": 200.5,
+      "turnover": null
+    },
+    {
+      "symbol": "MADHAVBAUG",
+      "pd_lookup_key": "VAIDYA SANE AYUR LAB",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.08,
+      "last_price": 201.0,
+      "prev_close": 195.0,
+      "turnover": null
+    },
+    {
+      "symbol": "FLYSBS",
+      "pd_lookup_key": "FLYSBS AVIATION",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.62,
+      "last_price": 413.25,
+      "prev_close": 428.75,
+      "turnover": null
+    },
+    {
+      "symbol": "1003SCL30A",
+      "pd_lookup_key": "SEC RE NCD 10 03% SR X",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 7.63,
+      "last_price": 825.0,
+      "prev_close": 766.5,
+      "turnover": null
+    },
+    {
+      "symbol": "SUNTECH",
+      "pd_lookup_key": "SUNTECH INFRA SOLUTIONS L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.54,
+      "last_price": 32.25,
+      "prev_close": 31.45,
+      "turnover": null
+    },
+    {
+      "symbol": "AYE",
+      "pd_lookup_key": "AYE FINANCE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.37,
+      "last_price": 107.55,
+      "prev_close": 104.04,
+      "turnover": null
+    },
+    {
+      "symbol": "VILINBIO",
+      "pd_lookup_key": "VILIN BIO MED",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.53,
+      "last_price": 36.5,
+      "prev_close": 35.6,
+      "turnover": null
+    },
+    {
+      "symbol": "ITALIANE",
+      "pd_lookup_key": "ITALIAN EDIBLES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.99,
+      "last_price": 41.05,
+      "prev_close": 39.1,
+      "turnover": null
+    },
+    {
+      "symbol": "KCK",
+      "pd_lookup_key": "KCK INDUSTRIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 6.3,
+      "last_price": 19.4,
+      "prev_close": 18.25,
+      "turnover": null
+    },
+    {
+      "symbol": "ACETEC",
+      "pd_lookup_key": "ACETECH E COMMERCE",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.09,
+      "last_price": 145.05,
+      "prev_close": 139.35,
+      "turnover": null
+    },
+    {
+      "symbol": "SMARTEN",
+      "pd_lookup_key": "SMARTEN POWER SYSTEMS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.06,
+      "last_price": 52.0,
+      "prev_close": 54.2,
+      "turnover": null
+    },
+    {
+      "symbol": "TICL",
+      "pd_lookup_key": "TWAMEV CONS AND INFRA",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.28,
+      "last_price": 25.61,
+      "prev_close": 25.04,
+      "turnover": null
+    },
+    {
+      "symbol": "PARTH",
+      "pd_lookup_key": "PARTH ELEC ENG",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "WAKEFIT",
+      "pd_lookup_key": "WAKEFIT INNOVATIONS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.96,
+      "last_price": 162.25,
+      "prev_close": 157.58,
+      "turnover": null
+    },
+    {
+      "symbol": "MARUSHIKA",
+      "pd_lookup_key": "MARUSHIKA TECHNOLOGY",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -6.75,
+      "last_price": 98.8,
+      "prev_close": 105.95,
+      "turnover": null
+    },
+    {
+      "symbol": "DELTIC",
+      "pd_lookup_key": "DELTA AUTOCORP",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.95,
+      "last_price": 35.5,
+      "prev_close": 34.15,
+      "turnover": null
+    },
+    {
+      "symbol": "DECCANTRAN",
+      "pd_lookup_key": "DECCAN TRANSCON LEASING L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 9.16,
+      "last_price": 20.25,
+      "prev_close": 18.55,
+      "turnover": null
+    },
+    {
+      "symbol": "CURIS",
+      "pd_lookup_key": "CURIS LIFESCIENCES",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "VIJAYPD",
+      "pd_lookup_key": "VIJAYPD CEUTICAL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.14,
+      "last_price": 66.3,
+      "prev_close": 68.45,
+      "turnover": null
+    },
+    {
+      "symbol": "SBIETFIT",
+      "pd_lookup_key": "SBIAMC SBIETFIT",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.17,
+      "last_price": 322.68,
+      "prev_close": 315.82,
+      "turnover": null
+    },
+    {
+      "symbol": "VIRINCHI",
+      "pd_lookup_key": "VIRINCHI",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "SEL",
+      "pd_lookup_key": "SUNGARNER ENERGIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.25,
+      "last_price": 139.0,
+      "prev_close": 142.2,
+      "turnover": null
+    },
+    {
+      "symbol": "INA",
+      "pd_lookup_key": "INSOLATION ENERGY",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.3,
+      "last_price": 101.3,
+      "prev_close": 96.2,
+      "turnover": null
+    },
+    {
+      "symbol": "TREJHARA",
+      "pd_lookup_key": "TREJHARA SOLUTIONS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.05,
+      "last_price": 165.67,
+      "prev_close": 160.77,
+      "turnover": null
+    },
+    {
+      "symbol": "EMMIL",
+      "pd_lookup_key": "ENERGY MISSION MACH IND L",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "SATECH",
+      "pd_lookup_key": "S A TECH SOFTWARE L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.99,
+      "last_price": 41.85,
+      "prev_close": 44.05,
+      "turnover": null
+    },
+    {
+      "symbol": "GJL",
+      "pd_lookup_key": "GROVER JEWELLS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.99,
+      "last_price": 255.25,
+      "prev_close": 268.65,
+      "turnover": null
+    },
+    {
+      "symbol": "SILVERBEES",
+      "pd_lookup_key": "NIPPONAMC NETFSILVER",
+      "reasons": [
+        "top_turnover"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": 15290066775.56
+    },
+    {
+      "symbol": "KRT",
+      "pd_lookup_key": "KNOWLEDGE REALTY TRUST",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.06,
+      "last_price": 117.1,
+      "prev_close": 114.74,
+      "turnover": null
+    },
+    {
+      "symbol": "SAIFL",
+      "pd_lookup_key": "SAMEERA AGRO AND INFRA L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.52,
+      "last_price": 9.6,
+      "prev_close": 9.95,
+      "turnover": null
+    },
+    {
+      "symbol": "TROM",
+      "pd_lookup_key": "TROM INDUSTRIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.54,
+      "last_price": 58.45,
+      "prev_close": 57.0,
+      "turnover": null
+    },
+    {
+      "symbol": "CLSL",
+      "pd_lookup_key": "CROP LIFE SCIENCE",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.45,
+      "last_price": 45.0,
+      "prev_close": 43.5,
+      "turnover": null
+    },
+    {
+      "symbol": "YUDIZ",
+      "pd_lookup_key": "YUDIZ SOLUTIONS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.87,
+      "last_price": 26.05,
+      "prev_close": 27.1,
+      "turnover": null
+    },
+    {
+      "symbol": "SSEGL",
+      "pd_lookup_key": "SATHLOKHAR SYN E C GLOB L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 3.0,
+      "last_price": 340.2,
+      "prev_close": 330.3,
+      "turnover": null
+    },
+    {
+      "symbol": "AERON",
+      "pd_lookup_key": "AERON COMPOSITE",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "CRAYONS",
+      "pd_lookup_key": "CRAYONS ADVERTISING",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -6.82,
+      "last_price": 30.75,
+      "prev_close": 33.0,
+      "turnover": null
+    },
+    {
+      "symbol": "FROG",
+      "pd_lookup_key": "FROG INNOVATIONS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.81,
+      "last_price": 126.35,
+      "prev_close": 130.0,
+      "turnover": null
+    },
+    {
+      "symbol": "AVANA",
+      "pd_lookup_key": "AVANA ELECTROSYSTEMS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 13.36,
+      "last_price": 70.85,
+      "prev_close": 62.5,
+      "turnover": null
+    },
+    {
+      "symbol": "1225IFL27",
+      "pd_lookup_key": "IFL 12 25% 2027",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 8.94,
+      "last_price": 9500.0,
+      "prev_close": 8720.35,
+      "turnover": null
+    },
+    {
+      "symbol": "BAFNAPH",
+      "pd_lookup_key": "BAFNA PHARMACEUTICALS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.51,
+      "last_price": 125.94,
+      "prev_close": 120.5,
+      "turnover": null
+    },
+    {
+      "symbol": "RTL",
+      "pd_lookup_key": "RAMA TELECOM",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.78,
+      "last_price": 90.45,
+      "prev_close": 94.0,
+      "turnover": null
+    },
+    {
+      "symbol": "BARFLEX",
+      "pd_lookup_key": "BARFLEX POLYFILMS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.91,
+      "last_price": 56.6,
+      "prev_close": 55.0,
+      "turnover": null
+    },
+    {
+      "symbol": "99AEL29",
+      "pd_lookup_key": "SEC RE NCD 9 90% SR VII",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.17,
+      "last_price": 1083.1,
+      "prev_close": 1060.07,
+      "turnover": null
+    },
+    {
+      "symbol": "SAHAJSOLAR",
+      "pd_lookup_key": "SAHAJ SOLAR",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.39,
+      "last_price": 118.0,
+      "prev_close": 115.25,
+      "turnover": null
+    },
+    {
+      "symbol": "NIF100IETF",
+      "pd_lookup_key": "ICICI PRUD NIFTY 100 ETF",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.65,
+      "last_price": 26.49,
+      "prev_close": 27.21,
+      "turnover": null
+    },
+    {
+      "symbol": "FWSTC",
+      "pd_lookup_key": "FLYWINGS SIMULAT T C",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.86,
+      "last_price": 163.8,
+      "prev_close": 174.0,
+      "turnover": null
+    },
+    {
+      "symbol": "QVCEL",
+      "pd_lookup_key": "QVC EXPORTS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.76,
+      "last_price": 26.05,
+      "prev_close": 25.35,
+      "turnover": null
+    },
+    {
+      "symbol": "SGBJUL28IV",
+      "pd_lookup_key": "2 50%GOLDBONDS2028SR IV",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.27,
+      "last_price": 14278.55,
+      "prev_close": 14610.7,
+      "turnover": null
+    },
+    {
+      "symbol": "WHITEFORCE",
+      "pd_lookup_key": "HAPPY SQUARE OUTSOURC S L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 11.56,
+      "last_price": 41.0,
+      "prev_close": 36.75,
+      "turnover": null
+    },
+    {
+      "symbol": "RAJPUTANA",
+      "pd_lookup_key": "RAJPUTANA BIODIESEL",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.71,
+      "last_price": 220.0,
+      "prev_close": 210.1,
+      "turnover": null
+    },
+    {
+      "symbol": "MACOBSTECH",
+      "pd_lookup_key": "MACOBS TECHNOLOGIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -7.66,
+      "last_price": 202.0,
+      "prev_close": 218.75,
+      "turnover": null
+    },
+    {
+      "symbol": "DRONE",
+      "pd_lookup_key": "DRONE DESTINATION",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 9.92,
+      "last_price": 45.45,
+      "prev_close": 41.35,
+      "turnover": null
+    },
+    {
+      "symbol": "EUROTEXIND",
+      "pd_lookup_key": "EUROTEX INDUSTRIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.73,
+      "last_price": 13.2,
+      "prev_close": 13.57,
+      "turnover": null
+    },
+    {
+      "symbol": "GOLDSTAR",
+      "pd_lookup_key": "GOLDSTAR POWER",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.73,
+      "last_price": 7.05,
+      "prev_close": 7.4,
+      "turnover": null
+    },
+    {
+      "symbol": "NIDAN",
+      "pd_lookup_key": "NIDAN LABS AND HEALTH",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 11.58,
+      "last_price": 15.9,
+      "prev_close": 14.25,
+      "turnover": null
+    },
+    {
+      "symbol": "LIQUIDCASE",
+      "pd_lookup_key": "ZERODHAAMC LIQUIDCASE",
+      "reasons": [
+        "circuit"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": null,
+      "last_price": null,
+      "prev_close": null,
+      "turnover": null
+    },
+    {
+      "symbol": "AGARWALTUF",
+      "pd_lookup_key": "AGARWAL TOUGH GLASS IND L",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.85,
+      "last_price": 92.0,
+      "prev_close": 89.45,
+      "turnover": null
+    },
+    {
+      "symbol": "ARCIIL",
+      "pd_lookup_key": "ARC INSULATION INSU",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.17,
+      "last_price": 45.0,
+      "prev_close": 46.0,
+      "turnover": null
+    },
+    {
+      "symbol": "FINBUD",
+      "pd_lookup_key": "FINBUD FINANCIAL SERV",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 7.78,
+      "last_price": 115.0,
+      "prev_close": 106.7,
+      "turnover": null
+    },
+    {
+      "symbol": "925ISF28",
+      "pd_lookup_key": "ISF 9 25% 2028",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 6.25,
+      "last_price": 9882.0,
+      "prev_close": 9301.0,
+      "turnover": null
+    },
+    {
+      "symbol": "BANKPSU",
+      "pd_lookup_key": "MIRAEAMC BANKPSU",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.05,
+      "last_price": 86.17,
+      "prev_close": 84.44,
+      "turnover": null
+    },
+    {
+      "symbol": "ITETF",
+      "pd_lookup_key": "MIRAEAMC ITETF",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.0,
+      "last_price": 30.67,
+      "prev_close": 30.07,
+      "turnover": null
+    },
+    {
+      "symbol": "BUILDPRO",
+      "pd_lookup_key": "SHANKARA BUILDPRO",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 4.12,
+      "last_price": 945.65,
+      "prev_close": 908.2,
+      "turnover": null
+    },
+    {
+      "symbol": "JAYBEE",
+      "pd_lookup_key": "JAY BEE LAMINATIONS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 5.53,
+      "last_price": 87.75,
+      "prev_close": 83.15,
+      "turnover": null
+    },
+    {
+      "symbol": "KRMAYURVED",
+      "pd_lookup_key": "KRM AYURVEDA",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.18,
+      "last_price": 196.55,
+      "prev_close": 192.35,
+      "turnover": null
+    },
+    {
+      "symbol": "SEJALLTD",
+      "pd_lookup_key": "SEJAL GLASS",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.26,
+      "last_price": 481.75,
+      "prev_close": 492.9,
+      "turnover": null
+    },
+    {
+      "symbol": "KALANA",
+      "pd_lookup_key": "KALANA ISPAT",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -4.97,
+      "last_price": 24.85,
+      "prev_close": 26.15,
+      "turnover": null
+    },
+    {
+      "symbol": "CANARYS",
+      "pd_lookup_key": "CANARYS AUTOMATIONS",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.2,
+      "last_price": 18.15,
+      "prev_close": 18.75,
+      "turnover": null
+    },
+    {
+      "symbol": "INTENTECH",
+      "pd_lookup_key": "INTENSE TECHNOLOGIES",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.8,
+      "last_price": 83.98,
+      "prev_close": 86.4,
+      "turnover": null
+    },
+    {
+      "symbol": "PERFECT",
+      "pd_lookup_key": "PERFECT INFRAENGINEER",
+      "reasons": [
+        "circuit",
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -3.03,
+      "last_price": 1.6,
+      "prev_close": 1.65,
+      "turnover": null
+    },
+    {
+      "symbol": "902SCL27Q",
+      "pd_lookup_key": "SCL 9 02% 2027 SR V",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 18.76,
+      "last_price": 974.8,
+      "prev_close": 820.8,
+      "turnover": null
+    },
+    {
+      "symbol": "WOMANCART",
+      "pd_lookup_key": "WOMANCART",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -2.22,
+      "last_price": 165.3,
+      "prev_close": 169.05,
+      "turnover": null
+    },
+    {
+      "symbol": "DENTALKART",
+      "pd_lookup_key": "VASA DENTICITY",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.73,
+      "last_price": 398.25,
+      "prev_close": 387.65,
+      "turnover": null
+    },
+    {
+      "symbol": "105IIFL29",
+      "pd_lookup_key": "UNSEC RED NCD 10 5% SR VI",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": 2.76,
+      "last_price": 1044.0,
+      "prev_close": 1016.0,
+      "turnover": null
+    },
+    {
+      "symbol": "HOMESFY",
+      "pd_lookup_key": "HOMESFY REALTY",
+      "reasons": [
+        "gainer_loser"
+      ],
+      "trade_date": "2026-03-20",
+      "pct": -5.0,
+      "last_price": 128.25,
+      "prev_close": 135.0,
+      "turnover": null
+    }
+  ],
+  "added_count": 1454,
+  "added": [
+    "20MICRONS",
+    "360ONE",
+    "3PLAND",
+    "5PAISA",
+    "63MOONS",
+    "A2ZINFRA",
+    "AAKASH",
+    "AARON",
+    "AARTIDRUGS",
+    "AARTIPHARM",
+    "AARTISURF",
+    "AAVAS",
+    "ABB",
+    "ABBOTINDIA",
+    "ABCAPITAL",
+    "ABCOTS",
+    "ABDL",
+    "ABINFRA",
+    "ABLBL",
+    "ABMINTLLTD",
+    "ABREL",
+    "ABSLAMC",
+    "ACCELYA",
+    "ACCURACY",
+    "ACE",
+    "ACL",
+    "ADANIENSOL",
+    "ADANIENT",
+    "ADANIGREEN",
+    "ADANIPORTS",
+    "ADANIPOWER",
+    "ADFFOODS",
+    "ADL",
+    "ADSL",
+    "ADVANCE",
+    "ADVANIHOTR",
+    "ADVENTHTL",
+    "ADVENZYMES",
+    "AEGISLOG",
+    "AEGISVOPAK",
+    "AEQUS",
+    "AEROFLEX",
+    "AERONEU",
+    "AFCONS",
+    "AFFLE",
+    "AFIL",
+    "AFSL",
+    "AGARIND",
+    "AGARWALEYE",
+    "AGI",
+    "AGIIL",
+    "AGRITECH",
+    "AGROPHOS",
+    "AHLADA",
+    "AHLEAST",
+    "AHLUCONT",
+    "AIRAN",
+    "AIROLAM",
+    "AJANTPHARM",
+    "AJMERA",
+    "AJOONI",
+    "AKG",
+    "AKI",
+    "AKSHAR",
+    "AKSHOPTFBR",
+    "ALANKIT",
+    "ALBERTDAVD",
+    "ALEMBICLTD",
+    "ALICON",
+    "ALKALI",
+    "ALKEM",
+    "ALKYLAMINE",
+    "ALLCARGO",
+    "ALLDIGI",
+    "ALOKINDS",
+    "ALPA",
+    "ALPHAGEO",
+    "ALPSINDUS",
+    "AMANTA",
+    "AMBER",
+    "AMBICAAGAR",
+    "AMBIKCO",
+    "AMBUJACEM",
+    "AMJLAND",
+    "AMRUTANJAN",
+    "ANANDRATHI",
+    "ANDHRAPAP",
+    "ANGELONE",
+    "ANMOL",
+    "ANTHEM",
+    "ANUHPHR",
+    "ANURAS",
+    "APARINDS",
+    "APCL",
+    "APOLLO",
+    "APOLLOHOSP",
+    "APOLLOPIPE",
+    "APOLLOTYRE",
+    "APOLSINHOT",
+    "APTECHT",
+    "ARCHIES",
+    "ARE&M",
+    "ARENTERP",
+    "ARIHANTCAP",
+    "ARISINFRA",
+    "ARKADE",
+    "AROGRANITE",
+    "ARSSBL",
+    "ARTEMISMED",
+    "ARTNIRMAN",
+    "ARVEE",
+    "ARVIND",
+    "ARVINDFASN",
+    "ARVSMART",
+    "ASAL",
+    "ASALCBR",
+    "ASHIANA",
+    "ASHIMASYN",
+    "ASHOKA",
+    "ASHOKAMET",
+    "ASHOKLEY",
+    "ASIANENE",
+    "ASIANHOTNR",
+    "ASIANPAINT",
+    "ASPINWALL",
+    "ASTEC",
+    "ASTERDM",
+    "ASTRAL",
+    "ASTRAMICRO",
+    "ASTRAZEN",
+    "ATALREAL",
+    "ATAM",
+    "ATGL",
+    "ATL",
+    "ATLASCYCLE",
+    "ATUL",
+    "ATULAUTO",
+    "AUBANK",
+    "AURIGROW",
+    "AURIONPRO",
+    "AUSOMENT",
+    "AUTOAXLES",
+    "AUTOIND",
+    "AVANTEL",
+    "AVG",
+    "AVL",
+    "AVTNPL",
+    "AWFIS",
+    "AWHCL",
+    "AXISBANK",
+    "AXITA",
+    "AYMSYNTEX",
+    "AZAD",
+    "BAGFILMS",
+    "BAIDFIN",
+    "BAJAJFINSV",
+    "BAJAJHFL",
+    "BAJAJHLDNG",
+    "BAJAJINDEF",
+    "BAJEL",
+    "BALAJEE",
+    "BALAJITELE",
+    "BALKRISIND",
+    "BALMLAWRIE",
+    "BALPHARMA",
+    "BALRAMCHIN",
+    "BALUFORGE",
+    "BANARBEADS",
+    "BANARISUG",
+    "BANCOINDIA",
+    "BANDHANBNK",
+    "BANKA",
+    "BANSWRAS",
+    "BASF",
+    "BASML",
+    "BBL",
+    "BBOX",
+    "BBTC",
+    "BBTCL",
+    "BCG",
+    "BCLIND",
+    "BDL",
+    "BECTORFOOD",
+    "BEDMUTHA",
+    "BEL",
+    "BEML",
+    "BERGEPAINT",
+    "BESTAGRO",
+    "BFINVEST",
+    "BHAGCHEM",
+    "BHAGERIA",
+    "BHANDARI",
+    "BHARATFORG",
+    "BHARATRAS",
+    "BHARATSE",
+    "BHARATWIRE",
+    "BHARTIHEXA",
+    "BIGBLOC",
+    "BIL",
+    "BIOFILCHEM",
+    "BIRLACABLE",
+    "BIRLACORPN",
+    "BIRLAMONEY",
+    "BIRLANU",
+    "BLAL",
+    "BLBLIMITED",
+    "BLISSGVS",
+    "BLKASHYAP",
+    "BLS",
+    "BLUEDART",
+    "BLUESTARCO",
+    "BLUESTONE",
+    "BMWVENTLTD",
+    "BOHRAIND",
+    "BOMDYEING",
+    "BOROLTD",
+    "BORORENEW",
+    "BOROSCI",
+    "BOSCHLTD",
+    "BPCL",
+    "BPL",
+    "BRIGHOTEL",
+    "BRITANNIA",
+    "BSHSL",
+    "BSOFT",
+    "CAMLINFINE",
+    "CAMPUS",
+    "CAMS",
+    "CANFINHOME",
+    "CANHLIFE",
+    "CAPILLARY",
+    "CAPITALSFB",
+    "CAPLIPOINT",
+    "CAPTRUST",
+    "CARBORUNIV",
+    "CARERATING",
+    "CARRARO",
+    "CARYSIL",
+    "CASTROLIND",
+    "CDSL",
+    "CEATLTD",
+    "CEIGALL",
+    "CELEBRITY",
+    "CEMPRO",
+    "CENTENKA",
+    "CENTRALBK",
+    "CENTURYPLY",
+    "CERA",
+    "CESC",
+    "CEWATER",
+    "CGCL",
+    "CGPOWER",
+    "CHALET",
+    "CHAMBLFERT",
+    "CHEMBOND",
+    "CHEMFAB",
+    "CHEMPLASTS",
+    "CHEVIOT",
+    "CHOICEIN",
+    "CHOLAFIN",
+    "CIEINDIA",
+    "CIFL",
+    "CIGNITITEC",
+    "CINEVISTA",
+    "CIPLA",
+    "CLEAN",
+    "CLEDUCATE",
+    "CLSEL",
+    "CMSINFO",
+    "COCHINSHIP",
+    "COFORGE",
+    "COHANCE",
+    "COLPAL",
+    "COMPUSOFT",
+    "CONCOR",
+    "CONCORDBIO",
+    "CONFIPET",
+    "CONSOFINVT",
+    "CONTROLPR",
+    "CORALFINAC",
+    "COSMOFIRST",
+    "COUNCODOS",
+    "CPCAP",
+    "CPEDU",
+    "CRAFTSMAN",
+    "CRAMC",
+    "CREDITACC",
+    "CRISIL",
+    "CRIZAC",
+    "CROMPTON",
+    "CROWN",
+    "CSLFINANCE",
+    "CUB",
+    "CUBEXTUB",
+    "CUPID",
+    "CYIENT",
+    "CYIENTDLM",
+    "DABUR",
+    "DALBHARAT",
+    "DANGEE",
+    "DATAMATICS",
+    "DATAPATTNS",
+    "DBCORP",
+    "DBREALTY",
+    "DBSTOCKBRO",
+    "DCAL",
+    "DCBBANK",
+    "DCM",
+    "DCMFINSERV",
+    "DCMNVL",
+    "DCMSHRIRAM",
+    "DCW",
+    "DCXINDIA",
+    "DDEVPLSTIK",
+    "DECCANCE",
+    "DEEDEV",
+    "DEEPAKFERT",
+    "DEEPAKNTR",
+    "DELTACORP",
+    "DELTAMAGNT",
+    "DEN",
+    "DENTA",
+    "DEVIT",
+    "DEVYANI",
+    "DHANUKA",
+    "DHARMAJ",
+    "DHRUV",
+    "DIAMINESQ",
+    "DIAMONDYD",
+    "DIGJAMLMTD",
+    "DIL",
+    "DISHTV",
+    "DIXON",
+    "DJML",
+    "DLF",
+    "DLINKINDIA",
+    "DMART",
+    "DNAMEDIA",
+    "DODLA",
+    "DOLATALGO",
+    "DOLPHIN",
+    "DONEAR",
+    "DPSCLTD",
+    "DPWIRES",
+    "DRCSYSTEMS",
+    "DREAMFOLKS",
+    "DREDGECORP",
+    "DRREDDY",
+    "DSSL",
+    "DTIL",
+    "DVL",
+    "DYCL",
+    "DYNPRO",
+    "E2E",
+    "EASEMYTRIP",
+    "EBGNG",
+    "ECLERX",
+    "EDELWEISS",
+    "EFCIL",
+    "EICHERMOT",
+    "EIDPARRY",
+    "EIEL",
+    "EIFFL",
+    "EIHAHOTELS",
+    "EIHOTEL",
+    "EKC",
+    "ELDEHSG",
+    "ELECON",
+    "ELGIRUBCO",
+    "ELIN",
+    "EMAMILTD",
+    "EMAMIPAP",
+    "EMBDL",
+    "EMCURE",
+    "EMIL",
+    "EMMVEE",
+    "ENDURANCE",
+    "ENIL",
+    "ENRIN",
+    "EPACK",
+    "EPIGRAL",
+    "EPL",
+    "EQUITASBNK",
+    "ERIS",
+    "ESABINDIA",
+    "ESSENTIA",
+    "ESTER",
+    "EUREKAFORB",
+    "EUROBOND",
+    "EUROPRATIK",
+    "EVERESTIND",
+    "EXCEL",
+    "EXCELINDUS",
+    "EXCELSOFT",
+    "EXICOM",
+    "EXIDEIND",
+    "EXPLEOSOL",
+    "FABTECH",
+    "FACT",
+    "FAZE3Q",
+    "FCL",
+    "FDC",
+    "FEDERALBNK",
+    "FIBERWEB",
+    "FIEMIND",
+    "FILATFASH",
+    "FINEORG",
+    "FINOPB",
+    "FINPIPE",
+    "FIVESTAR",
+    "FLAIR",
+    "FLEXITUFF",
+    "FLUOROCHEM",
+    "FMGOETZE",
+    "FOCUS",
+    "FOODSIN",
+    "FORTIS",
+    "FOSECOIND",
+    "FSL",
+    "FUSION",
+    "GAEL",
+    "GAIL",
+    "GALAPREC",
+    "GALAXYSURF",
+    "GALLANTT",
+    "GANDHITUBE",
+    "GANECOS",
+    "GANESHBE",
+    "GANESHHOU",
+    "GANGAFORGE",
+    "GANGESSECU",
+    "GARFIBRES",
+    "GARUDA",
+    "GATECH",
+    "GATECHDVR",
+    "GEEKAYWIRE",
+    "GEMAROMA",
+    "GENCON",
+    "GENESYS",
+    "GENUSPOWER",
+    "GESHIP",
+    "GHCL",
+    "GICHSGFIN",
+    "GILLANDERS",
+    "GILLETTE",
+    "GIPCL",
+    "GKENERGY",
+    "GLAND",
+    "GLAXO",
+    "GLOBALE",
+    "GLOBALVECT",
+    "GLOBE",
+    "GLOBECIVIL",
+    "GLOTTIS",
+    "GMBREW",
+    "GNA",
+    "GNFC",
+    "GOACARBON",
+    "GOCLCORP",
+    "GODAVARIB",
+    "GODFRYPHLP",
+    "GODIGIT",
+    "GODREJCP",
+    "GODREJIND",
+    "GODREJPROP",
+    "GOKEX",
+    "GOKULAGRO",
+    "GOLDIAM",
+    "GOODLUCK",
+    "GOPAL",
+    "GOYALALUM",
+    "GPPL",
+    "GPTINFRA",
+    "GRANULES",
+    "GRAPHITE",
+    "GRASIM",
+    "GRAVITA",
+    "GREAVESCOT",
+    "GREENLAM",
+    "GREENPANEL",
+    "GREENPLY",
+    "GREENPOWER",
+    "GRINDWELL",
+    "GRMOVER",
+    "GROBTEA",
+    "GROWW",
+    "GRSE",
+    "GRWRHITECH",
+    "GSFC",
+    "GSPL",
+    "GTECJAINX",
+    "GTL",
+    "GTLINFRA",
+    "GTPL",
+    "GUFICBIO",
+    "GUJGASLTD",
+    "GUJTHEM",
+    "GULFOILLUB",
+    "GULFPETRO",
+    "GULPOLY",
+    "GVPIL",
+    "GVPTECH",
+    "HAL",
+    "HAPPYFORGE",
+    "HARDWYN",
+    "HARIOMPIPE",
+    "HARSHA",
+    "HATHWAY",
+    "HAVELLS",
+    "HBLENGINE",
+    "HCC",
+    "HCG",
+    "HCL-INSYS",
+    "HCLTECH",
+    "HDBFS",
+    "HDFCAMC",
+    "HDFCLIFE",
+    "HEG",
+    "HEIDELBERG",
+    "HEMIPROP",
+    "HERCULES",
+    "HERITGFOOD",
+    "HEROMOTOCO",
+    "HESTERBIO",
+    "HEUBACHIND",
+    "HEXATRADEX",
+    "HFCL",
+    "HGINFRA",
+    "HGS",
+    "HIKAL",
+    "HILINFRA",
+    "HILTON",
+    "HIMATSEIDE",
+    "HINDUNILVR",
+    "HINDWAREAP",
+    "HINDZINC",
+    "HIRECT",
+    "HITECH",
+    "HLEGLAS",
+    "HLVLTD",
+    "HMAAGRO",
+    "HMVL",
+    "HNDFDS",
+    "HONAUT",
+    "HONDAPOWER",
+    "HPAL",
+    "HPIL",
+    "HPL",
+    "HSCL",
+    "HTMEDIA",
+    "HUDCO",
+    "HUHTAMAKI",
+    "HYUNDAI",
+    "IBULLSLTD",
+    "ICDSLTD",
+    "ICEMAKE",
+    "ICICIGI",
+    "ICICIPRULI",
+    "ICIL",
+    "ICRA",
+    "IDEAFORGE",
+    "IDFCFIRSTB",
+    "IEX",
+    "IFBIND",
+    "IFCI",
+    "IFGLEXPOR",
+    "IGIL",
+    "IGL",
+    "IIFL",
+    "IIFLCAPS",
+    "IITL",
+    "IKS",
+    "IMAGICAA",
+    "IMFA",
+    "IMPAL",
+    "INDBANK",
+    "INDGN",
+    "INDHOTEL",
+    "INDIACEM",
+    "INDIAGLYCO",
+    "INDIAMART",
+    "INDIANHUME",
+    "INDIGO",
+    "INDIQUBE",
+    "INDNIPPON",
+    "INDOAMIN",
+    "INDOBORAX",
+    "INDOCO",
+    "INDOFARM",
+    "INDORAMA",
+    "INDOTECH",
+    "INDOUS",
+    "INDOWIND",
+    "INDRAMEDCO",
+    "INDSWFTLAB",
+    "INDTERRAIN",
+    "INDUSINDBK",
+    "INDUSTOWER",
+    "INFIBEAM",
+    "INFOMEDIA",
+    "INGERRAND",
+    "INNOVACAP",
+    "INNOVANA",
+    "INOXINDIA",
+    "INSECTICID",
+    "INSPIRISYS",
+    "INTELLECT",
+    "INTERARCH",
+    "INTLCONV",
+    "INVENTURE",
+    "IOC",
+    "IONEXCHANG",
+    "IPCALAB",
+    "IPL",
+    "IRB",
+    "IRCON",
+    "IRCTC",
+    "IREDA",
+    "IRFC",
+    "IRISDOREME",
+    "IRMENERGY",
+    "ISFT",
+    "ISGEC",
+    "ITDC",
+    "ITI",
+    "IVC",
+    "IVP",
+    "IZMO",
+    "J&KBANK",
+    "JAGRAN",
+    "JAGSNPHARM",
+    "JAINREC",
+    "JAIPURKURT",
+    "JASH",
+    "JAYAGROGN",
+    "JAYBARMARU",
+    "JCHAC",
+    "JGCHEM",
+    "JHS",
+    "JINDALPHOT",
+    "JINDRILL",
+    "JINDWORLD",
+    "JIOFIN",
+    "JISLJALEQS",
+    "JKCEMENT",
+    "JKIL",
+    "JKIPL",
+    "JKLAKSHMI",
+    "JKPAPER",
+    "JKTYRE",
+    "JLHL",
+    "JMFINANCIL",
+    "JNKINDIA",
+    "JOCIL",
+    "JPOLYINVST",
+    "JSFB",
+    "JSLL",
+    "JSWCEMENT",
+    "JSWENERGY",
+    "JSWINFRA",
+    "JTEKTINDIA",
+    "JUBLCPL",
+    "JUBLFOOD",
+    "JUNIPER",
+    "JUSTDIAL",
+    "JWL",
+    "JYOTHYLAB",
+    "JYOTICNC",
+    "JYOTISTRUC",
+    "KABRAEXTRU",
+    "KAKATCEM",
+    "KALPATARU",
+    "KALYANIFRG",
+    "KAMATHOTEL",
+    "KAMDHENU",
+    "KAMOPAINTS",
+    "KANANIIND",
+    "KANPRPLA",
+    "KANSAINER",
+    "KAPSTON",
+    "KARMAENG",
+    "KAUSHALYA",
+    "KAYA",
+    "KAYNES",
+    "KCP",
+    "KECL",
+    "KEI",
+    "KELLTONTEC",
+    "KERNEX",
+    "KESORAMIND",
+    "KEYFINSERV",
+    "KFINTECH",
+    "KHAICHEM",
+    "KHAITANLTD",
+    "KHANDSE",
+    "KICL",
+    "KILITCH",
+    "KIMS",
+    "KINGFA",
+    "KIRIINDUS",
+    "KIRLOSBROS",
+    "KIRLOSIND",
+    "KIRLPNU",
+    "KITEX",
+    "KKCL",
+    "KNRCON",
+    "KOHINOOR",
+    "KOLTEPATIL",
+    "KOTAKBANK",
+    "KOTARISUG",
+    "KOTHARIPET",
+    "KOTHARIPRO",
+    "KPEL",
+    "KPIGREEN",
+    "KPIL",
+    "KPITTECH",
+    "KPRMILL",
+    "KREBSBIO",
+    "KRIDHANINF",
+    "KRISHIVAL",
+    "KRITINUT",
+    "KRN",
+    "KRONOX",
+    "KRSNAA",
+    "KRYSTAL",
+    "KSHITIJPOL",
+    "KSL",
+    "KTKBANK",
+    "KUANTUM",
+    "LAGNAM",
+    "LAL",
+    "LALPATHLAB",
+    "LAMBODHARA",
+    "LANDMARK",
+    "LAOPALA",
+    "LAXMICOT",
+    "LAXMIDENTL",
+    "LEMONTREE",
+    "LEXUS",
+    "LGBBROSLTD",
+    "LGHL",
+    "LIBAS",
+    "LIBERTSHOE",
+    "LICHSGFIN",
+    "LICI",
+    "LIKHITHA",
+    "LINCOLN",
+    "LINDEINDIA",
+    "LLOYDSENGG",
+    "LLOYDSENT",
+    "LOKESHMACH",
+    "LORDSCHLO",
+    "LOTUSDEV",
+    "LOVABLE",
+    "LOYALTEX",
+    "LTF",
+    "LTFOODS",
+    "LTIM",
+    "LUMAXTECH",
+    "LXCHEM",
+    "LYPSAGEMS",
+    "M&MFIN",
+    "MAANALU",
+    "MACPOWER",
+    "MADHUCON",
+    "MADRASFERT",
+    "MAGNUM",
+    "MAHAPEXLTD",
+    "MAHEPC",
+    "MAHSCOOTER",
+    "MAHSEAMLES",
+    "MALLCOM",
+    "MAMATA",
+    "MANAKSIA",
+    "MANAKSTEEL",
+    "MANALIPETC",
+    "MANAPPURAM",
+    "MANBA",
+    "MANGALAM",
+    "MANINDS",
+    "MANINFRA",
+    "MANKIND",
+    "MANORAMA",
+    "MANORG",
+    "MANYAVAR",
+    "MARALOVER",
+    "MARATHON",
+    "MARICO",
+    "MARINE",
+    "MARKOLINES",
+    "MARUTI",
+    "MASTEK",
+    "MAXESTATES",
+    "MAXHEALTH",
+    "MAYURUNIQ",
+    "MAZDOCK",
+    "MBEL",
+    "MCL",
+    "MCLOUD",
+    "MEDANTA",
+    "MEDIASSIST",
+    "MEDICO",
+    "MEDPLUS",
+    "MEESHO",
+    "MEIL",
+    "MENONBE",
+    "METROBRAND",
+    "MFML",
+    "MFSL",
+    "MHRIL",
+    "MICEL",
+    "MIDWESTLTD",
+    "MINDACORP",
+    "MKPL",
+    "MMFL",
+    "MMP",
+    "MMTC",
+    "MOBIKWIK",
+    "MODIRUBBER",
+    "MOIL",
+    "MOKSH",
+    "MOL",
+    "MOLDTECH",
+    "MOLDTKPAC",
+    "MONARCH",
+    "MONEYBOXX",
+    "MOREPENLAB",
+    "MOSCHIP",
+    "MOTHERSON",
+    "MOTILALOFS",
+    "MOTOGENFIN",
+    "MPSLTD",
+    "MSPL",
+    "MSTCLTD",
+    "MSUMI",
+    "MTARTECH",
+    "MTNL",
+    "MUFIN",
+    "MUFTI",
+    "MUKANDLTD",
+    "MUKKA",
+    "MUKTAARTS",
+    "MUNJALAU",
+    "MUNJALSHOW",
+    "MUTHOOTCAP",
+    "MUTHOOTFIN",
+    "MUTHOOTMF",
+    "MWL",
+    "NAGAFERT",
+    "NAGREEKEXP",
+    "NAHARINDUS",
+    "NAHARPOLY",
+    "NATCAPSUQ",
+    "NATHBIOGEN",
+    "NAUKRI",
+    "NAVA",
+    "NAVKARCORP",
+    "NAVNETEDUL",
+    "NBCC",
+    "NBIFIN",
+    "NCC",
+    "NCLIND",
+    "NDGL",
+    "NDL",
+    "NDLVENTURE",
+    "NDRAUTO",
+    "NDTV",
+    "NECCLTD",
+    "NECLIFE",
+    "NELCAST",
+    "NELCO",
+    "NEOGEN",
+    "NESCO",
+    "NESTLEIND",
+    "NETWEB",
+    "NEULANDLAB",
+    "NEWGEN",
+    "NFL",
+    "NGIL",
+    "NGLFINE",
+    "NH",
+    "NHPC",
+    "NIACL",
+    "NIBE",
+    "NIBL",
+    "NILAINFRA",
+    "NILKAMAL",
+    "NINSYS",
+    "NIPPOBATRY",
+    "NIRAJ",
+    "NIRAJISPAT",
+    "NITCO",
+    "NITINSPIN",
+    "NIVABUPA",
+    "NOIDATOLL",
+    "NRBBEARING",
+    "NRL",
+    "NSIL",
+    "NSLNISP",
+    "NTPC",
+    "NUCLEUS",
+    "NURECA",
+    "NUVAMA",
+    "NUVOCO",
+    "NYKAA",
+    "OBCL",
+    "OBEROIRLTY",
+    "OCCLLTD",
+    "OIL",
+    "OILCOUNTUB",
+    "OMAXAUTO",
+    "OMAXE",
+    "OMINFRAL",
+    "ONESOURCE",
+    "ONGC",
+    "ONMOBILE",
+    "ONWARDTEC",
+    "OPTIEMUS",
+    "ORIENTALTL",
+    "ORIENTBELL",
+    "ORIENTCEM",
+    "ORIENTCER",
+    "ORIENTELEC",
+    "ORIENTHOT",
+    "ORIENTLTD",
+    "ORIENTPPR",
+    "ORIENTTECH",
+    "ORKLAINDIA",
+    "ORTINGLOBE",
+    "OSWALAGRO",
+    "OSWALSEEDS",
+    "PACEDIGITK",
+    "PALASHSECU",
+    "PALREDTEC",
+    "PANACEABIO",
+    "PANAMAPET",
+    "PAR",
+    "PARACABLES",
+    "PARAS",
+    "PARASPETRO",
+    "PARKHOTELS",
+    "PARSVNATH",
+    "PASHUPATI",
+    "PASUPTAC",
+    "PATANJALI",
+    "PATELENG",
+    "PATELRMART",
+    "PATINTLOG",
+    "PAUSHAKLTD",
+    "PAVNAIND",
+    "PAYTM",
+    "PCBL",
+    "PCJEWELLER",
+    "PDMJEPAPER",
+    "PDSL",
+    "PFC",
+    "PFIZER",
+    "PFS",
+    "PGEL",
+    "PGHL",
+    "PGIL",
+    "PICCADIL",
+    "PIGL",
+    "PIIND",
+    "PIONEEREMB",
+    "PITTIENG",
+    "PIXTRANS",
+    "PLASTIBLEN",
+    "PLATIND",
+    "PLAZACABLE",
+    "PNB",
+    "PNBGILTS",
+    "PNBHOUSING",
+    "PNCINFRA",
+    "PNGJL",
+    "POCL",
+    "POKARNA",
+    "POLICYBZR",
+    "POLYCAB",
+    "POLYMED",
+    "POLYPLEX",
+    "POONAWALLA",
+    "POWERGRID",
+    "POWERINDIA",
+    "POWERMECH",
+    "PPAP",
+    "PPL",
+    "PPLPHARMA",
+    "PRAJIND",
+    "PRAKASH",
+    "PRAKASHSTL",
+    "PRECAM",
+    "PRECOT",
+    "PRECWIRE",
+    "PREMEXPLN",
+    "PREMIERENE",
+    "PRESTIGE",
+    "PRICOLLTD",
+    "PRIMESECU",
+    "PRIMO",
+    "PRINCEPIPE",
+    "PRITIKAUTO",
+    "PRIVISCL",
+    "PROSTARM",
+    "PROTEAN",
+    "PRSMJOHNSN",
+    "PRUDENT",
+    "PSB",
+    "PSPPROJECT",
+    "PTCIL",
+    "PTL",
+    "PUNJABCHEM",
+    "PURVA",
+    "PVRINOX",
+    "PVSL",
+    "PYRAMID",
+    "QUADFUTURE",
+    "QUESS",
+    "QUICKHEAL",
+    "RACE",
+    "RADAAN",
+    "RADHIKAJWE",
+    "RADIANTCMS",
+    "RADIOCITY",
+    "RAILTEL",
+    "RAIN",
+    "RAINBOW",
+    "RAJESHEXPO",
+    "RAJMET",
+    "RAJOOENG",
+    "RAJRATAN",
+    "RAJTV",
+    "RALLIS",
+    "RAMANEWS",
+    "RAMKY",
+    "RAMRAT",
+    "RANASUG",
+    "RANEHOLDIN",
+    "RATEGAIN",
+    "RATNAMANI",
+    "RATNAVEER",
+    "RAYMOND",
+    "RBA",
+    "RBLBANK",
+    "RBZJEWEL",
+    "RCF",
+    "RECLTD",
+    "REDINGTON",
+    "REDTAPE",
+    "REFEX",
+    "REGAAL",
+    "RELAXO",
+    "RELCHEMQ",
+    "RELTD",
+    "REMSONSIND",
+    "REPCOHOME",
+    "REPL",
+    "REPRO",
+    "RESPONIND",
+    "RHETAN",
+    "RHIM",
+    "RHL",
+    "RISHABH",
+    "RITCO",
+    "RITES",
+    "RKDL",
+    "RKEC",
+    "RML",
+    "ROHLTD",
+    "ROLEXRINGS",
+    "ROLLT",
+    "ROML",
+    "ROTO",
+    "ROUTE",
+    "RPEL",
+    "RPPINFRA",
+    "RPPL",
+    "RPSGVENT",
+    "RPTECH",
+    "RRKABEL",
+    "RSSOFTWARE",
+    "RSWM",
+    "RSYSTEMS",
+    "RTNINDIA",
+    "RTNPOWER",
+    "RUBFILA",
+    "RUBYMILLS",
+    "RUCHINFRA",
+    "RUPA",
+    "RUSHIL",
+    "RVNL",
+    "S&SPOWER",
+    "SAATVIKGL",
+    "SABTNL",
+    "SADBHAV",
+    "SAGARDEEP",
+    "SAHYADRI",
+    "SAIL",
+    "SAILIFE",
+    "SAKAR",
+    "SALASAR",
+    "SALONA",
+    "SALZERELEC",
+    "SAMMAANCAP",
+    "SAMPANN",
+    "SANATHAN",
+    "SANDESH",
+    "SANDHAR",
+    "SANGAMIND",
+    "SANGHIIND",
+    "SANGHVIMOV",
+    "SANGINITA",
+    "SANOFI",
+    "SANOFICONR",
+    "SANSTAR",
+    "SAPPHIRE",
+    "SARDAEN",
+    "SAREGAMA",
+    "SARLAPOLY",
+    "SATIN",
+    "SAURASHCEM",
+    "SBC",
+    "SBFC",
+    "SBGLP",
+    "SBICARD",
+    "SBILIFE",
+    "SCHAND",
+    "SCHNEIDER",
+    "SCI",
+    "SCILAL",
+    "SCODATUBES",
+    "SCPL",
+    "SEAMECLTD",
+    "SECMARK",
+    "SELMC",
+    "SENCO",
+    "SENORES",
+    "SEQUENT",
+    "SERVOTECH",
+    "SESHAPAPER",
+    "SFL",
+    "SGFIN",
+    "SGIL",
+    "SGLTL",
+    "SGMART",
+    "SHAH",
+    "SHAKTIPUMP",
+    "SHALBY",
+    "SHALPAINTS",
+    "SHANKARA",
+    "SHANTI",
+    "SHANTIGEAR",
+    "SHANTIGOLD",
+    "SHARDAMOTR",
+    "SHEKHAWATI",
+    "SHEMAROO",
+    "SHIVAMAUTO",
+    "SHIVAMILLS",
+    "SHK",
+    "SHOPERSTOP",
+    "SHREDIGCEM",
+    "SHREECEM",
+    "SHREEJISPG",
+    "SHRENIK",
+    "SHRINGARMS",
+    "SHRIRAMPPS",
+    "SHYAMCENT",
+    "SHYAMMETL",
+    "SHYAMTEL",
+    "SIEMENS",
+    "SIGACHI",
+    "SIGIND",
+    "SIGNATURE",
+    "SIGNPOST",
+    "SIL",
+    "SILGO",
+    "SILINV",
+    "SINCLAIR",
+    "SIRCA",
+    "SIS",
+    "SIYSIL",
+    "SJS",
+    "SJVN",
+    "SKFINDIA",
+    "SKIPPER",
+    "SKYGOLD",
+    "SMARTWORKS",
+    "SMCGLOBAL",
+    "SMLT",
+    "SNOWMAN",
+    "SOBHA",
+    "SOLARA",
+    "SOLARINDS",
+    "SOLARWORLD",
+    "SOMANYCERA",
+    "SOMICONVEY",
+    "SONACOMS",
+    "SONAMLTD",
+    "SOTL",
+    "SOUTHBANK",
+    "SPAL",
+    "SPANDANA",
+    "SPARC",
+    "SPECIALITY",
+    "SPECTRUM",
+    "SPENCERS",
+    "SPIC",
+    "SPLPETRO",
+    "SPMLINFRA",
+    "SPORTKING",
+    "SRD",
+    "SREEL",
+    "SRF",
+    "SRHHYPOLTD",
+    "SRM",
+    "SSDL",
+    "STANLEY",
+    "STAR",
+    "STARHEALTH",
+    "STARPAPER",
+    "STARTECK",
+    "STCINDIA",
+    "STEELCAS",
+    "STEELCITY",
+    "STEELXIND",
+    "STEL",
+    "STERTOOLS",
+    "STLNETWORK",
+    "STUDDS",
+    "STYL",
+    "STYLAMIND",
+    "STYLEBAAZA",
+    "STYRENIX",
+    "SUBEXLTD",
+    "SUBROS",
+    "SULA",
+    "SUMICHEM",
+    "SUMMITSEC",
+    "SUNCLAY",
+    "SUNDARAM",
+    "SUNDRMBRAK",
+    "SUNDRMFAST",
+    "SUNDROP",
+    "SUNFLAG",
+    "SUNPHARMA",
+    "SUNTECK",
+    "SUNTV",
+    "SUPERHOUSE",
+    "SUPRAJIT",
+    "SUPREME",
+    "SUPREMEIND",
+    "SUPRIYA",
+    "SURAJEST",
+    "SURAJLTD",
+    "SURANASOL",
+    "SURANAT&P",
+    "SUTLEJTEX",
+    "SUVEN",
+    "SUVIDHAA",
+    "SUYOG",
+    "SWANCORP",
+    "SWARAJENG",
+    "SWELECTES",
+    "SWIGGY",
+    "SWSOLAR",
+    "SYMPHONY",
+    "SYNCOMF",
+    "SYNGENE",
+    "TAINWALCHM",
+    "TALBROAUTO",
+    "TARC",
+    "TARMAT",
+    "TARSONS",
+    "TASTYBITE",
+    "TATACAP",
+    "TATACHEM",
+    "TATACOMM",
+    "TATACONSUM",
+    "TATAINVEST",
+    "TATAPOWER",
+    "TBZ",
+    "TCI",
+    "TCIEXP",
+    "TCIFINANCE",
+    "TCPLPACK",
+    "TCS",
+    "TEAMLEASE",
+    "TECHNOE",
+    "TECILCHEM",
+    "TEJASNET",
+    "TEMBO",
+    "TENNIND",
+    "TEXINFRA",
+    "TEXMOPIPES",
+    "TEXRAIL",
+    "TFCILTD",
+    "TFL",
+    "THANGAMAYL",
+    "THEJO",
+    "THELEELA",
+    "THEMISMED",
+    "THERMAX",
+    "TI",
+    "TIGERLOGS",
+    "TIIL",
+    "TIINDIA",
+    "TIJARIA",
+    "TIL",
+    "TIMKEN",
+    "TINNARUBR",
+    "TIPSFILMS",
+    "TIPSMUSIC",
+    "TIRUMALCHM",
+    "TITAGARH",
+    "TITAN",
+    "TMB",
+    "TMCV",
+    "TMPV",
+    "TNPETRO",
+    "TNPL",
+    "TNTELE",
+    "TOKYOPLAST",
+    "TOLINS",
+    "TORNTPHARM",
+    "TORNTPOWER",
+    "TOTAL",
+    "TPLPLASTEH",
+    "TRACXN",
+    "TRANSRAILL",
+    "TRANSWORLD",
+    "TRAVELFOOD",
+    "TREEHOUSE",
+    "TRF",
+    "TRIGYN",
+    "TRITURBINE",
+    "TSFINV",
+    "TTKHLTCARE",
+    "TTL",
+    "TVSHLTD",
+    "TVSMOTOR",
+    "TVSSCS",
+    "TVSSRICHAK",
+    "TVTODAY",
+    "TVVISION",
+    "UBL",
+    "UCAL",
+    "UCOBANK",
+    "UDS",
+    "UFLEX",
+    "UFO",
+    "UJJIVANSFB",
+    "ULTRACEMCO",
+    "UMAEXPORTS",
+    "UMESLTD",
+    "UMIYA-MRO",
+    "UNICHEMLAB",
+    "UNIECOM",
+    "UNIPARTS",
+    "UNITDSPR",
+    "UNITECH",
+    "UNITEDTEA",
+    "UNIVASTU",
+    "UNIVPHOTO",
+    "URAVIDEF",
+    "URBANCO",
+    "URJA",
+    "USHAMART",
+    "USK",
+    "UTIAMC",
+    "UTKARSHBNK",
+    "V2RETAIL",
+    "VADILALIND",
+    "VAIBHAVGBL",
+    "VAISHALI",
+    "VAKRANGEE",
+    "VARDHACRLC",
+    "VARDMNPOLY",
+    "VARROC",
+    "VASCONEQ",
+    "VASWANI",
+    "VBL",
+    "VEEDOL",
+    "VENUSPIPES",
+    "VESUVIUS",
+    "VGL",
+    "VGUARD",
+    "VHL",
+    "VIJAYA",
+    "VIJIFIN",
+    "VIKASECO",
+    "VIKASLIFE",
+    "VIKRAN",
+    "VINATIORGA",
+    "VINDHYATEL",
+    "VINEETLAB",
+    "VINNY",
+    "VINYLINDIA",
+    "VIPCLOTHNG",
+    "VIPULLTD",
+    "VISAKAIND",
+    "VISHNU",
+    "VIVIDHA",
+    "VLSFINANCE",
+    "VMART",
+    "VMM",
+    "VMSTMT",
+    "VOLTAS",
+    "VPRPL",
+    "VRAJ",
+    "VRLLOG",
+    "VSSL",
+    "VSTIND",
+    "VSTL",
+    "VSTTILLERS",
+    "VTL",
+    "WAAREEENER",
+    "WAAREERTL",
+    "WALCHANNAG",
+    "WANBURY",
+    "WCIL",
+    "WEALTH",
+    "WEIZMANIND",
+    "WEL",
+    "WELCORP",
+    "WELENT",
+    "WELINV",
+    "WELSPUNLIV",
+    "WENDT",
+    "WESTLIFE",
+    "WEWORK",
+    "WILLAMAGOR",
+    "WINDLAS",
+    "WIPL",
+    "WIPRO",
+    "WOCKPHARMA",
+    "WONDERLA",
+    "WSI",
+    "XCHANGING",
+    "XTGLOBAL",
+    "YASHO",
+    "YATHARTH",
+    "YESBANK",
+    "ZAGGLE",
+    "ZEEL",
+    "ZEEMEDIA",
+    "ZENITHSTL",
+    "ZENSARTECH",
+    "ZENTEC",
+    "ZIMLAB",
+    "ZODIAC",
+    "ZOTA",
+    "ZUARI",
+    "ZUARIIND",
+    "ZYDUSLIFE"
+  ]
+}
