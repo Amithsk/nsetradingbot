@@ -10,6 +10,7 @@ from pathlib import Path
 import traceback
 import sys
 from zoneinfo import ZoneInfo
+from sqlalchemy.exc import IntegrityError
 
 # --- Make sure project root is in sys.path so we can import from Code/*
 current_file = Path(__file__).resolve()
@@ -144,10 +145,20 @@ def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
 
         if not price_df.empty:
 
-            price_df.to_sql("nifty_prices", conn, if_exists="append", index=False)
+            inserted_rows = 0
 
-            print(f"[{RUN_DATE_STR}] Inserted {len(price_df)} new price rows")
+            for _, row in price_df.iterrows():
+                 try:
+                      row.to_frame().T.to_sql("nifty_prices", conn, if_exists="append", index=False)
+                      inserted_rows += 1
+                 except IntegrityError:
+                      continue  # skip duplicate
+                 except Exception as e:
+                      print(f"[{RUN_DATE_STR}] Unexpected error: {e}")
 
+            print(f"[{RUN_DATE_STR}] Inserted {inserted_rows} new price rows")
+
+            
         else:
 
             print(f"[{RUN_DATE_STR}] No new price rows to insert")
