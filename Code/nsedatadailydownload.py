@@ -220,10 +220,5 @@ nifty.to_csv(output_file, index=False)
 
 print(f"Nifty data saved: {output_file}")
 
-# ✅ Added GitHub integration file
-with open("download_date.txt","w") as f:
-    f.write(file_date)
-
-print("download_date.txt written for GitHub Actions")
 
 print("----- NIFTY DATA DOWNLOAD COMPLETE -----")
