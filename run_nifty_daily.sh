@@ -29,7 +29,8 @@ echo "Running Git operations..."
 git add Output/
 
 # Get latest data folder (THIS is your actual trading date)
-LATEST_DATE=$(ls -1 Output | sort | tail -n 1)
+# Filter only YYYYMMDD folders
+LATEST_DATE=$(ls -1 Output | grep -E '^[0-9]{8}$' | sort | tail -n 1)
 
 echo "Latest data folder detected: $LATEST_DATE"
 
