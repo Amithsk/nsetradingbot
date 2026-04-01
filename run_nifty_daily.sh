@@ -26,6 +26,9 @@ fi
 # Git operations
 echo "Running Git operations..."
 
+# Pull latest changes (rebase to avoid merge commits)
+git pull --rebase
+
 git add Output/
 
 # Get latest data folder (THIS is your actual trading date) with  Filter only YYYYMMDD folders
