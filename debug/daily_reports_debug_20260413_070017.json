@@ -1,0 +1,9 @@
+{
+  "action": "git_commit_changes",
+  "file": "Output/Intraday/PR100426.zip",
+  "ts": "2026-04-13T07:00:10.372538",
+  "result": "rebase_failed",
+  "error": "rebase failed; manual conflict resolution required",
+  "commit_a_sha": null,
+  "commit_b_sha": null
+}
