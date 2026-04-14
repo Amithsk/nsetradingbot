@@ -1,0 +1,70 @@
+{
+  "rule_config_version": "v1",
+
+  "metric_thresholds": {
+    "conversion_rate": [
+      {
+        "label": "LOW_CONVERSION",
+        "type": "lt",
+        "value": 0.4
+      },
+      {
+        "label": "GOOD_CONVERSION",
+        "type": "gte",
+        "value": 0.4
+      }
+    ],
+    "failure_rate": [
+      {
+        "label": "HIGH_FAILURE",
+        "type": "gt",
+        "value": 0.5
+      },
+      {
+        "label": "CONTROLLED_FAILURE",
+        "type": "lte",
+        "value": 0.5
+      }
+    ],
+    "missed_opportunity_rate": [
+      {
+        "label": "HIGH_MISSED",
+        "type": "gt",
+        "value": 0.3
+      },
+      {
+        "label": "LOW_MISSED",
+        "type": "lte",
+        "value": 0.3
+      }
+    ]
+  },
+
+  "label_mappings": {
+    "LOW_CONVERSION": "LOW_CONVERSION",
+    "GOOD_CONVERSION": "GOOD_CONVERSION",
+    "HIGH_FAILURE": "HIGH_FAILURE",
+    "CONTROLLED_FAILURE": "CONTROLLED_FAILURE",
+    "HIGH_MISSED": "HIGH_MISSED",
+    "LOW_MISSED": "LOW_MISSED"
+  },
+
+  "templates": {
+    "LOW_CONVERSION": "System conversion is below expected levels.",
+    "GOOD_CONVERSION": "System conversion is within acceptable range.",
+    "HIGH_FAILURE": "Failure rate is elevated indicating poor selection quality.",
+    "CONTROLLED_FAILURE": "Failure rate is within acceptable limits.",
+    "HIGH_MISSED": "Significant missed opportunities detected.",
+    "LOW_MISSED": "Missed opportunities are under control."
+  },
+
+  "summary_rules": {
+    "max_lines": 5
+  },
+
+  "suggestion_rules": {
+    "conversion_rate_min": 0.4,
+    "failure_rate_max": 0.5,
+    "missed_opportunity_rate_max": 0.3
+  }
+}
