@@ -1,38 +1,58 @@
-# AnalyticalEngine/repositories/stock_repo.py
-
-from AnalyticalEngine.utils.db_connection import get_db_connection
-from AnalyticalEngine.utils.logger import get_logger
-
-logger = get_logger(__name__)
+#AnalyticEngine/repositories/stock_repo.py
+from AnalyticEngine.utils.db_connection import get_db_connection
+from sqlalchemy import text
 
 
 def get_instruments_count():
     """
-    Get total number of instruments from instruments_master.
-    This represents the full stock universe.
+    Returns total number of instruments in the trading universe.
+
+    Used for:
+    - Validating STEP 3 stock coverage completeness
     """
+
+    engine = get_db_connection()
+
     query = """
-        SELECT COUNT(*)
-        FROM intradaytrading.instruments_master
+        SELECT COUNT(1)
+        FROM instruments_master
     """
 
-    connection = get_db_connection()
-    cursor = connection.cursor()
+    with engine.connect() as conn:
+        result = conn.execute(text(query))
+        row = result.fetchone()
 
-    try:
-        cursor.execute(query)
-        result = cursor.fetchone()
+    return row[0] if row else 0
 
-        count = result[0] if result else 0
 
-        logger.info(f"Total instruments count: {count}")
+def get_stock_data_status(trade_date):
+    """
+    Returns stock data finalization status for a given trade_date.
 
-        return count
+    Expected values:
+    - FINAL
+    - PARTIAL
 
-    except Exception as e:
-        logger.error(f"Error fetching instruments count: {str(e)}")
-        raise
+    Used for:
+    - Ensuring only finalized stock data is used in analysis
 
-    finally:
-        cursor.close()
-        connection.close()
+    Args:
+        trade_date (str): Trade date (YYYY-MM-DD)
+
+    Returns:
+        str: status (FINAL / PARTIAL / None)
+    """
+
+    engine = get_db_connection()
+
+    query = """
+        SELECT status
+        FROM stock_data_status
+        WHERE trade_date = :trade_date
+    """
+
+    with engine.connect() as conn:
+        result = conn.execute(text(query), {"trade_date": trade_date})
+        row = result.fetchone()
+
+    return row[0] if row else None
