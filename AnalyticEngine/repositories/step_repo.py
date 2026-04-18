@@ -31,7 +31,7 @@ def check_step1_exists(trade_date):
     """
     query = """
         SELECT COUNT(1)
-        FROM intradaytrading.step1_output
+        FROM intradaytrading.step1_market_context
         WHERE trade_date = :trade_date
     """
 
@@ -50,7 +50,7 @@ def check_step2_exists(trade_date):
     """
     query = """
         SELECT COUNT(1)
-        FROM intradaytrading.step2_output
+        FROM intradaytrading.step2_market_open_behavior
         WHERE trade_date = :trade_date
     """
 
