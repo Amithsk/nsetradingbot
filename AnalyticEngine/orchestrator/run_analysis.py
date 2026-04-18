@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import logging
 import sys
 import os
 import json
@@ -30,14 +31,16 @@ from AnalyticEngine.repositories.job_repo import (
     get_running_job
 )
 
-from AnalyticEngine.utils.logger import get_logger
+from AnalyticEngine.utils.logger import setup_execution_logger
+logger = setup_execution_logger()
 
-logger = get_logger(__name__)
+
 
 
 def run_analysis(config):
     execution_id = None
     trade_date = None
+    logger = logging.getLogger("AnalyticEngine")
 
     try:
         # --------------------------------------
@@ -61,6 +64,7 @@ def run_analysis(config):
         # 3. Job Creation
         # --------------------------------------
         execution_id = create_job(trade_date)
+        logger = setup_execution_logger(execution_id)
         update_job_status(execution_id, "RUNNING")
 
         print(f"Job started with Execution ID: {execution_id}")
