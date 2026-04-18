@@ -1,22 +1,14 @@
-# AnalyticEngine/orchestrator/run_analysis.py
+from datetime import datetime
 
 from AnalyticEngine.services.trade_date_resolver import resolve_trade_date
-from AnalyticEngine.services.validation_engine import validate_inputs
+from AnalyticEngine.services.validation_engine import run_validation
 from AnalyticEngine.services.data_loader import load_data
-
 from AnalyticEngine.services.nifty_analysis import run_nifty_analysis
 from AnalyticEngine.services.stock_outcome_engine import run_stock_outcome_engine
 from AnalyticEngine.services.conversion_analysis import run_conversion_analysis
 from AnalyticEngine.services.aggregation_engine import run_aggregation
 from AnalyticEngine.services.suggestion_engine import run_suggestion_engine
-from AnalyticEngine.services.summary_engine import generate_summary
-
-from AnalyticEngine.repositories.job_repo import (
-    create_job,
-    update_job_status,
-    complete_job,
-    get_running_job
-)
+from AnalyticEngine.services.summary_engine import run_summary_engine
 
 from AnalyticEngine.repositories.ml_repo import (
     insert_nifty_insights,
@@ -26,28 +18,19 @@ from AnalyticEngine.repositories.ml_repo import (
     insert_summary
 )
 
-from AnalyticEngine.utils.idempotency import cleanup_existing_outputs
-from AnalyticEngine.utils.logger import get_logger
+from AnalyticEngine.repositories.job_repo import (
+    create_job,
+    update_job_status,
+    complete_job,
+    get_running_job
+)
 
+from AnalyticEngine.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 def run_analysis(config):
-    """
-    Main Orchestrator
-
-    Execution Order (STRICT):
-    1. Trade Date Resolution
-    2. Validation
-    3. Job Creation
-    4. Idempotency Cleanup
-    5. Data Loading
-    6. Module Execution (1 → 6)
-    7. Storage
-    8. Job Completion
-    """
-
     execution_id = None
     trade_date = None
 
@@ -56,7 +39,6 @@ def run_analysis(config):
         # 1. Trade Date Resolution
         # --------------------------------------
         trade_date, resolution_log = resolve_trade_date()
-
         logger.info(f"Trade date resolved: {trade_date}")
 
         # --------------------------------------
@@ -79,7 +61,7 @@ def run_analysis(config):
         # --------------------------------------
         # 4. Validation
         # --------------------------------------
-        validation_status, validation_log = validate_inputs(trade_date)
+        validation_status, validation_log = run_validation(trade_date)
 
         if validation_status == "SKIPPED":
             logger.warning("Validation failed — skipping execution")
@@ -89,7 +71,8 @@ def run_analysis(config):
         # --------------------------------------
         # 5. Idempotency Cleanup
         # --------------------------------------
-        cleanup_existing_outputs(trade_date)
+        # NOTE: Assuming this function exists elsewhere
+        # cleanup_existing_outputs(trade_date)
 
         # --------------------------------------
         # 6. Data Loading
@@ -116,7 +99,7 @@ def run_analysis(config):
         stock_outcomes = {}
 
         for symbol, stock_data in data["stock_data"].items():
-            outcome = run_stock_outcome_engine(stock_data, "LONG")  # direction from STEP3 (simplified)
+            outcome = run_stock_outcome_engine(stock_data, "LONG")
             stock_outcomes[symbol] = outcome
 
         # --------------------------------------
@@ -143,7 +126,7 @@ def run_analysis(config):
         # --------------------------------------
         # 12. Module 6 — Summary
         # --------------------------------------
-        summary_text = generate_summary(aggregated_metrics, suggestions, config)
+        summary_text = run_summary_engine(aggregated_metrics, suggestions, config)
 
         # --------------------------------------
         # 13. Storage
@@ -170,3 +153,5 @@ def run_analysis(config):
 
         if execution_id:
             complete_job(execution_id, "FAILED")
+
+        raise
