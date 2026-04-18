@@ -47,7 +47,7 @@ def run_analysis(config):
         # 1. Trade Date Resolution
         # --------------------------------------
         trade_date, resolution_log = resolve_trade_date()
-
+    
         print(f"Resolved Trade Date: {trade_date}")
 
         # --------------------------------------
