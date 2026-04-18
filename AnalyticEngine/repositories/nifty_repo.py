@@ -1,5 +1,6 @@
 #AnalyticEngine/repositories/nifty_repo.py
 from AnalyticEngine.utils.db_connection import get_db_connection
+from AnalyticEngine.utils.db_schemas import NIFTY_SCHEMA
 from sqlalchemy import text
 
 
@@ -19,10 +20,10 @@ def get_nifty_candle_count(trade_date):
 
     engine = get_db_connection()
 
-    query = """
+    query =f"""
         SELECT COUNT(1)
-        FROM nifty_intraday_data
-        WHERE DATE(datetime) = :trade_date
+        FROM {NIFTY_SCHEMA}.nifty_prices
+        WHERE DATE(Date) = :trade_date
     """
 
     with engine.connect() as conn:
