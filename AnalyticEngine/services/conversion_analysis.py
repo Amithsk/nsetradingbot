@@ -1,35 +1,10 @@
 #AnalyticEngine/services/conversion_analysis.py
-from AnalyticEngine.utils.logger import get_logger
-
-
-logger = get_logger(__name__)
-
-
-def run_conversion_analysis(step3_candidates, stock_outcomes):
+def run_conversion_analysis(step3_candidates, stock_outcomes, logger):
     """
     Module 3 — Conversion Analysis
-
-    INPUT:
-        step3_candidates (list[dict])
-        stock_outcomes (dict) -> {symbol: outcome_data}
-
-    PROCESS:
-        - candidate_count
-        - selected_count
-        - conversion_rate
-        - classification per stock:
-            GOOD_SELECTION
-            BAD_SELECTION
-            MISSED_OPPORTUNITY
-            CORRECT_REJECTION
-
-    OUTPUT:
-        dict:
-            {
-                "summary": {...},
-                "diagnostics": list[dict]
-            }
     """
+
+    logger.info("STEP: Conversion Analysis started")
 
     if not step3_candidates:
         logger.warning("STEP 3 candidates missing — skipping conversion analysis")
@@ -109,10 +84,14 @@ def run_conversion_analysis(step3_candidates, stock_outcomes):
             "diagnostics": diagnostics
         }
 
-        logger.info(f"Conversion analysis result: {summary}")
+        logger.info(
+            f"STEP: Conversion Analysis completed | "
+            f"candidates={candidate_count} | selected={selected_count} | "
+            f"success={good_selection} | failure={bad_selection} | missed={missed_opportunity}"
+        )
 
         return result
 
     except Exception as e:
-        logger.error(f"Conversion analysis failed: {str(e)}")
+        logger.error(f"STEP: Conversion Analysis failed | error={str(e)}")
         return None

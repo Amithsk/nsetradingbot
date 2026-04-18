@@ -8,12 +8,8 @@ from AnalyticEngine.repositories.stock_repo import (
     get_instruments_count
 )
 
-from AnalyticEngine.utils.logger import get_logger
 
-logger = get_logger(__name__)
-
-
-def resolve_trade_date():
+def resolve_trade_date(logger):
     logger.info("STEP: Trade Date Resolution started")
 
     resolution_log = []

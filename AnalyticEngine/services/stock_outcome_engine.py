@@ -1,26 +1,7 @@
 #AnalyticEngine/services/stock_outcome.py
-from AnalyticEngine.utils.logger import get_logger
-
-
-logger = get_logger(__name__)
-
-
-def run_stock_outcome_engine(stock_data, direction):
+def run_stock_outcome_engine(stock_data, direction, logger):
     """
     Module 2 — Stock Outcome Engine
-
-    INPUT:
-        stock_data (list[dict])
-        direction (str): LONG / SHORT
-
-    PROCESS:
-        - max_up_move_pct
-        - max_down_move_pct
-        - range_pct
-        - classification (SUCCESS / FAILURE / CHOP)
-
-    OUTPUT:
-        dict (per stock result)
     """
 
     if not stock_data:
@@ -69,10 +50,10 @@ def run_stock_outcome_engine(stock_data, direction):
             "outcome": outcome
         }
 
-        logger.info(f"Stock outcome result: {result}")
+        logger.info(f"STEP: Stock Outcome computed | result={result}")
 
         return result
 
     except Exception as e:
-        logger.error(f"Stock outcome calculation failed: {str(e)}")
+        logger.error(f"STEP: Stock Outcome failed | error={str(e)}")
         return None

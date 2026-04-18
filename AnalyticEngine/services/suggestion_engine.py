@@ -1,25 +1,10 @@
 #AnalyticEngine/services/suggestion_engine.py
-from AnalyticEngine.utils.logger import get_logger
-
-
-logger = get_logger(__name__)
-
-
-def run_suggestion_engine(aggregated_metrics, config):
+def run_suggestion_engine(aggregated_metrics, config, logger):
     """
     Module 5 — Suggestion Engine
-
-    INPUT:
-        aggregated_metrics (dict)
-        config (dict) -> contains thresholds, rules
-
-    PROCESS:
-        - Compare performance metrics against config thresholds
-        - Generate suggestions ONLY if conditions are met
-
-    OUTPUT:
-        list[dict] (suggestions)
     """
+
+    logger.info("STEP: Suggestion Engine started")
 
     if not aggregated_metrics:
         logger.warning("No aggregated metrics — skipping suggestion engine")
@@ -38,6 +23,11 @@ def run_suggestion_engine(aggregated_metrics, config):
         conversion_threshold = config.get("conversion_rate_min", 0.4)
         failure_threshold = config.get("failure_rate_max", 0.5)
         missed_threshold = config.get("missed_opportunity_rate_max", 0.3)
+
+        logger.info(
+            f"Thresholds | conversion_min={conversion_threshold} | "
+            f"failure_max={failure_threshold} | missed_max={missed_threshold}"
+        )
 
         # --------------------------------------
         # Rule 1 — Low conversion rate
@@ -84,10 +74,10 @@ def run_suggestion_engine(aggregated_metrics, config):
                 "priority": "HIGH" if missed_rate > 0.5 else "MEDIUM"
             })
 
-        logger.info(f"Suggestions generated: {suggestions}")
+        logger.info(f"STEP: Suggestion Engine completed | suggestions_count={len(suggestions)}")
 
         return suggestions
 
     except Exception as e:
-        logger.error(f"Suggestion engine failed: {str(e)}")
+        logger.error(f"STEP: Suggestion Engine failed | error={str(e)}")
         return []

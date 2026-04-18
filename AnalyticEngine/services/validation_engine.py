@@ -1,3 +1,4 @@
+#AnalyticEngine/services/validation_engine.py
 from AnalyticEngine.repositories.step_repo import (
     check_step1_exists,
     check_step2_exists,
@@ -12,13 +13,8 @@ from AnalyticEngine.repositories.nifty_repo import (
     get_nifty_candle_count
 )
 
-from AnalyticEngine.utils.logger import get_logger
 
-
-logger = get_logger(__name__)
-
-
-def run_validation(trade_date):
+def run_validation(trade_date, logger):
     logger.info(f"STEP: Validation started | trade_date={trade_date}")
 
     validation_log = {

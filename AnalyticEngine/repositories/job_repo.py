@@ -2,11 +2,11 @@
 from AnalyticEngine.utils.db_connection import get_db_connection
 from AnalyticEngine.utils.db_schemas import ML_SCHEMA
 from datetime import datetime
-import uuid
+
 from sqlalchemy import text
 
 
-def create_job(trade_date):
+def create_job(trade_date,execution_id):
     """
     Create a new job entry.
 
@@ -16,7 +16,7 @@ def create_job(trade_date):
 
     engine = get_db_connection()
 
-    execution_id = str(uuid.uuid4())
+    
     now = datetime.utcnow()
 
     query = f"""

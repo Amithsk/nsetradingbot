@@ -1,36 +1,10 @@
 #AnalyticEngine/services/aggregation_service.py
-from AnalyticEngine.utils.logger import get_logger
-
-
-logger = get_logger(__name__)
-
-
-def run_aggregation(per_day_results):
+def run_aggregation(per_day_results, logger):
     """
     Module 4 — Aggregation
-
-    INPUT:
-        per_day_results (list[dict])
-
-        Each item:
-        {
-            "candidate_count": int,
-            "selected_count": int,
-            "good_selection": int,
-            "bad_selection": int,
-            "missed_opportunity": int
-        }
-
-    PROCESS:
-        - Aggregate totals across days
-        - Compute:
-            conversion_rate
-            failure_rate
-            missed_opportunity_rate
-
-    OUTPUT:
-        dict (aggregated_metrics)
     """
+
+    logger.info("STEP: Aggregation started")
 
     if not per_day_results:
         logger.warning("No per-day results — skipping aggregation")
@@ -82,10 +56,14 @@ def run_aggregation(per_day_results):
             "missed_opportunity_rate": missed_opportunity_rate
         }
 
-        logger.info(f"Aggregation result: {result}")
+        logger.info(
+            f"STEP: Aggregation completed | "
+            f"candidates={total_candidates} | selected={total_selected} | "
+            f"success={total_success} | failure={total_failure} | missed={total_missed}"
+        )
 
         return result
 
     except Exception as e:
-        logger.error(f"Aggregation failed: {str(e)}")
+        logger.error(f"STEP: Aggregation failed | error={str(e)}")
         return None

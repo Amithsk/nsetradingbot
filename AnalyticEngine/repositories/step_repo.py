@@ -1,8 +1,6 @@
+#AnalyticEngine/repositories/step_repo.py
 from AnalyticEngine.utils.db_connection import get_db_connection
-from AnalyticEngine.utils.logger import get_logger
 from sqlalchemy import text
-
-logger = get_logger(__name__)
 
 
 def get_available_trade_dates():
@@ -24,8 +22,6 @@ def get_available_trade_dates():
 
     trade_dates = [row[0] for row in results]
 
-    logger.info(f"Fetched {len(trade_dates)} trade_dates from step3_execution_control")
-
     return trade_dates
 
 
@@ -45,11 +41,7 @@ def check_step1_exists(trade_date):
         result = conn.execute(text(query), {"trade_date": trade_date})
         row = result.fetchone()
 
-    exists = row[0] > 0 if row else False
-
-    logger.debug(f"STEP1 exists for {trade_date}: {exists}")
-
-    return exists
+    return row[0] > 0 if row else False
 
 
 def check_step2_exists(trade_date):
@@ -68,11 +60,7 @@ def check_step2_exists(trade_date):
         result = conn.execute(text(query), {"trade_date": trade_date})
         row = result.fetchone()
 
-    exists = row[0] > 0 if row else False
-
-    logger.debug(f"STEP2 exists for {trade_date}: {exists}")
-
-    return exists
+    return row[0] > 0 if row else False
 
 
 def check_step3_execution_exists(trade_date):
@@ -92,11 +80,7 @@ def check_step3_execution_exists(trade_date):
         result = conn.execute(text(query), {"trade_date": trade_date})
         row = result.fetchone()
 
-    exists = row is not None
-
-    logger.debug(f"STEP3 execution exists for {trade_date}: {exists}")
-
-    return exists
+    return row is not None
 
 
 def get_step3_stock_count(trade_date):
@@ -115,8 +99,4 @@ def get_step3_stock_count(trade_date):
         result = conn.execute(text(query), {"trade_date": trade_date})
         row = result.fetchone()
 
-    count = row[0] if row else 0
-
-    logger.debug(f"Stock count for {trade_date}: {count}")
-
-    return count
+    return row[0] if row else 0
