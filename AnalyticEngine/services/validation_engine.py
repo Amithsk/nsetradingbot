@@ -5,10 +5,6 @@ from AnalyticEngine.repositories.step_repo import (
     check_step3_execution_exists
 )
 
-from AnalyticEngine.repositories.stock_repo import (
-    get_stock_data_status
-)
-
 from AnalyticEngine.repositories.nifty_repo import (
     get_nifty_candle_count
 )
@@ -24,8 +20,6 @@ def run_validation(trade_date, logger):
         "step3": False,
         "nifty_candles": 0,
         "nifty_complete": False,
-        "stock_status": None,
-        "stock_final": False,
         "final_status": None
     }
 
@@ -61,21 +55,6 @@ def run_validation(trade_date, logger):
         logger.warning(f"NIFTY incomplete | candles={nifty_count} (<75)")
 
     # --------------------------------------
-    # STOCK VALIDATION
-    # --------------------------------------
-    logger.info("STEP: Checking STOCK data status")
-    
-
-    stock_status = get_stock_data_status(trade_date)
-    validation_log["stock_status"] = stock_status
-
-    if stock_status == "FINAL":
-        validation_log["stock_final"] = True
-        logger.info("Stock data status: FINAL")
-    else:
-        logger.warning(f"Stock data not FINAL | status={stock_status}")
-
-    # --------------------------------------
     # FINAL VALIDATION STATUS
     # --------------------------------------
     logger.info("STEP: Computing final validation status")
@@ -85,13 +64,12 @@ def run_validation(trade_date, logger):
         and validation_log["step2"]
         and validation_log["step3"]
         and validation_log["nifty_complete"]
-        and validation_log["stock_final"]
     ):
         final_status = "COMPLETE"
 
     elif (
         validation_log["step3"]
-        and (validation_log["nifty_complete"] or validation_log["stock_final"])
+        and validation_log["nifty_complete"]
     ):
         final_status = "PARTIAL"
 
