@@ -1,17 +1,11 @@
-#AnalyticEngine/repositories/ml_repo.py
+# AnalyticEngine/repositories/ml_repo.py
 from AnalyticEngine.utils.db_connection import get_db_connection
+from AnalyticEngine.utils.db_schemas import ML_SCHEMA
 from datetime import datetime
 from sqlalchemy import text
 
 
 def get_nifty_data(trade_date):
-    """
-    Fetch NIFTY intraday data for a given trade_date.
-
-    Returns:
-        list[dict]
-    """
-
     engine = get_db_connection()
 
     query = """
@@ -38,16 +32,6 @@ def get_nifty_data(trade_date):
 
 
 def get_stock_data(trade_date):
-    """
-    Fetch stock OHLC data for all symbols.
-
-    Returns:
-        dict:
-            {
-                symbol: [ {ohlc rows} ]
-            }
-    """
-
     engine = get_db_connection()
 
     query = """
@@ -79,10 +63,6 @@ def get_stock_data(trade_date):
 
 
 def get_step1_data(trade_date):
-    """
-    Fetch STEP 1 output.
-    """
-
     engine = get_db_connection()
 
     query = """
@@ -107,10 +87,6 @@ def get_step1_data(trade_date):
 
 
 def get_step2_data(trade_date):
-    """
-    Fetch STEP 2 output.
-    """
-
     engine = get_db_connection()
 
     query = """
@@ -136,13 +112,6 @@ def get_step2_data(trade_date):
 
 
 def get_step3_data(trade_date):
-    """
-    Fetch STEP 3 candidates.
-
-    Returns:
-        list[dict]
-    """
-
     engine = get_db_connection()
 
     query = """
@@ -161,11 +130,15 @@ def get_step3_data(trade_date):
     return row[0]
 
 
+# --------------------------------------
+# ML INSERTS (UPDATED WITH SCHEMA)
+# --------------------------------------
+
 def insert_nifty_insights(trade_date, metrics, analysis_status, rule_config_version):
     engine = get_db_connection()
 
-    query = """
-        INSERT INTO ml_nifty_insights (
+    query = f"""
+        INSERT INTO {ML_SCHEMA}.ml_nifty_insights (
             trade_date,
             total_range,
             net_move,
@@ -203,8 +176,8 @@ def insert_nifty_insights(trade_date, metrics, analysis_status, rule_config_vers
 def insert_stock_insights(trade_date, aggregated_metrics, analysis_status, rule_config_version):
     engine = get_db_connection()
 
-    query = """
-        INSERT INTO ml_stock_insights (
+    query = f"""
+        INSERT INTO {ML_SCHEMA}.ml_stock_insights (
             trade_date,
             candidate_count,
             selected_count,
@@ -240,8 +213,8 @@ def insert_stock_insights(trade_date, aggregated_metrics, analysis_status, rule_
 def insert_stock_diagnostics(trade_date, diagnostics):
     engine = get_db_connection()
 
-    query = """
-        INSERT INTO ml_stock_diagnostics (
+    query = f"""
+        INSERT INTO {ML_SCHEMA}.ml_stock_diagnostics (
             trade_date,
             symbol,
             selected,
@@ -268,8 +241,8 @@ def insert_stock_diagnostics(trade_date, diagnostics):
 def insert_suggestions(trade_date, suggestions):
     engine = get_db_connection()
 
-    query = """
-        INSERT INTO ml_suggestions (
+    query = f"""
+        INSERT INTO {ML_SCHEMA}.ml_suggestions (
             trade_date,
             rule_name,
             current_value,
@@ -305,8 +278,8 @@ def insert_suggestions(trade_date, suggestions):
 def insert_summary(trade_date, summary_text, analysis_status, rule_config_version):
     engine = get_db_connection()
 
-    query = """
-        INSERT INTO ml_summary (
+    query = f"""
+        INSERT INTO {ML_SCHEMA}.ml_summary (
             trade_date,
             summary_text,
             analysis_status,

@@ -1,4 +1,6 @@
+#analytic_engine/repositories/job_repo.py
 from AnalyticEngine.utils.db_connection import get_db_connection
+from AnalyticEngine.utils.db_schemas import ML_SCHEMA
 from datetime import datetime
 import uuid
 from sqlalchemy import text
@@ -17,8 +19,8 @@ def create_job(trade_date):
     execution_id = str(uuid.uuid4())
     now = datetime.utcnow()
 
-    query = """
-        INSERT INTO ml_job_tracker (
+    query = f"""
+        INSERT INTO {ML_SCHEMA}.ml_job_tracker (
             execution_id,
             trade_date,
             status,
@@ -56,8 +58,8 @@ def update_job_status(execution_id, status):
 
     now = datetime.utcnow()
 
-    query = """
-        UPDATE ml_job_tracker
+    query = f"""
+        UPDATE {ML_SCHEMA}.ml_job_tracker
         SET status = :status,
             last_updated_at = :last_updated_at
         WHERE execution_id = :execution_id
@@ -87,8 +89,8 @@ def complete_job(execution_id, status):
 
     now = datetime.utcnow()
 
-    query = """
-        UPDATE ml_job_tracker
+    query = f"""
+        UPDATE {ML_SCHEMA}.ml_job_tracker
         SET status = :status,
             end_time = :end_time,
             last_updated_at = :last_updated_at
@@ -117,9 +119,9 @@ def get_running_job(trade_date):
 
     engine = get_db_connection()
 
-    query = """
+    query = f"""
         SELECT execution_id
-        FROM ml_job_tracker
+        FROM {ML_SCHEMA}.ml_job_tracker
         WHERE trade_date = :trade_date
           AND status = 'RUNNING'
         LIMIT 1
