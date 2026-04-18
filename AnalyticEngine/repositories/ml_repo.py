@@ -115,8 +115,10 @@ def get_step3_data(trade_date):
     engine = get_db_connection()
 
     query = """
-        SELECT candidates_json
-        FROM step3_snapshot
+        SELECT 
+            symbol,
+            tradable AS selected
+        FROM intradaytrading.step3_stock_selection
         WHERE trade_date = :trade_date
     """
 
