@@ -1,80 +1,13 @@
-<<<<<<< HEAD
-#AnalyticEngine/repositories/step_repo.py
-from AnalyticEngine.utils.db_connection import get_db_connection
-from sqlalchemy import text
-=======
 # AnalyticalEngine/repositories/step_repo.py
 
-from AnalyticalEngine.utils.db_connection import get_db_connection
-from AnalyticalEngine.utils.logger import get_logger
+from AnalyticEngine.utils.db_connection import get_db_connection
+from AnalyticEngine.utils.logger import get_logger
 
 logger = get_logger(__name__)
->>>>>>> 2aab9a1 (Added the code part need to fix the error part)
 
 
 def get_available_trade_dates():
     """
-<<<<<<< HEAD
-    Fetch all available trade_dates from step3_execution_control (latest first).
-
-    Returns:
-        list[str]: trade_dates sorted DESC
-    """
-
-    engine = get_db_connection()
-
-    query = """
-        SELECT DISTINCT trade_date
-        FROM step3_execution_control
-        ORDER BY trade_date DESC
-    """
-
-    with engine.connect() as conn:
-        result = conn.execute(text(query))
-        results = result.fetchall()
-
-    return [row[0] for row in results]
-
-
-def check_step1_exists(trade_date):
-    """
-    Check if STEP 1 output exists for a given trade_date.
-    """
-
-    engine = get_db_connection()
-
-    query = """
-        SELECT COUNT(1)
-        FROM step1_output
-        WHERE trade_date = :trade_date
-    """
-
-    with engine.connect() as conn:
-        result = conn.execute(text(query), {"trade_date": trade_date})
-        row = result.fetchone()
-
-    return row[0] > 0 if row else False
-
-
-def check_step2_exists(trade_date):
-    """
-    Check if STEP 2 output exists for a given trade_date.
-    """
-
-    engine = get_db_connection()
-
-    query = """
-        SELECT COUNT(1)
-        FROM step2_output
-        WHERE trade_date = :trade_date
-    """
-
-    with engine.connect() as conn:
-        result = conn.execute(text(query), {"trade_date": trade_date})
-        row = result.fetchone()
-
-    return row[0] > 0 if row else False
-=======
     Fetch all distinct trade_dates from step3_execution_control
     ordered descending (latest first)
     """
@@ -104,29 +37,10 @@ def check_step2_exists(trade_date):
     finally:
         cursor.close()
         connection.close()
->>>>>>> 2aab9a1 (Added the code part need to fix the error part)
 
 
 def check_step3_execution_exists(trade_date):
     """
-<<<<<<< HEAD
-    Check if STEP 3 execution control exists for a given trade_date.
-    """
-
-    engine = get_db_connection()
-
-    query = """
-        SELECT COUNT(1)
-        FROM step3_execution_control
-        WHERE trade_date = :trade_date
-    """
-
-    with engine.connect() as conn:
-        result = conn.execute(text(query), {"trade_date": trade_date})
-        row = result.fetchone()
-
-    return row[0] > 0 if row else False
-=======
     Check if step3_execution_control exists for given trade_date
     """
     query = """
@@ -156,29 +70,10 @@ def check_step3_execution_exists(trade_date):
     finally:
         cursor.close()
         connection.close()
->>>>>>> 2aab9a1 (Added the code part need to fix the error part)
 
 
 def get_step3_stock_count(trade_date):
     """
-<<<<<<< HEAD
-    Returns number of records in step3_stock_selection for a given trade_date.
-    """
-
-    engine = get_db_connection()
-
-    query = """
-        SELECT COUNT(1)
-        FROM step3_stock_selection
-        WHERE trade_date = :trade_date
-    """
-
-    with engine.connect() as conn:
-        result = conn.execute(text(query), {"trade_date": trade_date})
-        row = result.fetchone()
-
-    return row[0] if row else 0
-=======
     Get count of records in step3_stock_selection for given trade_date
     """
     query = """
@@ -208,4 +103,3 @@ def get_step3_stock_count(trade_date):
         cursor.close()
         connection.close()
 
->>>>>>> 2aab9a1 (Added the code part need to fix the error part)
