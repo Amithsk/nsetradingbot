@@ -19,7 +19,7 @@ from AnalyticEngine.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def validate_inputs(trade_date):
+def run_validation(trade_date):
     """
     Validates all required inputs before execution.
 
