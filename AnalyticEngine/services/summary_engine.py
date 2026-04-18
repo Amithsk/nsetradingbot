@@ -1,4 +1,4 @@
-#AnalyticEngine/services/summary_service.py
+#AnalyticEngine/services/summary_engine.py
 from AnalyticEngine.utils.logger import get_logger
 
 
@@ -12,12 +12,7 @@ def generate_summary(aggregated_metrics, suggestions, config):
     INPUT:
         aggregated_metrics (dict)
         suggestions (list[dict])
-        config (dict) -> contains templates, labels, rules
-
-    PROCESS:
-        - Map metrics → labels (via thresholds)
-        - Map labels → templates
-        - Construct summary text
+        config (dict)
 
     OUTPUT:
         str (summary_text)
@@ -43,13 +38,22 @@ def generate_summary(aggregated_metrics, suggestions, config):
         missed_rate = aggregated_metrics.get("missed_opportunity_rate", 0)
 
         # --------------------------------------
-        # Metric → Label
+        # Metric → Label (FIXED: JSON-compatible)
         # --------------------------------------
         def get_label(metric_name, value):
             metric_rules = thresholds.get(metric_name, [])
 
             for rule in metric_rules:
-                if rule["condition"](value):
+                rule_type = rule.get("type")
+                threshold = rule.get("value")
+
+                if rule_type == "lt" and value < threshold:
+                    return label_map.get(rule["label"], rule["label"])
+                elif rule_type == "lte" and value <= threshold:
+                    return label_map.get(rule["label"], rule["label"])
+                elif rule_type == "gt" and value > threshold:
+                    return label_map.get(rule["label"], rule["label"])
+                elif rule_type == "gte" and value >= threshold:
                     return label_map.get(rule["label"], rule["label"])
 
             return "UNKNOWN"
@@ -74,13 +78,13 @@ def generate_summary(aggregated_metrics, suggestions, config):
             summary_parts.append(templates[missed_label])
 
         # --------------------------------------
-        # Suggestion summary (optional)
+        # Suggestion summary
         # --------------------------------------
         if suggestions:
             summary_parts.append(f"{len(suggestions)} improvement opportunities identified.")
 
         # --------------------------------------
-        # Apply summary rules (limit size, ordering)
+        # Apply summary rules
         # --------------------------------------
         max_lines = summary_rules.get("max_lines", 5)
         summary_parts = summary_parts[:max_lines]

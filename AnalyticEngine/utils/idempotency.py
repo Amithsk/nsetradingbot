@@ -1,5 +1,5 @@
 #AnalyticEngine/utils/idempotency.py
-from utils.db_connection import get_db_connection
+from AnalyticEngine.utils.db_connection import get_db_connection
 
 
 def delete_existing_nifty_insights(trade_date):

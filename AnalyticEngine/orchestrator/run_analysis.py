@@ -1,5 +1,10 @@
 from datetime import datetime
 
+import sys
+import os
+import json
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from AnalyticEngine.services.trade_date_resolver import resolve_trade_date
 from AnalyticEngine.services.validation_engine import run_validation
 from AnalyticEngine.services.data_loader import load_data
@@ -39,7 +44,8 @@ def run_analysis(config):
         # 1. Trade Date Resolution
         # --------------------------------------
         trade_date, resolution_log = resolve_trade_date()
-        logger.info(f"Trade date resolved: {trade_date}")
+
+        print(f"Resolved Trade Date: {trade_date}")
 
         # --------------------------------------
         # 2. Prevent duplicate RUNNING job
@@ -47,7 +53,8 @@ def run_analysis(config):
         running_job = get_running_job(trade_date)
 
         if running_job:
-            logger.warning(f"Job already running for {trade_date}")
+            print(f"Existing RUNNING job found for {trade_date}: {running_job['execution_id']}")
+           
             return
 
         # --------------------------------------
@@ -56,6 +63,7 @@ def run_analysis(config):
         execution_id = create_job(trade_date)
         update_job_status(execution_id, "RUNNING")
 
+        print(f"Job started with Execution ID: {execution_id}")
         logger.info(f"Job started: {execution_id}")
 
         # --------------------------------------
@@ -154,4 +162,16 @@ def run_analysis(config):
         if execution_id:
             complete_job(execution_id, "FAILED")
 
-        raise
+if __name__ == "__main__":
+    print(" Starting Analytical Engine...")
+
+    config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", "rule_config_v1.json")    )
+
+    print(f"Loading config from: {config_path}")
+
+    with open(config_path, "r") as f:
+        config = json.load(f)
+
+    run_analysis(config)
+
+    print(" Execution finished")
