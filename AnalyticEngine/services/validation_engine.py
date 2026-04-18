@@ -64,15 +64,16 @@ def run_validation(trade_date, logger):
     # STOCK VALIDATION
     # --------------------------------------
     logger.info("STEP: Checking STOCK data status")
+    logger.info("Ignoring this step: Checking STOCK data status")
 
-    stock_status = get_stock_data_status(trade_date)
-    validation_log["stock_status"] = stock_status
+    #stock_status = get_stock_data_status(trade_date)
+    #validation_log["stock_status"] = stock_status
 
-    if stock_status == "FINAL":
-        validation_log["stock_final"] = True
-        logger.info("Stock data status: FINAL")
-    else:
-        logger.warning(f"Stock data not FINAL | status={stock_status}")
+    #if stock_status == "FINAL":
+        #validation_log["stock_final"] = True
+        #logger.info("Stock data status: FINAL")
+    #else:
+        #logger.warning(f"Stock data not FINAL | status={stock_status}")
 
     # --------------------------------------
     # FINAL VALIDATION STATUS

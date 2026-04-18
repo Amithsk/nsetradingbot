@@ -1,6 +1,6 @@
 # AnalyticEngine/repositories/ml_repo.py
 from AnalyticEngine.utils.db_connection import get_db_connection
-from AnalyticEngine.utils.db_schemas import ML_SCHEMA
+from AnalyticEngine.utils.db_schemas import ML_SCHEMA,NIFTY_SCHEMA
 from datetime import datetime
 from sqlalchemy import text
 
@@ -8,11 +8,11 @@ from sqlalchemy import text
 def get_nifty_data(trade_date):
     engine = get_db_connection()
 
-    query = """
-        SELECT datetime, open, high, low, close
-        FROM nifty_intraday_data
-        WHERE DATE(datetime) = :trade_date
-        ORDER BY datetime ASC
+    query = f"""
+        SELECT Date, open, high, low, close
+        FROM {NIFTY_SCHEMA}.nifty_prices
+        WHERE DATE(Date) = :trade_date
+        ORDER BY Date ASC
     """
 
     with engine.connect() as conn:
