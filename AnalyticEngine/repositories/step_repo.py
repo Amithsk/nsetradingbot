@@ -1,7 +1,6 @@
-# AnalyticalEngine/repositories/step_repo.py
-
 from AnalyticEngine.utils.db_connection import get_db_connection
 from AnalyticEngine.utils.logger import get_logger
+from sqlalchemy import text
 
 logger = get_logger(__name__)
 
@@ -17,26 +16,63 @@ def get_available_trade_dates():
         ORDER BY trade_date DESC
     """
 
-    connection = get_db_connection()
-    cursor = connection.cursor()
+    engine = get_db_connection()
 
-    try:
-        cursor.execute(query)
-        results = cursor.fetchall()
+    with engine.connect() as conn:
+        result = conn.execute(text(query))
+        results = result.fetchall()
 
-        trade_dates = [row[0] for row in results]
+    trade_dates = [row[0] for row in results]
 
-        logger.info(f"Fetched {len(trade_dates)} trade_dates from step3_execution_control")
+    logger.info(f"Fetched {len(trade_dates)} trade_dates from step3_execution_control")
 
-        return trade_dates
+    return trade_dates
 
-    except Exception as e:
-        logger.error(f"Error fetching trade_dates: {str(e)}")
-        raise
 
-    finally:
-        cursor.close()
-        connection.close()
+def check_step1_exists(trade_date):
+    """
+    Check if STEP 1 output exists for a given trade_date
+    """
+    query = """
+        SELECT COUNT(1)
+        FROM intradaytrading.step1_output
+        WHERE trade_date = :trade_date
+    """
+
+    engine = get_db_connection()
+
+    with engine.connect() as conn:
+        result = conn.execute(text(query), {"trade_date": trade_date})
+        row = result.fetchone()
+
+    exists = row[0] > 0 if row else False
+
+    logger.debug(f"STEP1 exists for {trade_date}: {exists}")
+
+    return exists
+
+
+def check_step2_exists(trade_date):
+    """
+    Check if STEP 2 output exists for a given trade_date
+    """
+    query = """
+        SELECT COUNT(1)
+        FROM intradaytrading.step2_output
+        WHERE trade_date = :trade_date
+    """
+
+    engine = get_db_connection()
+
+    with engine.connect() as conn:
+        result = conn.execute(text(query), {"trade_date": trade_date})
+        row = result.fetchone()
+
+    exists = row[0] > 0 if row else False
+
+    logger.debug(f"STEP2 exists for {trade_date}: {exists}")
+
+    return exists
 
 
 def check_step3_execution_exists(trade_date):
@@ -46,30 +82,21 @@ def check_step3_execution_exists(trade_date):
     query = """
         SELECT 1
         FROM intradaytrading.step3_execution_control
-        WHERE trade_date = %s
+        WHERE trade_date = :trade_date
         LIMIT 1
     """
 
-    connection = get_db_connection()
-    cursor = connection.cursor()
+    engine = get_db_connection()
 
-    try:
-        cursor.execute(query, (trade_date,))
-        result = cursor.fetchone()
+    with engine.connect() as conn:
+        result = conn.execute(text(query), {"trade_date": trade_date})
+        row = result.fetchone()
 
-        exists = result is not None
+    exists = row is not None
 
-        logger.debug(f"step3_execution_control exists for {trade_date}: {exists}")
+    logger.debug(f"STEP3 execution exists for {trade_date}: {exists}")
 
-        return exists
-
-    except Exception as e:
-        logger.error(f"Error checking step3_execution_control for {trade_date}: {str(e)}")
-        raise
-
-    finally:
-        cursor.close()
-        connection.close()
+    return exists
 
 
 def get_step3_stock_count(trade_date):
@@ -77,29 +104,19 @@ def get_step3_stock_count(trade_date):
     Get count of records in step3_stock_selection for given trade_date
     """
     query = """
-        SELECT COUNT(*)
+        SELECT COUNT(1)
         FROM intradaytrading.step3_stock_selection
-        WHERE trade_date = %s
+        WHERE trade_date = :trade_date
     """
 
-    connection = get_db_connection()
-    cursor = connection.cursor()
+    engine = get_db_connection()
 
-    try:
-        cursor.execute(query, (trade_date,))
-        result = cursor.fetchone()
+    with engine.connect() as conn:
+        result = conn.execute(text(query), {"trade_date": trade_date})
+        row = result.fetchone()
 
-        count = result[0] if result else 0
+    count = row[0] if row else 0
 
-        logger.debug(f"Stock count for {trade_date}: {count}")
+    logger.debug(f"Stock count for {trade_date}: {count}")
 
-        return count
-
-    except Exception as e:
-        logger.error(f"Error fetching stock count for {trade_date}: {str(e)}")
-        raise
-
-    finally:
-        cursor.close()
-        connection.close()
-
+    return count

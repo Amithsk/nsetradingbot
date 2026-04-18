@@ -1,11 +1,10 @@
-#AnalyticEngine/services/summary_engine.py
 from AnalyticEngine.utils.logger import get_logger
 
 
 logger = get_logger(__name__)
 
 
-def generate_summary(aggregated_metrics, suggestions, config):
+def run_summary_engine(aggregated_metrics, suggestions, config):
     """
     Module 6 — Summary Generation
 
@@ -38,7 +37,7 @@ def generate_summary(aggregated_metrics, suggestions, config):
         missed_rate = aggregated_metrics.get("missed_opportunity_rate", 0)
 
         # --------------------------------------
-        # Metric → Label (FIXED: JSON-compatible)
+        # Metric → Label
         # --------------------------------------
         def get_label(metric_name, value):
             metric_rules = thresholds.get(metric_name, [])
