@@ -36,7 +36,7 @@ def get_stock_data(trade_date):
 
     query = """
         SELECT symbol, open, high, low, close
-        FROM stock_intraday_data
+        FROM intraday_bhavcopy
         WHERE trade_date = :trade_date
     """
 
@@ -67,7 +67,7 @@ def get_step1_data(trade_date):
 
     query = """
         SELECT gap_pct, gap_class, db2_state, final_context
-        FROM step1_output
+        FROM step1_market_context
         WHERE trade_date = :trade_date
     """
 
@@ -91,7 +91,7 @@ def get_step2_data(trade_date):
 
     query = """
         SELECT trade_permission, IR_ratio, volatility_state, VWAP_state, range_hold_status
-        FROM step2_output
+        FROM step2_market_open_behavior
         WHERE trade_date = :trade_date
     """
 
