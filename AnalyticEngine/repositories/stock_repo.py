@@ -1,9 +1,6 @@
 # AnalyticalEngine/repositories/stock_repo.py
 from AnalyticEngine.utils.db_connection import get_db_connection
-from AnalyticEngine.utils.logger import get_logger
 from sqlalchemy import text
-
-logger = get_logger(__name__)
 
 
 def get_instruments_count():
@@ -23,8 +20,6 @@ def get_instruments_count():
         row = result.fetchone()
 
     count = row[0] if row else 0
-
-    logger.info(f"Total instruments count: {count}")
 
     return count
 
@@ -50,7 +45,5 @@ def get_stock_data_status(trade_date):
         row = result.fetchone()
 
     status = row[0] if row else None
-
-    logger.debug(f"Stock data status for {trade_date}: {status}")
 
     return status

@@ -1,36 +1,18 @@
 #AnalyticEngine/services/nifty_analysis.py
-from AnalyticEngine.utils.logger import get_logger
-
-
-logger = get_logger(__name__)
-
-
-def run_nifty_analysis(nifty_data, step1_data, step2_data):
+def run_nifty_analysis(nifty_data, step1_data, step2_data, logger):
     """
     Module 1 — NIFTY Analysis
-
-    INPUT:
-        nifty_data (list[dict])
-        step1_data (dict)
-        step2_data (dict)
-
-    PROCESS:
-        - total_range
-        - net_move
-        - trend_strength
-        - pullback_depth
-        - vwap_cross_count
-        - vwap_hold_percentage
-
-    OUTPUT:
-        dict (nifty_metrics)
     """
+
+    logger.info("STEP: NIFTY Analysis started")
 
     if not nifty_data:
         logger.warning("NIFTY data missing — skipping analysis")
         return None
 
     try:
+        logger.info(f"NIFTY records received: {len(nifty_data)}")
+
         opens = [row["open"] for row in nifty_data]
         highs = [row["high"] for row in nifty_data]
         lows = [row["low"] for row in nifty_data]
@@ -106,10 +88,10 @@ def run_nifty_analysis(nifty_data, step1_data, step2_data):
             "vwap_hold_percentage": vwap_hold_percentage
         }
 
-        logger.info(f"NIFTY analysis result: {result}")
+        logger.info(f"STEP: NIFTY Analysis completed | result={result}")
 
         return result
 
     except Exception as e:
-        logger.error(f"NIFTY analysis failed: {str(e)}")
+        logger.error(f"STEP: NIFTY Analysis failed | error={str(e)}")
         return None

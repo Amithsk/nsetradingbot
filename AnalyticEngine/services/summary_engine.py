@@ -1,21 +1,10 @@
-from AnalyticEngine.utils.logger import get_logger
-
-
-logger = get_logger(__name__)
-
-
-def run_summary_engine(aggregated_metrics, suggestions, config):
+#AnalyticEngine/services/summary_engine.py
+def run_summary_engine(aggregated_metrics, suggestions, config, logger):
     """
     Module 6 — Summary Generation
-
-    INPUT:
-        aggregated_metrics (dict)
-        suggestions (list[dict])
-        config (dict)
-
-    OUTPUT:
-        str (summary_text)
     """
+
+    logger.info("STEP: Summary Generation started")
 
     if not aggregated_metrics:
         logger.warning("No aggregated metrics — skipping summary generation")
@@ -35,6 +24,11 @@ def run_summary_engine(aggregated_metrics, suggestions, config):
         conversion_rate = aggregated_metrics.get("conversion_rate", 0)
         failure_rate = aggregated_metrics.get("failure_rate", 0)
         missed_rate = aggregated_metrics.get("missed_opportunity_rate", 0)
+
+        logger.info(
+            f"Metrics | conversion={conversion_rate} | "
+            f"failure={failure_rate} | missed={missed_rate}"
+        )
 
         # --------------------------------------
         # Metric → Label
@@ -64,6 +58,11 @@ def run_summary_engine(aggregated_metrics, suggestions, config):
         failure_label = get_label("failure_rate", failure_rate)
         missed_label = get_label("missed_opportunity_rate", missed_rate)
 
+        logger.info(
+            f"Labels | conversion={conversion_label} | "
+            f"failure={failure_label} | missed={missed_label}"
+        )
+
         # --------------------------------------
         # Label → Template
         # --------------------------------------
@@ -90,10 +89,10 @@ def run_summary_engine(aggregated_metrics, suggestions, config):
 
         summary_text = " ".join(summary_parts)
 
-        logger.info(f"Generated summary: {summary_text}")
+        logger.info(f"STEP: Summary Generation completed | summary={summary_text}")
 
         return summary_text
 
     except Exception as e:
-        logger.error(f"Summary generation failed: {str(e)}")
+        logger.error(f"STEP: Summary Generation failed | error={str(e)}")
         return ""
