@@ -6,6 +6,9 @@ import os
 import json
 import uuid
 
+
+
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from AnalyticEngine.services.trade_date_resolver import resolve_trade_date
@@ -23,7 +26,8 @@ from AnalyticEngine.repositories.ml_repo import (
     insert_stock_insights,
     insert_stock_diagnostics,
     insert_suggestions,
-    insert_summary
+    insert_summary,
+    insert_data_gaps
 )
 
 from AnalyticEngine.repositories.job_repo import (
@@ -134,28 +138,66 @@ def run_analysis(config):
 
         stock_outcomes = {}
 
+        # Initialize counters
+        processed_count = 0
+        success_count = 0
+        failure_count = 0
+        chop_count = 0
+        missing_count = 0
+
         for symbol, stock_data in data["stock_data"].items():
             outcome = run_stock_outcome_engine(stock_data, "LONG", logger)
             stock_outcomes[symbol] = outcome
+            processed_count += 1
 
-        logger.info(f"STEP 7 COMPLETE | processed={len(stock_outcomes)} stocks")
+            # --------------------------------------
+            # SAFE HANDLING (MANDATORY)
+            # --------------------------------------
+            if not outcome:
+                missing_count += 1
+                continue
+
+            result = outcome.get("outcome")
+
+            if result == "SUCCESS":
+                success_count += 1
+            elif result == "FAILURE":
+                failure_count += 1
+            elif result == "CHOP":
+                chop_count += 1
+
+        # --------------------------------------
+        # SUMMARY LOG
+        # --------------------------------------
+        logger.info(
+        f"STEP 7 COMPLETE | processed={processed_count} | "
+        f"success={success_count} | failure={failure_count} | "
+        f"chop={chop_count} | missing={missing_count}"
+            )
 
         # --------------------------------------
         # 8. Conversion Analysis
         # --------------------------------------
         logger.info("STEP 8: Conversion Analysis")
-
-        conversion_result = run_conversion_analysis(
-            data["step3_data"],
-            stock_outcomes,
-            logger
-        )
-
+        conversion_result = run_conversion_analysis(data["step3_data"],stock_outcomes,logger)
         summary_metrics = conversion_result["summary"]
         diagnostics = conversion_result["diagnostics"]
 
-        logger.info("STEP 8 COMPLETE")
+        # --------------------------------------
+        # Split valid vs missing outcomes
+        # --------------------------------------
+        valid_diagnostics = []
+        missing_symbols = []
 
+        for row in diagnostics:
+            if row.get("outcome") is None:
+                missing_symbols.append(row.get("symbol"))
+            else:
+                valid_diagnostics.append(row)
+
+        logger.info(f"STEP: Diagnostics split | "f"valid={len(valid_diagnostics)} | missing={len(missing_symbols)}")
+        
+        logger.info("STEP 8 COMPLETE")  
         # --------------------------------------
         # 9. Aggregation
         # --------------------------------------
@@ -192,7 +234,8 @@ def run_analysis(config):
 
         insert_nifty_insights(trade_date, nifty_metrics, validation_status, rule_version)
         insert_stock_insights(trade_date, aggregated_metrics, validation_status, rule_version)
-        insert_stock_diagnostics(trade_date, diagnostics)
+        insert_stock_diagnostics(trade_date, valid_diagnostics,logger)
+        insert_data_gaps(trade_date, missing_symbols, logger)
         insert_suggestions(trade_date, suggestions)
         insert_summary(trade_date, summary_text, validation_status, rule_version)
 
