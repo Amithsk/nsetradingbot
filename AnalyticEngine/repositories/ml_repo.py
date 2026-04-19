@@ -66,7 +66,7 @@ def get_step1_data(trade_date):
     engine = get_db_connection()
 
     query = """
-        SELECT gap_pct, gap_class, db2_state, final_context
+        SELECT gap_pct, gap_class,prior_structure_state,final_market_context
         FROM step1_market_context
         WHERE trade_date = :trade_date
     """
@@ -81,8 +81,8 @@ def get_step1_data(trade_date):
     return {
         "gap_pct": row[0],
         "gap_class": row[1],
-        "db2_state": row[2],
-        "final_context": row[3]
+        "prior_structure_state": row[2],
+        "final_market_context": row[3]
     }
 
 
