@@ -21,18 +21,31 @@ def run_conversion_analysis(step3_candidates, stock_outcomes, logger):
         missed_opportunity = 0
         correct_rejection = 0
 
+        # --------------------------------------
+        # 🔍 TRACK MISSING OUTCOMES (ENHANCED)
+        # --------------------------------------
+        missing_outcomes = 0
+        missing_symbols = []
+
         for stock in step3_candidates:
 
             symbol = stock.get("symbol")
             selected = stock.get("selected", False)
 
-            outcome_data = stock_outcomes.get(symbol, {})
-            outcome = outcome_data.get("outcome")
+            outcome_data = stock_outcomes.get(symbol, None)
+            outcome = outcome_data.get("outcome") if outcome_data else None
+
+            # --------------------------------------
+            # TRACK MISSING OUTCOME SYMBOLS
+            # --------------------------------------
+            if outcome is None:
+                missing_outcomes += 1
+                missing_symbols.append(symbol)
 
             classification = None
 
             # --------------------------------------
-            # Classification logic
+            # Classification logic (UNCHANGED)
             # --------------------------------------
             if selected:
                 selected_count += 1
@@ -61,9 +74,6 @@ def run_conversion_analysis(step3_candidates, stock_outcomes, logger):
                 "classification": classification
             })
 
-        # --------------------------------------
-        # Summary metrics
-        # --------------------------------------
         conversion_rate = (
             good_selection / selected_count
             if selected_count > 0 else 0
@@ -84,10 +94,16 @@ def run_conversion_analysis(step3_candidates, stock_outcomes, logger):
             "diagnostics": diagnostics
         }
 
+        # --------------------------------------
+        # CLEAN + ACTIONABLE LOG
+        # --------------------------------------
         logger.info(
             f"STEP: Conversion Analysis completed | "
             f"candidates={candidate_count} | selected={selected_count} | "
-            f"success={good_selection} | failure={bad_selection} | missed={missed_opportunity}"
+            f"success={good_selection} | failure={bad_selection} | "
+            f"missed={missed_opportunity} | "
+            f"missing_outcomes={missing_outcomes} | "
+            f"missing_symbols={missing_symbols}"
         )
 
         return result

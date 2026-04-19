@@ -50,7 +50,7 @@ def run_stock_outcome_engine(stock_data, direction, logger):
             "outcome": outcome
         }
 
-        logger.info(f"STEP: Stock Outcome computed | result={result}")
+        #logger.info(f"STEP: Stock Outcome computed | result={result}")
 
         return result
 

@@ -112,25 +112,34 @@ def get_step2_data(trade_date):
 
 
 def get_step3_data(trade_date):
-    engine = get_db_connection()
+    """
+    Returns STEP 3 candidate data in required format
+    """
 
     query = """
-        SELECT 
-            symbol,
-            tradable AS selected
+        SELECT symbol, tradable
         FROM intradaytrading.step3_stock_selection
         WHERE trade_date = :trade_date
     """
 
+    engine = get_db_connection()
+
     with engine.connect() as conn:
         result = conn.execute(text(query), {"trade_date": trade_date})
-        row = result.fetchone()
+        rows = result.fetchall()
 
-    if not row:
-        return []
+    # --------------------------------------
+    # FORMAT FIX (CRITICAL)
+    # --------------------------------------
+    step3_data = []
 
-    return row[0]
+    for row in rows:
+        step3_data.append({
+            "symbol": row[0],
+            "selected": bool(row[1])   # tradable → selected
+        })
 
+    return step3_data
 
 # --------------------------------------
 # ML INSERTS (UPDATED WITH SCHEMA)
@@ -212,7 +221,17 @@ def insert_stock_insights(trade_date, aggregated_metrics, analysis_status, rule_
         )
 
 
-def insert_stock_diagnostics(trade_date, diagnostics):
+def insert_stock_diagnostics(trade_date, diagnostics, logger):
+    """
+    Insert stock diagnostics into DB
+    """
+
+    logger.info(f"STEP: Inserting stock diagnostics | records={len(diagnostics)}")
+
+    if not diagnostics:
+        logger.warning("No diagnostics to insert — skipping DB write")
+        return
+
     engine = get_db_connection()
 
     query = f"""
@@ -223,22 +242,54 @@ def insert_stock_diagnostics(trade_date, diagnostics):
             outcome,
             classification
         )
-        VALUES (:trade_date, :symbol, :selected, :outcome, :classification)
+        VALUES (
+            :trade_date,
+            :symbol,
+            :selected,
+            :outcome,
+            :classification
+        )
     """
 
-    with engine.begin() as conn:
-        for row in diagnostics:
-            conn.execute(
-                text(query),
-                {
-                    "trade_date": trade_date,
-                    "symbol": row.get("symbol"),
-                    "selected": row.get("selected"),
-                    "outcome": row.get("outcome"),
-                    "classification": row.get("classification")
-                }
-            )
+    try:
+        with engine.begin() as conn:
 
+            inserted_count = 0
+
+            for row in diagnostics:
+
+                # --------------------------------------
+                # CRITICAL DEBUG (SAFE LEVEL)
+                # --------------------------------------
+                logger.debug(
+                    f"DB INSERT | symbol={row.get('symbol')} | "
+                    f"outcome={row.get('outcome')} | "
+                    f"classification={row.get('classification')}"
+                )
+
+                conn.execute(
+                    text(query),
+                    {
+                        "trade_date": trade_date,
+                        "symbol": row.get("symbol"),
+                        "selected": row.get("selected"),
+                        "outcome": row.get("outcome"),
+                        "classification": row.get("classification"),
+                    }
+                )
+
+                inserted_count += 1
+
+        # --------------------------------------
+        # SUCCESS LOG (IMPORTANT)
+        # --------------------------------------
+        logger.info(
+            f"STEP: Stock diagnostics inserted successfully | count={inserted_count}"
+        )
+
+    except Exception as e:
+        logger.error(f"STEP: Stock diagnostics insert failed | error={str(e)}")
+        raise
 
 def insert_suggestions(trade_date, suggestions):
     engine = get_db_connection()
@@ -303,3 +354,47 @@ def insert_summary(trade_date, summary_text, analysis_status, rule_config_versio
                 "created_at": datetime.utcnow()
             }
         )
+
+def insert_data_gaps(trade_date, missing_symbols, logger):
+    if not missing_symbols:
+        return
+
+    engine = get_db_connection()
+
+    query = f"""
+        INSERT INTO {ML_SCHEMA}.ml_data_gaps (
+            trade_date,
+            symbol,
+            issue_type,
+            detected_at
+        )
+        VALUES (
+            :trade_date,
+            :symbol,
+            :issue_type,
+            :detected_at
+        )
+    """
+
+    from datetime import datetime
+
+    try:
+        with engine.begin() as conn:
+            for symbol in missing_symbols:
+                conn.execute(
+                    text(query),
+                    {
+                        "trade_date": trade_date,
+                        "symbol": symbol,
+                        "issue_type": "STOCK_DATA_MISSING",
+                        "detected_at": datetime.utcnow()
+                    }
+                )
+
+        logger.info(
+            f"Data gaps recorded | count={len(missing_symbols)}"
+        )
+
+    except Exception as e:
+        logger.error(f"Data gap insert failed | error={str(e)}")
+        raise
