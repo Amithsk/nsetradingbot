@@ -1,8 +1,9 @@
 {
-  "target_date": "2026-04-17",
-  "state": "failed",
-  "downloaded": "PR170426.zip",
+  "target_date": "2026-04-20",
+  "state": "downloaded",
+  "downloaded": "PR200426.zip",
+  "downloaded_at": "2026-04-20T19:00:09.551457",
   "source": "git_commit_changes",
-  "error": "git rebase failed - manual intervention required",
-  "ts": "2026-04-20T07:00:17.025016"
+  "note": "artifact downloaded locally; about to commit",
+  "ts": "2026-04-20T19:00:09.551654"
 }
