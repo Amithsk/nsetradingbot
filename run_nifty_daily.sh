@@ -29,7 +29,7 @@ echo "Running Git operations..."
 # Pull latest changes (rebase to avoid merge commits)
 git pull --rebase
 
-git add Output/
+git add -A
 
 # Get latest data folder (THIS is your actual trading date) with  Filter only YYYYMMDD folders
 LATEST_DATE=$(ls -1 Output | grep -E '^[0-9]{8}$' | sort | tail -n 1)
