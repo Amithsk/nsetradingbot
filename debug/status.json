@@ -1,9 +1,8 @@
 {
-  "target_date": "2026-05-27",
-  "state": "committed",
-  "downloaded": "PR270526.zip",
-  "source": "git_commit_changes",
-  "commit_sha": "7f1f827e49ae627456563fe241171a9b9ea09b25",
-  "note": "artifact commit pushed",
-  "ts": "2026-05-27T19:00:19.694097"
+  "target_date": "2026-05-28",
+  "state": "pending",
+  "downloaded": null,
+  "source": "download_bhavcopy_yesterday",
+  "note": "yesterday file not available",
+  "ts": "2026-05-29T07:00:09.493762"
 }
