@@ -41,7 +41,6 @@ def create_job(trade_date,execution_id):
 
     engine = get_db_connection()
 
-    
     now = datetime.utcnow()
 
     query = f"""
@@ -160,3 +159,33 @@ def get_running_job(trade_date):
         row = result.fetchone()
 
     return row[0] if row else None
+
+
+def get_completed_trade_dates():
+    """
+    Fetch all trade_dates that have already completed analysis.
+
+    Rules:
+    - COMPLETED means processed.
+    - FAILED entries are ignored.
+    - PARTIAL entries are ignored.
+    - DISTINCT trade_dates returned.
+
+    Returns:
+        set(date)
+    """
+
+    engine = get_db_connection()
+
+    query = f"""
+        SELECT DISTINCT trade_date
+        FROM {ML_SCHEMA}.ml_job_tracker
+        WHERE status = 'COMPLETED'
+          AND trade_date IS NOT NULL
+    """
+
+    with engine.connect() as conn:
+        result = conn.execute(text(query))
+        rows = result.fetchall()
+
+    return {row[0] for row in rows}
