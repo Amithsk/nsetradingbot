@@ -66,9 +66,30 @@ def run_analysis(config):
         validation_status, validation_log = run_validation(trade_date, logger)
 
         logger.info(f"STEP 2 COMPLETE | status={validation_status}")
+        # --------------------------------------------------    
+        # Validation Skip Handling
+        #
+        # Historical data may be incomplete.
+        #
+        # We still create a job record and mark the
+        # execution as PARTIAL so backlog processing
+        # can continue with the next trade_date.
+        # --------------------------------------------------
 
         if validation_status == "SKIPPED":
-            logger.warning("Validation SKIPPED — stopping execution")
+            logger.warning("Validation SKIPPED - creating PARTIAL job record")
+            create_job(trade_date, execution_id)
+            
+            update_job_status(execution_id, "RUNNING")
+            
+            complete_job(execution_id, "PARTIAL")
+            
+            logger.warning(
+            f"===== JOB COMPLETED | "
+            f"execution_id={execution_id} | "
+            f"status=PARTIAL ====="
+            )
+            
             return
 
         # --------------------------------------
