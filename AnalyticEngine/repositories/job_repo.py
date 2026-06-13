@@ -1,4 +1,29 @@
 #analytic_engine/repositories/job_repo.py
+"""
+Job Tracking Repository
+
+Purpose:
+    Manage Analytical Engine execution tracking.
+
+Responsibilities:
+    - Create job records
+    - Update execution status
+    - Complete executions
+    - Check active executions
+    - Provide processed trade_dates
+
+Notes:
+    Repository layer must only perform database access.
+
+    No business logic should be implemented here.
+
+    Trade-date selection decisions belong in:
+        AnalyticEngine/services/trade_date_resolver.py
+
+    Analysis execution decisions belong in:
+        AnalyticEngine/orchestrator/run_analysis.py
+"""
+
 from AnalyticEngine.utils.db_connection import get_db_connection
 from AnalyticEngine.utils.db_schemas import ML_SCHEMA
 from datetime import datetime
