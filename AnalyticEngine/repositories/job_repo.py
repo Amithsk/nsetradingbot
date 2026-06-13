@@ -163,13 +163,28 @@ def get_running_job(trade_date):
 
 def get_completed_trade_dates():
     """
-    Fetch all trade_dates that have already completed analysis.
+    Fetch trade_dates that should be treated as already processed.
 
-    Rules:
-    - COMPLETED means processed.
-    - FAILED entries are ignored.
-    - PARTIAL entries are ignored.
-    - DISTINCT trade_dates returned.
+    Processing Rules:
+        COMPLETED = processed
+        PARTIAL   = processed
+        FAILED    = not processed
+
+    Why PARTIAL is treated as processed:
+
+        Historical backlog recovery should continue moving
+        forward even when a date has incomplete data.
+
+        Example:
+
+            2026-03-09 -> PARTIAL
+            2026-03-10 -> pending
+
+        Next execution should process:
+
+            2026-03-10
+
+        and not repeatedly attempt 2026-03-09.
 
     Returns:
         set(date)
@@ -180,7 +195,7 @@ def get_completed_trade_dates():
     query = f"""
         SELECT DISTINCT trade_date
         FROM {ML_SCHEMA}.ml_job_tracker
-        WHERE status = 'COMPLETED'
+         WHERE status IN ('COMPLETED', 'PARTIAL')
           AND trade_date IS NOT NULL
     """
 
