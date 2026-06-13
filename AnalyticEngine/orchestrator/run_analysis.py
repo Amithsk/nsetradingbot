@@ -43,6 +43,7 @@ from AnalyticEngine.utils.logger import setup_execution_logger
 def run_analysis(config):
     execution_id = str(uuid.uuid4())
     trade_date = None
+    conversion_skipped = False
 
     logger = setup_execution_logger(execution_id)
 
@@ -200,52 +201,89 @@ def run_analysis(config):
         # 8. Conversion Analysis
         # --------------------------------------
         logger.info("STEP 8: Conversion Analysis")
-        conversion_result = run_conversion_analysis(data["step3_data"],stock_outcomes,logger)
-        summary_metrics = conversion_result["summary"]
-        diagnostics = conversion_result["diagnostics"]
-
-        # --------------------------------------
-        # Split valid vs missing outcomes
-        # --------------------------------------
         valid_diagnostics = []
         missing_symbols = []
+        conversion_result = run_conversion_analysis(data["step3_data"],stock_outcomes,logger)
 
-        for row in diagnostics:
-            if row.get("outcome") is None:
-                missing_symbols.append(row.get("symbol"))
-            else:
-                valid_diagnostics.append(row)
+        if conversion_result is None:
+            logger.warning("STEP 8 SKIPPED | Conversion Analysis unavailable")
+            conversion_skipped = True
+            diagnostics = []
+            
+            aggregated_metrics = None
+            suggestions = []
+            summary_text = None
+            logger.info("STEP 8 COMPLETE")  
+        else:
+            summary_metrics = conversion_result["summary"]
+            diagnostics = conversion_result["diagnostics"]
 
-        logger.info(f"STEP: Diagnostics split | "f"valid={len(valid_diagnostics)} | missing={len(missing_symbols)}")
+            # --------------------------------------
+            # Split valid vs missing outcomes
+            # --------------------------------------
+            
+            for row in diagnostics:
+                if row.get("outcome") is None:
+                    missing_symbols.append(row.get("symbol"))
+                else:
+                    valid_diagnostics.append(row)
+
+            logger.info(f"STEP: Diagnostics split | "f"valid={len(valid_diagnostics)} | missing={len(missing_symbols)}")
         
-        logger.info("STEP 8 COMPLETE")  
-        # --------------------------------------
-        # 9. Aggregation
-        # --------------------------------------
-        logger.info("STEP 9: Aggregation")
+            logger.info("STEP 8 COMPLETE")  
+    
+            # --------------------------------------
+            # 9. Aggregation
+            # --------------------------------------
+            logger.info("STEP 9: Aggregation")
 
-        aggregated_metrics = run_aggregation([summary_metrics], logger)
 
-        logger.info("STEP 9 COMPLETE")
 
-        # --------------------------------------
-        # 10. Suggestions
-        # --------------------------------------
-        logger.info("STEP 10: Suggestion Engine")
+            aggregated_metrics = run_aggregation(
+                [summary_metrics],
+                logger
+                )
+            
+            logger.info("STEP 9 COMPLETE")
 
-        suggestions = run_suggestion_engine(aggregated_metrics, config, logger)
+            # --------------------------------------
+            # 10. Suggestions
+            # --------------------------------------
+            logger.info("STEP 10: Suggestion Engine")
+            
+            suggestions = run_suggestion_engine(
+                aggregated_metrics,
+                config,
+                logger
+                )
+            
+            logger.info(f"STEP 10 COMPLETE | suggestions={len(suggestions)}")
 
-        logger.info(f"STEP 10 COMPLETE | suggestions={len(suggestions)}")
 
-        # --------------------------------------
-        # 11. Summary
-        # --------------------------------------
-        logger.info("STEP 11: Summary Generation")
+            # --------------------------------------
+            # 11. Summary
+            # --------------------------------------
+            logger.info("STEP 11: Summary Generation")
 
-        summary_text = run_summary_engine(aggregated_metrics, suggestions, config, logger)
 
-        logger.info("STEP 11 COMPLETE")
+            
+            
+            summary_text = run_summary_engine(
+                       aggregated_metrics,
+                       suggestions,
+                       config,
+                       logger
+                    )
+            
+            logger.info("STEP 11 COMPLETE")
 
+
+           
+
+        
+
+              
+       
         # --------------------------------------
         # 12. Storage
         # --------------------------------------
@@ -254,11 +292,12 @@ def run_analysis(config):
         rule_version = config.get("rule_config_version", "v1")
 
         insert_nifty_insights(trade_date, nifty_metrics, validation_status, rule_version)
-        insert_stock_insights(trade_date, aggregated_metrics, validation_status, rule_version)
-        insert_stock_diagnostics(trade_date, valid_diagnostics,logger)
-        insert_data_gaps(trade_date, missing_symbols, logger)
-        insert_suggestions(trade_date, suggestions)
-        insert_summary(trade_date, summary_text, validation_status, rule_version)
+        if aggregated_metrics is not None:
+            insert_stock_insights(trade_date, aggregated_metrics, validation_status, rule_version)
+            insert_stock_diagnostics(trade_date, valid_diagnostics,logger)
+            insert_data_gaps(trade_date, missing_symbols, logger)
+            insert_suggestions(trade_date, suggestions)
+            insert_summary(trade_date, summary_text, validation_status, rule_version)
 
         logger.info("STEP 12 COMPLETE")
 
@@ -267,7 +306,12 @@ def run_analysis(config):
         # --------------------------------------
         logger.info("STEP 13: Completing job")
 
-        final_status = "COMPLETED" if validation_status == "COMPLETE" else "PARTIAL"
+        if validation_status != "COMPLETE":
+            final_status = "PARTIAL"
+        elif conversion_skipped:
+            final_status = "PARTIAL"
+        else:
+            final_status = "COMPLETED"
 
         complete_job(execution_id, final_status)
 
