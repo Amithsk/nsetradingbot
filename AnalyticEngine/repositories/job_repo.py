@@ -1,4 +1,29 @@
 #analytic_engine/repositories/job_repo.py
+"""
+Job Tracking Repository
+
+Purpose:
+    Manage Analytical Engine execution tracking.
+
+Responsibilities:
+    - Create job records
+    - Update execution status
+    - Complete executions
+    - Check active executions
+    - Provide processed trade_dates
+
+Notes:
+    Repository layer must only perform database access.
+
+    No business logic should be implemented here.
+
+    Trade-date selection decisions belong in:
+        AnalyticEngine/services/trade_date_resolver.py
+
+    Analysis execution decisions belong in:
+        AnalyticEngine/orchestrator/run_analysis.py
+"""
+
 from AnalyticEngine.utils.db_connection import get_db_connection
 from AnalyticEngine.utils.db_schemas import ML_SCHEMA
 from datetime import datetime
@@ -16,7 +41,6 @@ def create_job(trade_date,execution_id):
 
     engine = get_db_connection()
 
-    
     now = datetime.utcnow()
 
     query = f"""
@@ -135,3 +159,48 @@ def get_running_job(trade_date):
         row = result.fetchone()
 
     return row[0] if row else None
+
+
+def get_completed_trade_dates():
+    """
+    Fetch trade_dates that should be treated as already processed.
+
+    Processing Rules:
+        COMPLETED = processed
+        PARTIAL   = processed
+        FAILED    = not processed
+
+    Why PARTIAL is treated as processed:
+
+        Historical backlog recovery should continue moving
+        forward even when a date has incomplete data.
+
+        Example:
+
+            2026-03-09 -> PARTIAL
+            2026-03-10 -> pending
+
+        Next execution should process:
+
+            2026-03-10
+
+        and not repeatedly attempt 2026-03-09.
+
+    Returns:
+        set(date)
+    """
+
+    engine = get_db_connection()
+
+    query = f"""
+        SELECT DISTINCT trade_date
+        FROM {ML_SCHEMA}.ml_job_tracker
+         WHERE status IN ('COMPLETED', 'PARTIAL')
+          AND trade_date IS NOT NULL
+    """
+
+    with engine.connect() as conn:
+        result = conn.execute(text(query))
+        rows = result.fetchall()
+
+    return {row[0] for row in rows}
