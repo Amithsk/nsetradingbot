@@ -1,0 +1,9 @@
+{
+  "target_date": "2026-08-21",
+  "state": "downloaded",
+  "downloaded": "PR210826.zip",
+  "downloaded_at": "2026-08-24T07:00:10.403297",
+  "source": "git_commit_changes",
+  "note": "artifact downloaded locally; about to commit",
+  "ts": "2026-08-24T07:00:10.403457"
+}
