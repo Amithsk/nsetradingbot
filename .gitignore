@@ -25,4 +25,7 @@ __pycache__/
 *.pyc
 *.pyo
 
+#Ignore .json
+Output/zerodha_access_token.json
+
 
