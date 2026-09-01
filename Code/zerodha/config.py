@@ -1,7 +1,9 @@
+#/nsetradingbot/Code/zerodha/config.py
 """Zerodha Kite Connect configuration and client creation."""
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +17,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # /home/amith/nsetradingbot/.env
 ENV_FILE = PROJECT_ROOT / ".env"
+
+# Daily access token generated after Zerodha login.
+ACCESS_TOKEN_FILE = (
+    PROJECT_ROOT / "Output" / "zerodha_access_token.json"
+)
 
 load_dotenv(ENV_FILE)
 
@@ -62,11 +69,43 @@ def load_kite_config() -> KiteConfig:
     return KiteConfig.from_env()
 
 
+def load_access_token() -> str:
+    """Load the daily Zerodha access token from the local token file."""
+
+    if not ACCESS_TOKEN_FILE.exists():
+        raise FileNotFoundError(
+            f"Zerodha access token file not found: {ACCESS_TOKEN_FILE}"
+        )
+
+    try:
+        data = json.loads(
+            ACCESS_TOKEN_FILE.read_text(encoding="utf-8")
+        )
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Invalid JSON in access token file: {ACCESS_TOKEN_FILE}"
+        ) from exc
+
+    access_token = data.get("access_token")
+
+    if not access_token:
+        raise ValueError(
+            f"Access token missing from: {ACCESS_TOKEN_FILE}"
+        )
+
+    return str(access_token)
+
+
 def get_kite_client() -> KiteConnect:
-    """Create and return a KiteConnect client."""
+    """Create an authenticated KiteConnect client."""
 
     config = load_kite_config()
+    access_token = load_access_token()
 
-    return KiteConnect(
+    kite = KiteConnect(
         api_key=config.api_key
     )
+
+    kite.set_access_token(access_token)
+
+    return kite
