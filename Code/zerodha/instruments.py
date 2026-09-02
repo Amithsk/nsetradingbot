@@ -13,11 +13,7 @@ def _as_text(value: Any) -> str:
 
 
 def is_nifty_futures_instrument(record: Mapping[str, Any]) -> bool:
-    """Return True when the instrument record matches NIFTY futures metadata.
-
-    The logic uses the instrument metadata itself instead of hard-coded monthly
-    names or calendar assumptions.
-    """
+    """Return True for standard NIFTY index futures instruments."""
 
     if not isinstance(record, Mapping):
         return False
@@ -25,26 +21,22 @@ def is_nifty_futures_instrument(record: Mapping[str, Any]) -> bool:
     exchange = _as_text(record.get("exchange")).upper()
     segment = _as_text(record.get("segment")).upper()
     instrument_type = _as_text(record.get("instrument_type")).upper()
-    tradingsymbol = _as_text(record.get("tradingsymbol")).upper()
     name = _as_text(record.get("name")).upper()
     expiry = record.get("expiry")
 
-    if exchange not in {"NFO", "NFO-OPT"}:
+    if exchange != "NFO":
         return False
+
+    if segment != "NFO-FUT":
+        return False
+
     if instrument_type != "FUT":
         return False
+
+    if name != "NIFTY":
+        return False
+
     if expiry in (None, ""):
-        return False
-    if not (tradingsymbol or name):
-        return False
-
-    symbol_text = f"{tradingsymbol} {name}"
-    if "NIFTY" not in symbol_text:
-        return False
-
-    # Keep the contract classification driven by metadata instead of forcing a
-    # hard-coded monthly contract name list.
-    if segment and segment != "NFO-FUT":
         return False
 
     return True
