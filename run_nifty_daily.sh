@@ -14,8 +14,8 @@ cd /home/amith/nsetradingbot || exit
 source botenv/bin/activate
 
 # Run data download
-echo "Running Nifty data download..."
-python Code/nsedatadailydownload.py
+echo "Running Nifty data download from Zerodha..."
+python -m Code.zerodha.nifty_futures_download
 
 # Check if Python script succeeded
 if [ $? -ne 0 ]; then
