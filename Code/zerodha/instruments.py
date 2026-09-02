@@ -44,7 +44,7 @@ def is_nifty_futures_instrument(record: Mapping[str, Any]) -> bool:
 
     # Keep the contract classification driven by metadata instead of forcing a
     # hard-coded monthly contract name list.
-    if segment and segment not in {"NFO", "NFO-OPT"}:
+    if segment and segment != "NFO-FUT":
         return False
 
     return True
