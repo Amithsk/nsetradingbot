@@ -1,8 +1,6 @@
 #/nsetradingbot/Code/zerodha/callback.py
 """FastAPI callback endpoint for Zerodha Kite Connect authentication."""
 
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from __future__ import annotations
 
@@ -15,6 +13,9 @@ from .config import load_kite_config, get_kite_client
 
 
 from .nifty_futures import select_nifty_futures_contract
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 
 IST = ZoneInfo("Asia/Kolkata")
 
