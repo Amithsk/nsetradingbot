@@ -26,6 +26,40 @@ def home():
     }
 
 
+# ------------------------------------------------
+# ZERODHA STATUS
+# ------------------------------------------------
+
+@app.get("/zerodha/status")
+def zerodha_status():
+    """Verify that the Pi can communicate with Zerodha using the current session."""
+
+    try:
+
+        kite = get_kite_client()
+
+        # Lightweight authenticated request to Zerodha.
+        profile = kite.profile()
+
+        return {
+            "status": "connected",
+            "zerodha": True,
+            "user_id": profile.get("user_id"),
+        }
+
+    except Exception as exc:
+
+        return {
+            "status": "disconnected",
+            "zerodha": False,
+            "error": str(exc),
+        }
+# ------------------------------------------------
+# ZERODHA CALLBACK
+# ------------------------------------------------
+
+
+
 @app.get("/zerodha/callback")
 async def zerodha_callback(request: Request):
     params = dict(request.query_params)
@@ -87,3 +121,5 @@ async def zerodha_callback(request: Request):
             status_code=500,
             detail=f"Zerodha authentication failed: {exc}",
         ) from exc
+
+    
