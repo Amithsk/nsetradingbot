@@ -1,6 +1,9 @@
 #/nsetradingbot/Code/zerodha/callback.py
 """FastAPI callback endpoint for Zerodha Kite Connect authentication."""
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from __future__ import annotations
 
 import json
@@ -10,6 +13,10 @@ from fastapi import FastAPI, HTTPException, Request
 
 from .config import load_kite_config, get_kite_client
 
+
+from .nifty_futures import select_nifty_futures_contract
+
+IST = ZoneInfo("Asia/Kolkata")
 
 app = FastAPI()
 
@@ -54,6 +61,41 @@ def zerodha_status():
             "zerodha": False,
             "error": str(exc),
         }
+
+
+
+# ------------------------------------------------
+# NIFTY FUTURES
+# ------------------------------------------------
+
+@app.get("/zerodha/nifty-futures")
+def zerodha_nifty_futures():
+    """Return the currently applicable NIFTY Futures contract."""
+
+    try:
+
+        kite = get_kite_client()
+
+        instruments = kite.instruments("NFO")
+
+        contract = select_nifty_futures_contract(
+            datetime.now(IST).date(),
+            instruments,
+        )
+
+        return {
+            "status": "success",
+            "contract": contract,
+        }
+
+    except Exception as exc:
+
+        return {
+            "status": "error",
+            "error": str(exc),
+        }
+
+    
 # ------------------------------------------------
 # ZERODHA CALLBACK
 # ------------------------------------------------
