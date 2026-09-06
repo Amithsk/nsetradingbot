@@ -8,16 +8,14 @@ echo "===== STARTING ZERODHA SERVICES ====="
 # Start callback/status API
 python -m uvicorn Code.zerodha.callback:app \
     --host 0.0.0.0 \
-    --port 8000 \
-    > Output/zerodha_callback.log 2>&1 &
+    --port 8000 &
 
 echo "Port 8000 started."
 
 # Start market-data API
 python -m uvicorn Code.zerodha.api:app \
     --host 0.0.0.0 \
-    --port 8001 \
-    > Output/zerodha_api.log 2>&1 &
+    --port 8001 &
 
 echo "Port 8001 started."
 
