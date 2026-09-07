@@ -112,9 +112,6 @@ def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
         # ------------------------------------------------
         df = apply_indicators(df)
 
-        # Remove initial NaN rows due to rolling calculations
-        df = df.dropna()
-
         # ------------------------------------------------
         # SELECT FINAL COLUMNS
         # ------------------------------------------------
@@ -129,12 +126,23 @@ def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
         # ✅ ADDED NORMALIZATION (FIX DUPLICATE ISSUE)
         price_df["Date"] = pd.to_datetime(price_df["Date"]).dt.floor("min")
 
+        # Preserve warm-up candles. Indicators whose rolling windows have not
+        # yet been satisfied are stored as SQL NULL rather than dropping prices.
+        indicator_columns = ['SMA_5', 'SMA_20', 'RSI', 'ATR']
+        price_df[indicator_columns] = (
+            price_df[indicator_columns]
+            .astype(object)
+            .where(price_df[indicator_columns].notna(), None)
+        )
+
         csv_start = price_df['Date'].min().strftime("%Y-%m-%d")
-        csv_end = price_df['Date'].max().strftime("%Y-%m-%d")
+        csv_end_exclusive = (
+            price_df['Date'].max().normalize() + pd.Timedelta(days=1)
+        ).strftime("%Y-%m-%d")
 
-        query = "SELECT Date FROM nifty_prices WHERE Date BETWEEN %s AND %s"
+        query = "SELECT Date FROM nifty_prices WHERE Date >= %s AND Date < %s"
 
-        existing = pd.read_sql(query, conn, params=(csv_start, csv_end))
+        existing = pd.read_sql(query, conn, params=(csv_start, csv_end_exclusive))
 
         # ✅ ADDED NORMALIZATION (FIX DUPLICATE ISSUE)
         if not existing.empty:
