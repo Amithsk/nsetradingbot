@@ -219,6 +219,119 @@ def symbol_candles(symbol: str) -> dict[str, Any]:
             status_code=500,
             detail=f"Unable to fetch candles for {symbol}: {exc}",
         ) from exc
+
+
+# ------------------------------------------------
+# HISTORICAL SYMBOL CANDLES
+# ------------------------------------------------
+
+@app.get("/zerodha/symbol/historical-candles")
+def historical_symbol_candles(
+    symbol: str,
+    trade_date: str,
+) -> dict[str, Any]:
+    """Return normalized 5-minute candles for a symbol on a requested date.
+
+    Example:
+        /zerodha/symbol/historical-candles?symbol=NSE:SBIN&trade_date=2026-09-10
+    """
+
+    try:
+        symbol = symbol.strip().upper()
+
+        if not symbol:
+            raise HTTPException(
+                status_code=400,
+                detail="Symbol is required. Example: NSE:SBIN",
+            )
+
+        if ":" not in symbol:
+            raise HTTPException(
+                status_code=400,
+                detail="Symbol must include exchange. Example: NSE:SBIN",
+            )
+
+        exchange, tradingsymbol = symbol.split(":", 1)
+
+        if not exchange or not tradingsymbol:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid symbol. Example: NSE:SBIN",
+            )
+
+        try:
+            target_date = datetime.strptime(
+                trade_date,
+                "%Y-%m-%d",
+            ).date()
+            if target_date.isoformat() != trade_date:
+                raise ValueError("trade_date must use zero-padded values")
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="trade_date must use YYYY-MM-DD format.",
+            ) from exc
+
+        kite = get_kite_client()
+
+        instruments = kite.instruments(exchange)
+
+        matching_instruments = [
+            instrument
+            for instrument in instruments
+            if (
+                str(instrument.get("exchange", "")).upper()
+                == exchange
+                and str(instrument.get("tradingsymbol", "")).upper()
+                == tradingsymbol
+            )
+        ]
+
+        if not matching_instruments:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Symbol not found: {symbol}",
+            )
+
+        instrument = matching_instruments[0]
+        instrument_token = instrument.get("instrument_token")
+
+        if not instrument_token:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Instrument token not found for {symbol}",
+            )
+
+        from_datetime, to_datetime = get_candle_range(target_date)
+
+        records = fetch_historical_candles(
+            client=kite,
+            instrument_token=instrument_token,
+            from_datetime=from_datetime,
+            to_datetime=to_datetime,
+            interval=INTERVAL,
+        )
+
+        return {
+            "status": "success",
+            "trade_date": target_date.isoformat(),
+            "interval": INTERVAL,
+            "symbol": symbol,
+            "instrument_token": instrument_token,
+            "candles": records,
+            "count": len(records),
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Unable to fetch historical candles for {symbol}: {exc}"
+            ),
+        ) from exc
     
 # ------------------------------------------------
 # NIFTY FUTURES CANDLES
