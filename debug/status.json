@@ -1,8 +1,9 @@
 {
-  "target_date": "2026-09-14",
-  "state": "pending",
-  "downloaded": null,
-  "source": "download_bhavcopy_yesterday",
-  "note": "yesterday file not available",
-  "ts": "2026-09-15T07:00:10.040221"
+  "target_date": "2026-09-15",
+  "state": "downloaded",
+  "downloaded": "PR150926.zip",
+  "downloaded_at": "2026-09-15T19:00:11.363105",
+  "source": "git_commit_changes",
+  "note": "artifact downloaded locally; about to commit",
+  "ts": "2026-09-15T19:00:11.363335"
 }
