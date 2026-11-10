@@ -30,5 +30,5 @@ Output/zerodha_access_token.json
 
 
 #Ignore .log
-
+logs\nifty_db_update_*.log
 
