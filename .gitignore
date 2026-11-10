@@ -29,3 +29,6 @@ __pycache__/
 Output/zerodha_access_token.json
 
 
+#Ignore .log
+
+
