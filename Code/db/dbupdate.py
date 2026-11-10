@@ -163,6 +163,7 @@ def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
                       continue  # skip duplicate
                  except Exception as e:
                       print(f"[{RUN_DATE_STR}] Unexpected error: {e}")
+                      raise
 
             print(f"[{RUN_DATE_STR}] Inserted {inserted_rows} new price rows")
 
@@ -180,6 +181,7 @@ def load_prices(OUTPUT_ROOT, conn, _date_str_unused):
             print(f"[{RUN_DATE_STR}] Duplicate data detected - already present in DB, skipping insert.")
         else:
             print(f"[{RUN_DATE_STR}] Error in load_prices: {e}")
+            raise
 
 
 # ------------------------------------------------
@@ -238,7 +240,17 @@ if __name__ == "__main__":
 
     try:
 
-        folder_input = input("Enter folder name (YYYYMMDD): ").strip()
+        # A supplied folder makes this script suitable for unattended jobs.
+        # With no argument it retains the existing manual prompt.
+        folder_input = sys.argv[1].strip() if len(sys.argv) > 1 else input(
+            "Enter folder name (YYYYMMDD): "
+        ).strip()
+
+        try:
+            datetime.strptime(folder_input, "%Y%m%d")
+        except ValueError:
+            print("Folder name must be a valid date in YYYYMMDD format")
+            raise SystemExit(1)
 
         folder_path = Path(OUTPUT_ROOT) / folder_input
 
@@ -261,6 +273,7 @@ if __name__ == "__main__":
         traceback.print_exc()
 
         session.rollback()
+        raise SystemExit(1)
 
     finally:
 
