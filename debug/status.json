@@ -1,9 +1,9 @@
 {
   "target_date": "2026-11-16",
-  "state": "committed",
+  "state": "downloaded",
   "downloaded": "PR161126.zip",
+  "downloaded_at": "2026-11-17T07:00:09.194932",
   "source": "git_commit_changes",
-  "commit_sha": "4d40a1bff6c1fda864c736cbd3ce2d74d3c31be2",
-  "note": "artifact commit pushed",
-  "ts": "2026-11-16T19:00:21.254463"
+  "note": "artifact downloaded locally; about to commit",
+  "ts": "2026-11-17T07:00:09.195098"
 }
