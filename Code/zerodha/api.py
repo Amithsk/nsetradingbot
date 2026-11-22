@@ -8,7 +8,7 @@ analytics or modify the existing download flow.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -61,8 +61,14 @@ def get_target_date() -> date:
 
 def get_candle_range(
     target_date: date,
+    session_end: time | None = None,
 ) -> tuple[datetime, datetime]:
-    """Return the Zerodha historical-data range for the target date."""
+    """Return the Zerodha historical-data range for the target date.
+
+    ``session_end`` is optional so established callers retain the existing
+    next-midnight upper bound.  A stock downloader can request a narrower
+    session while still applying its own start-label validation.
+    """
 
     from zoneinfo import ZoneInfo
 
@@ -77,16 +83,20 @@ def get_candle_range(
         tzinfo=IST,
     )
 
-    to_date = target_date + timedelta(days=1)
-
-    to_datetime = datetime(
-        to_date.year,
-        to_date.month,
-        to_date.day,
-        0,
-        0,
-        tzinfo=IST,
-    )
+    if session_end is None:
+        to_date = target_date + timedelta(days=1)
+        to_datetime = datetime(
+            to_date.year,
+            to_date.month,
+            to_date.day,
+            0,
+            0,
+            tzinfo=IST,
+        )
+    else:
+        to_datetime = datetime.combine(target_date, session_end, tzinfo=IST)
+        if to_datetime <= from_datetime:
+            raise ValueError("end_time must be after 09:15 IST")
 
     return from_datetime, to_datetime
 
@@ -229,11 +239,15 @@ def symbol_candles(symbol: str) -> dict[str, Any]:
 def historical_symbol_candles(
     symbol: str,
     trade_date: str,
+    end_time: str | None = None,
 ) -> dict[str, Any]:
     """Return normalized 5-minute candles for a symbol on a requested date.
 
     Example:
         /zerodha/symbol/historical-candles?symbol=NSE:SBIN&trade_date=2026-09-10
+
+    ``end_time`` is optional, in IST HH:MM form.  Omitting it preserves the
+    historic next-midnight upper bound used by existing callers.
     """
 
     try:
@@ -272,6 +286,18 @@ def historical_symbol_candles(
                 detail="trade_date must use YYYY-MM-DD format.",
             ) from exc
 
+        session_end = None
+        if end_time is not None:
+            try:
+                session_end = datetime.strptime(end_time, "%H:%M").time()
+                if session_end.strftime("%H:%M") != end_time:
+                    raise ValueError("end_time must be zero-padded")
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="end_time must use zero-padded HH:MM in IST.",
+                ) from exc
+
         kite = get_kite_client()
 
         instruments = kite.instruments(exchange)
@@ -302,7 +328,7 @@ def historical_symbol_candles(
                 detail=f"Instrument token not found for {symbol}",
             )
 
-        from_datetime, to_datetime = get_candle_range(target_date)
+        from_datetime, to_datetime = get_candle_range(target_date, session_end)
 
         records = fetch_historical_candles(
             client=kite,

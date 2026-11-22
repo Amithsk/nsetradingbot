@@ -1,0 +1,6 @@
+# Pi market-data service.  Override with --endpoint-base-url when required.
+endpoint_base_url = "http://127.0.0.1:8001"
+output_dir = "Output"
+timeout_seconds = 30
+publish = false
+symbols = ["BHARTIARTL", "RELIANCE"]
