@@ -147,7 +147,11 @@ def fetch_symbol_candles(settings: Settings, symbol: str, trade_date: date) -> l
     try:
         response = requests.get(
             endpoint,
-            params={"symbol": f"NSE:{symbol}", "trade_date": trade_date.isoformat()},
+            # 15:15 is the upstream upper boundary.  Candles are start-labelled,
+            # so the 15:10 candle covers 15:10--15:15; validation below excludes
+            # any 15:15-or-later record even if the provider treats the bound as
+            # inclusive.
+            params={"symbol": f"NSE:{symbol}", "trade_date": trade_date.isoformat(), "end_time": "15:15"},
             timeout=settings.timeout_seconds,
         )
     except requests.RequestException as exc:
@@ -192,10 +196,10 @@ def _number(record: dict[str, Any], field: str) -> float:
 
 
 def validate_candles(candles: list[dict[str, Any]], target_date: date) -> list[dict[str, Any]]:
-    """Return the complete, canonical 09:15--15:15 IST regular-session rows."""
+    """Return the complete, canonical 09:15--15:10 IST regular-session rows."""
     expected = [
         datetime.combine(target_date, SESSION_START, tzinfo=IST) + timedelta(minutes=5 * index)
-        for index in range(73)
+        for index in range(72)
     ]
     expected_set = set(expected)
     rows: dict[datetime, dict[str, Any]] = {}
