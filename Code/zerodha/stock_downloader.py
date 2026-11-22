@@ -50,6 +50,14 @@ class ExistingFileConflict(RuntimeError):
     """An existing output differs from newly validated data."""
 
 
+class PushError(RuntimeError):
+    """A local stock-only commit exists but could not be published."""
+
+    def __init__(self, commit: str, cause: Exception):
+        super().__init__(str(cause))
+        self.commit = commit
+
+
 @dataclass(frozen=True)
 class Settings:
     symbols: tuple[str, ...]
@@ -276,23 +284,60 @@ def run_symbol(settings: Settings, symbol: str, trade_date: date) -> StockResult
         return StockResult(symbol, trade_date, "conflict", str(exc))
 
 
-def _git(args: list[str]) -> str:
-    completed = subprocess.run(["git", *args], cwd=PROJECT_ROOT, text=True, capture_output=True, check=True)
+def _git(args: list[str], repository: Path = PROJECT_ROOT) -> str:
+    completed = subprocess.run(["git", *args], cwd=repository, text=True, capture_output=True, check=True)
     return completed.stdout.strip()
 
 
-def publish(results: list[StockResult], trade_date: date) -> str:
-    paths = [str(result.output_file.relative_to(PROJECT_ROOT)) for result in results if result.output_file]
-    _git(["add", "--", *paths])
-    message = f"Stock candles {trade_date:%Y%m%d}"
-    _git(["commit", "--only", "-m", message, "--", *paths])
-    commit = _git(["rev-parse", "HEAD"])
-    _git(["push", "origin", "HEAD"])
-    branch = _git(["branch", "--show-current"])
-    remote_commit = _git(["ls-remote", "origin", f"refs/heads/{branch}"]).split()
+def _has_staged_changes(paths: list[str], repository: Path) -> bool:
+    return subprocess.run(
+        ["git", "diff", "--cached", "--quiet", "--", *paths],
+        cwd=repository,
+        check=False,
+    ).returncode == 1
+
+
+def retry_push(commit: str, repository: Path = PROJECT_ROOT) -> str:
+    """Push an already-created commit and confirm it on the current branch."""
+    _git(["cat-file", "-e", f"{commit}^{{commit}}"], repository)
+    branch = _git(["branch", "--show-current"], repository)
+    if not branch:
+        raise RuntimeError("cannot push from a detached HEAD")
+    _git(["push", "origin", f"{commit}:refs/heads/{branch}"], repository)
+    remote_commit = _git(["ls-remote", "origin", f"refs/heads/{branch}"], repository).split()
     if not remote_commit or remote_commit[0] != commit:
         raise RuntimeError(f"push completed but remote did not confirm commit {commit}")
     return commit
+
+
+def publish(results: list[StockResult], trade_date: date, repository: Path = PROJECT_ROOT) -> str:
+    """Commit only the validated stock CSVs, then push/confirm that commit.
+
+    When the output files already match HEAD, no duplicate commit is created;
+    the existing HEAD is pushed again, which also retries an earlier failed
+    push without another candle download.
+    """
+    # Git pathspecs and diff output are slash-delimited on every platform.
+    paths = [result.output_file.relative_to(repository).as_posix() for result in results if result.output_file]
+    if len(paths) != len(results) or not paths:
+        raise RuntimeError("publication requires an output file for every requested stock")
+    _git(["add", "--", *paths], repository)
+    message = f"Stock candles {trade_date:%Y%m%d}"
+    if _has_staged_changes(paths, repository):
+        _git(["commit", "--only", "-m", message, "--", *paths], repository)
+        commit = _git(["rev-parse", "HEAD"], repository)
+        committed_paths = _git(["diff-tree", "--no-commit-id", "--name-only", "-r", commit], repository).splitlines()
+        if set(committed_paths) != set(paths):
+            raise RuntimeError("stock publication commit contained paths other than the requested CSVs")
+    else:
+        # Ensure a no-change rerun is reusing committed data, not merely index data.
+        if subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *paths], cwd=repository, check=False).returncode:
+            raise RuntimeError("stock CSVs are not staged and do not match HEAD")
+        commit = _git(["rev-parse", "HEAD"], repository)
+    try:
+        return retry_push(commit, repository)
+    except (subprocess.CalledProcessError, RuntimeError) as exc:
+        raise PushError(commit, exc) from exc
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -303,11 +348,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--endpoint-base-url", help="Pi market-data service URL; overrides config")
     parser.add_argument("--output-dir", help="Output root; overrides config")
     parser.add_argument("--publish", action="store_true", help="Commit and push only successful stock CSVs")
+    parser.add_argument("--push-commit", metavar="SHA", help="Retry pushing an already-created stock-only commit")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.push_commit:
+        try:
+            print(f"published commit: {retry_push(args.push_commit)}")
+            return 0
+        except (subprocess.CalledProcessError, RuntimeError) as exc:
+            print(f"push retry failed: {exc}", file=sys.stderr)
+            return 3
     config_path = args.config or (None if args.symbols else DEFAULT_CONFIG)
     try:
         settings = load_settings(config_path, args)
@@ -339,6 +392,15 @@ def main(argv: list[str] | None = None) -> int:
     if settings.publish:
         try:
             print(f"published commit: {publish(results, trade_date)}")
+        except PushError as exc:
+            print(
+                "local verification passed; publication pending. "
+                f"local commit: {exc.commit}\n"
+                f"retry: python -m stock_downloader --push-commit {exc.commit}\n"
+                f"push error: {exc}",
+                file=sys.stderr,
+            )
+            return 3
         except (subprocess.CalledProcessError, RuntimeError) as exc:
             print(f"local verification passed; publication pending: {exc}", file=sys.stderr)
             return 3
