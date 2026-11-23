@@ -21,7 +21,10 @@ from .historical import fetch_historical_candles
 
 
 app = FastAPI()
-logger = logging.getLogger("nsetradingbot.zerodha.api")
+# Keep endpoint diagnostics in Uvicorn's configured INFO-level logger
+# hierarchy.  Uvicorn attaches its default stderr handler to ``uvicorn``;
+# ``uvicorn.error`` (and this child logger) propagate to that handler.
+logger = logging.getLogger("uvicorn.error.nsetradingbot.zerodha.api")
 
 
 # ------------------------------------------------
