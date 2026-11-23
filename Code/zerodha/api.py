@@ -8,6 +8,8 @@ analytics or modify the existing download flow.
 
 from __future__ import annotations
 
+import logging
+import time as time_module
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
@@ -19,6 +21,7 @@ from .historical import fetch_historical_candles
 
 
 app = FastAPI()
+logger = logging.getLogger("nsetradingbot.zerodha.api")
 
 
 # ------------------------------------------------
@@ -367,6 +370,8 @@ def historical_symbol_candles(
 def nifty_futures_candles() -> dict[str, Any]:
     """Return normalized NIFTY Futures 5-minute candles from Zerodha."""
 
+    endpoint_started = time_module.perf_counter()
+
     try:
         # ------------------------------------------------
         # TARGET DATE
@@ -378,22 +383,43 @@ def nifty_futures_candles() -> dict[str, Any]:
         # KITE CLIENT
         # ------------------------------------------------
 
-        kite = get_kite_client()
+        stage_started = time_module.perf_counter()
+        try:
+            kite = get_kite_client()
+        finally:
+            logger.info(
+                "NIFTY futures timing | kite_client_initialization_ms=%.3f",
+                (time_module.perf_counter() - stage_started) * 1000,
+            )
 
         # ------------------------------------------------
         # INSTRUMENT MASTER
         # ------------------------------------------------
 
-        instruments = kite.instruments("NFO")
+        stage_started = time_module.perf_counter()
+        try:
+            instruments = kite.instruments("NFO")
+        finally:
+            logger.info(
+                "NIFTY futures timing | nfo_instrument_retrieval_ms=%.3f",
+                (time_module.perf_counter() - stage_started) * 1000,
+            )
 
         # ------------------------------------------------
         # CONTRACT SELECTION
         # ------------------------------------------------
 
-        contract = select_nifty_futures_contract(
-            target_date,
-            instruments,
-        )
+        stage_started = time_module.perf_counter()
+        try:
+            contract = select_nifty_futures_contract(
+                target_date,
+                instruments,
+            )
+        finally:
+            logger.info(
+                "NIFTY futures timing | contract_selection_ms=%.3f",
+                (time_module.perf_counter() - stage_started) * 1000,
+            )
 
         # ------------------------------------------------
         # HISTORICAL DATA RANGE
@@ -407,26 +433,42 @@ def nifty_futures_candles() -> dict[str, Any]:
         # HISTORICAL CANDLES
         # ------------------------------------------------
 
-        records = fetch_historical_candles(
-            client=kite,
-            instrument_token=contract["instrument_token"],
-            from_datetime=from_datetime,
-            to_datetime=to_datetime,
-            interval=INTERVAL,
-        )
+        stage_started = time_module.perf_counter()
+        try:
+            records = fetch_historical_candles(
+                client=kite,
+                instrument_token=contract["instrument_token"],
+                from_datetime=from_datetime,
+                to_datetime=to_datetime,
+                interval=INTERVAL,
+            )
+        finally:
+            logger.info(
+                "NIFTY futures timing | historical_candle_retrieval_ms=%.3f",
+                (time_module.perf_counter() - stage_started) * 1000,
+            )
 
         # ------------------------------------------------
         # RESPONSE
         # ------------------------------------------------
 
-        return {
-            "status": "success",
-            "trade_date": target_date.isoformat(),
-            "interval": INTERVAL,
-            "contract": contract,
-            "candles": records,
-            "count": len(records),
-        }
+        stage_started = time_module.perf_counter()
+        try:
+            response = {
+                "status": "success",
+                "trade_date": target_date.isoformat(),
+                "interval": INTERVAL,
+                "contract": contract,
+                "candles": records,
+                "count": len(records),
+            }
+        finally:
+            logger.info(
+                "NIFTY futures timing | response_assembly_ms=%.3f",
+                (time_module.perf_counter() - stage_started) * 1000,
+            )
+
+        return response
 
     except Exception as exc:
 
@@ -434,3 +476,9 @@ def nifty_futures_candles() -> dict[str, Any]:
             status_code=500,
             detail=f"Unable to fetch NIFTY Futures candles: {exc}",
         ) from exc
+
+    finally:
+        logger.info(
+            "NIFTY futures timing | total_endpoint_execution_ms=%.3f",
+            (time_module.perf_counter() - endpoint_started) * 1000,
+        )
