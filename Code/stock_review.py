@@ -381,27 +381,39 @@ def _json_fields(payload: dict[str, Any]) -> dict[str, Any]:
     return {key: json.dumps(value, sort_keys=True) if isinstance(value, dict) else value for key, value in payload.items()}
 
 
-def save_or_read(payload: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+def save_or_read(payload: dict[str, Any], *, replace: bool = False) -> tuple[dict[str, Any], bool]:
+    """Save a new report, or explicitly replace the report at its exact key.
+
+    Normal saves are deliberately idempotent: an existing report is returned
+    unchanged.  Replacement is opt-in and locks, updates, and rereads the one
+    existing row in the same transaction.
+    """
     engine = connect_db()
     key = {"exchange": payload["exchange"], "symbol": payload["symbol"], "trade_date": payload["trade_date"]}
     try:
         with engine.begin() as conn:
             existing = conn.execute(text("SELECT * FROM stock_review_daily WHERE exchange=:exchange AND symbol=:symbol AND trade_date=:trade_date FOR UPDATE"), key).mappings().first()
             if existing:
-                return dict(existing), False
+                if not replace:
+                    return dict(existing), False
+                fields = _json_fields(payload)
+                update_fields = [field for field in fields if field not in key]
+                assignments = ", ".join(f"{field}=:{field}" for field in update_fields)
+                conn.execute(text(f"UPDATE stock_review_daily SET {assignments} WHERE exchange=:exchange AND symbol=:symbol AND trade_date=:trade_date"), fields)
+                saved = conn.execute(text("SELECT * FROM stock_review_daily WHERE exchange=:exchange AND symbol=:symbol AND trade_date=:trade_date"), key).mappings().one()
+                return dict(saved), True
             fields = _json_fields(payload)
             columns = ", ".join(fields)
             values = ", ".join(f":{field}" for field in fields)
             conn.execute(text(f"INSERT INTO stock_review_daily ({columns}) VALUES ({values})"), fields)
+            saved = conn.execute(text("SELECT * FROM stock_review_daily WHERE exchange=:exchange AND symbol=:symbol AND trade_date=:trade_date"), key).mappings().one()
+            return dict(saved), True
     except IntegrityError:
         with engine.connect() as conn:
             existing = conn.execute(text("SELECT * FROM stock_review_daily WHERE exchange=:exchange AND symbol=:symbol AND trade_date=:trade_date"), key).mappings().one()
             return dict(existing), False
     finally:
         engine.dispose()
-    with connect_db().connect() as conn:
-        saved = conn.execute(text("SELECT * FROM stock_review_daily WHERE exchange=:exchange AND symbol=:symbol AND trade_date=:trade_date"), key).mappings().one()
-    return dict(saved), True
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -410,6 +422,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trade-date", required=True, type=parse_date)
     parser.add_argument("--git-revision", required=True)
     parser.add_argument("--save", action="store_true", help="Persist if no report already exists for the key")
+    parser.add_argument("--replace", action="store_true", help="With --save, atomically replace the existing report for this exact key")
     return parser
 
 
@@ -419,6 +432,9 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     args = build_parser().parse_args(argv)
+    if args.replace and not args.save:
+        print("--replace requires --save", file=sys.stderr)
+        return 2
     try:
         revision = resolve_revision(args.git_revision)
         payload, markdown = build_report(args.symbol, args.trade_date, revision)
@@ -426,8 +442,8 @@ def main(argv: list[str] | None = None) -> int:
         if not args.save:
             print(json.dumps({"preview": True, "stock_coverage": payload["stock_coverage_json"], "benchmark_coverage": payload["benchmark_coverage_json"]}, default=str, sort_keys=True))
             return 0
-        saved, inserted = save_or_read(payload)
-        print(json.dumps({"saved": inserted, "id": saved["id"], "exchange": saved["exchange"], "symbol": saved["symbol"], "trade_date": str(saved["trade_date"])}, default=str, sort_keys=True))
+        saved, written = save_or_read(payload, replace=args.replace)
+        print(json.dumps({"saved": written, "replaced": bool(args.replace and written), "id": saved["id"], "exchange": saved["exchange"], "symbol": saved["symbol"], "trade_date": str(saved["trade_date"])}, default=str, sort_keys=True))
         return 0
     except InputError as exc:
         print(f"input validation failed: {exc}", file=sys.stderr)
