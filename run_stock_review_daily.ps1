@@ -9,7 +9,7 @@
 param(
     [string]$RepoDir = 'D:\nsetradingbot',
     [string]$PythonExe = 'D:\nsetradingbot\botenv\Scripts\python.exe',
-    [string]$LogDir = 'D:\logs\nsetradingbot',
+    [string]$LogDir = 'D:\nsetradingbot\logs',
     [string]$TargetDate = '',
     [string[]]$Symbols = @('BHARTIARTL', 'RELIANCE'),
     [int]$RetryMinutes = 30,
@@ -18,10 +18,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Capture the implicit target once before constructing the log name.  This
+# keeps every run's log tied to the trading date it processes, even at midnight.
+if ([string]::IsNullOrWhiteSpace($TargetDate)) { $TargetDate = Get-IstDateOnce }
+try { $targetDateValue = [datetime]::ParseExact($TargetDate, 'yyyy-MM-dd', $null) }
+catch {
+    [Console]::Error.WriteLine("TargetDate must be YYYY-MM-DD: $TargetDate")
+    exit 4
+}
+
 if (!(Test-Path -LiteralPath $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
 }
-$logFile = Join-Path $LogDir 'stock_review_daily.log'
+$logFile = Join-Path $LogDir ("stock_review_daily_{0}.log" -f $targetDateValue.ToString('ddMMyy'))
 
 function Log([string]$Message) {
     $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $Message"
@@ -154,11 +163,6 @@ try {
     $Symbols = @($Symbols | ForEach-Object { $_.Trim().ToUpper() } | Select-Object -Unique)
     Set-Location -LiteralPath $RepoDir
 
-    # Capture the implicit target exactly once so a midnight rollover cannot
-    # mix the Git date, NIFTY query date, and report date.
-    if ([string]::IsNullOrWhiteSpace($TargetDate)) { $TargetDate = Get-IstDateOnce }
-    try { [datetime]::ParseExact($TargetDate, 'yyyy-MM-dd', $null) | Out-Null }
-    catch { Exit-WithError "TargetDate must be YYYY-MM-DD: $TargetDate" 4 }
     Log "Stock Review started. target_date=$TargetDate symbols=$($Symbols -join ',')"
 
     $attempts = [math]::Floor($RetryMinutes / $RetryIntervalMinutes) + 1

@@ -29,6 +29,5 @@ __pycache__/
 Output/zerodha_access_token.json
 
 
-#Ignore .log
-logs\nifty_db_update_*.log
+logs\stock_review_daily_*.log
 
