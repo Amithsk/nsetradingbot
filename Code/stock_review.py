@@ -188,7 +188,7 @@ def _distinct(indices: Iterable[int], minimum_gap: int = 3) -> list[int]:
 
 
 def _zone(candles: list[Candle], direction: str) -> dict[str, Any]:
-    """Deterministic V1 zone: 2+ distinct touches of a confirmed 2/2 swing."""
+    """Return an active zone with post-formation, directional reactions only."""
     ranges = [candle.high - candle.low for candle in candles]
     tolerance = max(statistics.median(ranges) * 0.35, candles[-1].close * 0.0015)
     pivots: list[tuple[int, float]] = []
@@ -199,20 +199,41 @@ def _zone(candles: list[Candle], direction: str) -> dict[str, Any]:
         if (direction == "support" and value == min(values)) or (direction == "resistance" and value == max(values)):
             pivots.append((index, value))
     candidates: list[dict[str, Any]] = []
-    for _, level in pivots:
+    for pivot_index, level in pivots:
         lower, upper = level - tolerance, level + tolerance
+        # A 2/2 pivot is not known until its two succeeding candles close.
+        # Historical range intersections before that point cannot be reactions.
+        formed_index = pivot_index + 2
         if direction == "support":
-            touches = _distinct(index for index, candle in enumerate(candles) if candle.low <= upper and candle.close >= lower)
-            invalid = any(candle.close < lower for candle in candles[(touches[-1] + 1 if touches else 0):])
+            touches = _distinct(
+                index for index in range(formed_index, len(candles) - 1)
+                if candles[index].low <= upper
+                and candles[index].close >= lower
+                and candles[index + 1].close > candles[index].close
+            )
+            invalid = any(
+                candles[index].close < lower and candles[index + 1].close < lower
+                for index in range(formed_index, len(candles) - 1)
+            )
             eligible = level <= candles[-1].close
         else:
-            touches = _distinct(index for index, candle in enumerate(candles) if candle.high >= lower and candle.close <= upper)
-            invalid = any(candle.close > upper for candle in candles[(touches[-1] + 1 if touches else 0):])
+            touches = _distinct(
+                index for index in range(formed_index, len(candles) - 1)
+                if candles[index].high >= lower
+                and candles[index].close <= upper
+                and candles[index + 1].close < candles[index].close
+            )
+            invalid = any(
+                candles[index].close > upper and candles[index + 1].close > upper
+                for index in range(formed_index, len(candles) - 1)
+            )
             eligible = level >= candles[-1].close
         if len(touches) >= 2 and not invalid and eligible:
             candidates.append({
                 "state": "AVAILABLE", "confirmation": "CONFIRMED", "rule": "v1_2_swing_2_distinct_reactions",
                 "lower": round(lower, 4), "upper": round(upper, 4), "level": round(level, 4),
+                "pivot_timestamp": candles[pivot_index].timestamp.isoformat(),
+                "formed_timestamp": candles[formed_index].timestamp.isoformat(),
                 "reaction_timestamps": [candles[index].timestamp.isoformat() for index in touches],
                 "reaction_indices": touches,
             })
@@ -224,7 +245,21 @@ def _zone(candles: list[Candle], direction: str) -> dict[str, Any]:
     return selected
 
 
-def _movement(candles: list[Candle]) -> dict[str, Any]:
+def _mark_overlapping_zones(support: dict[str, Any], resistance: dict[str, Any], last_close: float) -> None:
+    """Mark an ambiguous final state instead of emitting two independent signals."""
+    if support.get("state") != "AVAILABLE" or resistance.get("state") != "AVAILABLE":
+        return
+    overlaps = support["lower"] <= resistance["upper"] and resistance["lower"] <= support["upper"]
+    close_in_both = support["lower"] <= last_close <= support["upper"] and resistance["lower"] <= last_close <= resistance["upper"]
+    if not (overlaps and close_in_both):
+        return
+    reason = "Overlapping zones: the session close sits inside both confirmed ranges, so support and resistance are ambiguous rather than independent signals."
+    for zone in (support, resistance):
+        zone["state"] = "OVERLAPPING_ZONES"
+        zone["reason"] = reason
+
+
+def _movement(symbol: str, candles: list[Candle]) -> dict[str, Any]:
     first, last = candles[0], candles[-1]
     points = last.close - first.open
     percent = points / first.open * 100 if first.open else None
@@ -234,12 +269,39 @@ def _movement(candles: list[Candle]) -> dict[str, Any]:
         label = "ADVANCE"
     else:
         label = "DECLINE"
-    extreme = max(candles, key=lambda candle: abs(candle.close - first.open))
+
+    session_high = max(candles, key=lambda candle: candle.high)
+    session_low = min(candles, key=lambda candle: candle.low)
+    high_time = session_high.timestamp.astimezone(IST).strftime("%H:%M")
+    low_time = session_low.timestamp.astimezone(IST).strftime("%H:%M")
+    high_price = f"₹{session_high.high:,.2f}"
+    low_price = f"₹{session_low.low:,.2f}"
+    name = symbol.upper()
+
+    if session_high.timestamp == session_low.timestamp:
+        explanation = (
+            f"{name} reached its session high of {high_price} and session low of "
+            f"{low_price} in the {high_time} candle."
+        )
+    elif session_high.timestamp < session_low.timestamp:
+        explanation = (
+            f"{name} reached its session high of {high_price} in the {high_time} candle, "
+            f"then fell to its session low of {low_price} in the {low_time} candle."
+        )
+    else:
+        explanation = (
+            f"{name} reached its session low of {low_price} in the {low_time} candle, "
+            f"then rose to its session high of {high_price} in the {high_time} candle."
+        )
+
     return {
         "label": label,
         "points": round(points, 4), "percent": round(percent, 6) if percent is not None else None,
-        "explanation": f"{label.title()} from {first.open:.4f} at {first.timestamp.isoformat()} to {last.close:.4f} at {last.timestamp.isoformat()}; largest close displacement was {extreme.close:.4f} at {extreme.timestamp.isoformat()}.",
-        "key_observations": [{"timestamp": extreme.timestamp.isoformat(), "close": extreme.close}],
+        "explanation": explanation,
+        "key_observations": [
+            {"timestamp": session_high.timestamp.isoformat(), "session_high": session_high.high},
+            {"timestamp": session_low.timestamp.isoformat(), "session_low": session_low.low},
+        ],
     }
 
 
@@ -295,7 +357,8 @@ def build_report(symbol: str, trade_date: date, revision: str) -> tuple[dict[str
     nifty = read_nifty(trade_date)
     support = _zone(stock, "support")
     resistance = _zone(stock, "resistance")
-    movement = _movement(stock)
+    _mark_overlapping_zones(support, resistance, stock[-1].close)
+    movement = _movement(symbol, stock)
     volume = _volume_context(stock, support, movement)
     comparison = _comparison(stock, nifty, support)
     watch = _watch(support, resistance, stock[-1].close)
@@ -351,6 +414,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows terminals commonly default to a legacy code page that cannot
+    # emit the INR symbol used in the generated narrative.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     args = build_parser().parse_args(argv)
     try:
         revision = resolve_revision(args.git_revision)
