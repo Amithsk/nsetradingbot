@@ -1,8 +1,8 @@
 <#
   Windows Stock Review runner.
 
-  It never checks out or pulls StockReview into the working tree.  Candle
-  inputs are pinned to one commit from origin/StockReview and reports are
+  It never checks out or pulls main into the working tree. Candle inputs are
+  pinned to one commit fetched from origin/main and reports are
   generated with the existing Python command.
 #>
 
@@ -55,21 +55,23 @@ function Resolve-StockRevision([string]$DateToken, [string[]]$Watchlist) {
     $previousPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $fetchOutput = & git fetch origin StockReview 2>&1
+        $fetchOutput = & git fetch origin main 2>&1
         $fetchExit = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $previousPreference
     }
     $fetchOutput | ForEach-Object { Log "git fetch: $_" }
-    if ($fetchExit -ne 0) { throw "git fetch origin StockReview failed with exit code $fetchExit" }
+    if ($fetchExit -ne 0) { throw "git fetch origin main failed with exit code $fetchExit" }
 
-    $sha = (& git rev-parse 'origin/StockReview^{commit}').Trim()
-    if ($LASTEXITCODE -ne 0 -or !$sha) { throw 'could not resolve origin/StockReview to a commit' }
+    $sha = (& git rev-parse 'FETCH_HEAD^{commit}').Trim()
+    if ($LASTEXITCODE -ne 0 -or !$sha) { throw 'could not resolve FETCH_HEAD to a commit' }
+    Log "Git inputs resolved. source_branch=main revision=$sha"
 
     foreach ($symbol in $Watchlist) {
         $path = "Output/$($DateToken.Replace('-',''))/$symbol.csv"
         & git cat-file -e "$sha`:$path" 2>$null
         if ($LASTEXITCODE -ne 0) { throw "missing Git input at $sha`: $path" }
+        Log "Git input found. source_branch=main revision=$sha path=$path"
     }
     return $sha
 }
