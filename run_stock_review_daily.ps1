@@ -18,6 +18,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Get-IstDateOnce {
+    $ist = [TimeZoneInfo]::FindSystemTimeZoneById('India Standard Time')
+    return [TimeZoneInfo]::ConvertTimeFromUtc([datetime]::UtcNow, $ist).ToString('yyyy-MM-dd')
+}
+
 # Capture the implicit target once before constructing the log name.  This
 # keeps every run's log tied to the trading date it processes, even at midnight.
 if ([string]::IsNullOrWhiteSpace($TargetDate)) { $TargetDate = Get-IstDateOnce }
@@ -41,11 +46,6 @@ function Log([string]$Message) {
 function Exit-WithError([string]$Message, [int]$ExitCode = 1) {
     Log "ERROR: $Message"
     exit $ExitCode
-}
-
-function Get-IstDateOnce {
-    $ist = [TimeZoneInfo]::FindSystemTimeZoneById('India Standard Time')
-    return [TimeZoneInfo]::ConvertTimeFromUtc([datetime]::UtcNow, $ist).ToString('yyyy-MM-dd')
 }
 
 function Resolve-StockRevision([string]$DateToken, [string[]]$Watchlist) {
